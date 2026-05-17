@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Vase Registration Workflows - Implementation Guide — FlowerShop IoT Platform</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: rgba(15,17,23,.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: #9bb5ff;
+      border-bottom-color: #9bb5ff;
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #a5d6ff;
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: #c9d1d9;
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: #c8d0dc;
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/flowershop-iot-platform-docs/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
+  <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
+  <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/cross-cutting">Cross-cutting</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="smart-vase-registration-workflows---implementation-guide">Smart Vase Registration Workflows - Implementation Guide</h1>
+
+<h2 id="executive-summary">Executive Summary</h2>
+
+<p>This document outlines three registration workflow options for Smart Vase devices that start without network configuration. Each approach is presented with high-level logic and TODO placeholders for actual implementation.</p>
+
+<hr />
+
+<h2 id="table-of-contents">Table of Contents</h2>
+
+<ol>
+  <li><a href="#current-device-state">Current Device State</a></li>
+  <li><a href="#registration-options-overview">Registration Options Overview</a></li>
+  <li><a href="#option-1-wifi-provisioning--qr-code">Option 1: WiFi Provisioning + QR Code (Recommended)</a></li>
+  <li><a href="#option-2-usb-serial-configuration">Option 2: USB Serial Configuration</a></li>
+  <li><a href="#option-3-hybrid-approach">Option 3: Hybrid Approach (Best Practice)</a></li>
+  <li><a href="#qr-code-data-formats">QR Code Data Formats</a></li>
+  <li><a href="#implementation-roadmap">Implementation Roadmap</a></li>
+  <li><a href="#testing-checklist">Testing Checklist</a></li>
+</ol>
+
+<hr />
+
+<h2 id="current-device-state">Current Device State</h2>
+
+<h3 id="on-first-power-on">On First Power-On</h3>
+
+<p><strong>Available:</strong></p>
+<ul>
+  <li>✅ Device ID (from MAC address: <code class="language-plaintext highlighter-rouge">ESP32-40C86C</code>)</li>
+  <li>✅ LCD display with LVGL</li>
+  <li>✅ Sensors (DHT11/22, IR obstacle sensor)</li>
+  <li>✅ QR code generation capability</li>
+</ul>
+
+<p><strong>Missing:</strong></p>
+<ul>
+  <li>❌ WiFi credentials</li>
+  <li>❌ MQTT server settings</li>
+  <li>❌ Vendor assignment</li>
+  <li>❌ Backend registration</li>
+</ul>
+
+<hr />
+
+<h2 id="registration-options-overview">Registration Options Overview</h2>
+
+<h3 id="comparison-matrix">Comparison Matrix</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>WiFi Provisioning</th>
+      <th>Serial Config</th>
+      <th>Hybrid</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Scalability</strong></td>
+      <td>⭐⭐⭐⭐⭐ Excellent</td>
+      <td>⭐⭐ Poor</td>
+      <td>⭐⭐⭐⭐⭐ Excellent</td>
+    </tr>
+    <tr>
+      <td><strong>User Experience</strong></td>
+      <td>⭐⭐⭐⭐⭐ Professional</td>
+      <td>⭐⭐ Technical</td>
+      <td>⭐⭐⭐⭐⭐ Best</td>
+    </tr>
+    <tr>
+      <td><strong>Time per Device</strong></td>
+      <td>~2-3 minutes</td>
+      <td>~5-10 minutes</td>
+      <td>~2-3 minutes</td>
+    </tr>
+    <tr>
+      <td><strong>Implementation</strong></td>
+      <td>⭐⭐⭐ Complex</td>
+      <td>⭐⭐⭐⭐⭐ Simple</td>
+      <td>⭐⭐ Very Complex</td>
+    </tr>
+    <tr>
+      <td><strong>Hardware Needed</strong></td>
+      <td>Smartphone/Tablet</td>
+      <td>USB Cable + Laptop</td>
+      <td>Smartphone or USB</td>
+    </tr>
+    <tr>
+      <td><strong>Debugging</strong></td>
+      <td>⭐⭐ Limited</td>
+      <td>⭐⭐⭐⭐⭐ Full Access</td>
+      <td>⭐⭐⭐⭐⭐ Full Access</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Recommendation</strong>: Start with <strong>Option 3 (Hybrid)</strong> - implement serial config first for development, add WiFi provisioning for production.</p>
+
+<hr />
+
+<h2 id="option-1-wifi-provisioning--qr-code">Option 1: WiFi Provisioning + QR Code</h2>
+
+<h3 id="workflow-overview">Workflow Overview</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Device Powers On (No WiFi)
+    ↓
+Creates WiFi AP: "SmartVase-XXXXXX"
+    ↓
+Technician connects phone to AP
+    ↓
+Captive portal opens (192.168.4.1)
+    ↓
+Technician selects shop WiFi + enters password
+    ↓
+Device saves credentials &amp; restarts
+    ↓
+Device connects to shop WiFi
+    ↓
+Device displays QR code for registration
+    ↓
+Admin scans QR → selects vendor → submits
+    ↓
+Backend sends MQTT config to device
+    ↓
+Device receives config → saves → REGISTERED ✓
+</code></pre></div></div>
+
+<h3 id="phase-1-wifi-configuration">Phase 1: WiFi Configuration</h3>
+
+<h4 id="device-setup-mode">Device Setup Mode</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">startSetupMode</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Create WiFi Access Point</span>
+    <span class="c1">// AP Name: "SmartVase-" + last 6 chars of device ID</span>
+    <span class="c1">// Password: "flowershop" (configurable)</span>
+    
+    <span class="c1">// TODO: Start DNS server for captive portal (port 53)</span>
+    
+    <span class="c1">// TODO: Start web server on port 80</span>
+    
+    <span class="c1">// TODO: Update LCD to show connection instructions</span>
+    
+    <span class="n">Serial</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="s">"Setup mode active - AP: SmartVase-XXXXXX"</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="captive-portal-web-server">Captive Portal Web Server</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">startConfigServer</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Implement route: GET /</span>
+    <span class="c1">// Serve HTML form with:</span>
+    <span class="c1">//   - WiFi network dropdown (populated via AJAX)</span>
+    <span class="c1">//   - Password input field</span>
+    <span class="c1">//   - Submit button</span>
+    
+    <span class="c1">// TODO: Implement route: GET /scan</span>
+    <span class="c1">// Return JSON array of available WiFi networks:</span>
+    <span class="c1">// [{"ssid": "ShopWiFi", "rssi": -45, "secure": true}, ...]</span>
+    
+    <span class="c1">// TODO: Implement route: POST /configure</span>
+    <span class="c1">// Accept: ssid, password</span>
+    <span class="c1">// Actions:</span>
+    <span class="c1">//   1. Save credentials to NVS</span>
+    <span class="c1">//   2. Return success HTML page</span>
+    <span class="c1">//   3. Schedule device restart (3 seconds)</span>
+    
+    <span class="c1">// TODO: Implement route: ALL /* (catch-all)</span>
+    <span class="c1">// Redirect to / for captive portal</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="wifi-connection">WiFi Connection</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">connectToWiFi</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Load saved WiFi credentials from NVS</span>
+    
+    <span class="c1">// TODO: Set WiFi mode to STA</span>
+    
+    <span class="c1">// TODO: Begin connection with timeout (20 attempts)</span>
+    
+    <span class="c1">// TODO: If successful:</span>
+    <span class="c1">//   - Set wifiConnected = true</span>
+    <span class="c1">//   - Initialize NTP time</span>
+    <span class="c1">//   - Update LCD</span>
+    
+    <span class="c1">// TODO: If failed:</span>
+    <span class="c1">//   - Re-enter setup mode</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="phase-2-vendor-registration">Phase 2: Vendor Registration</h3>
+
+<h4 id="qr-code-display">QR Code Display</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">showRegistrationScreen</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Generate QR code with registration data</span>
+    <span class="c1">// Format: URL or JSON (see QR Code Formats section)</span>
+    
+    <span class="c1">// TODO: Draw QR code on LCD (center of screen)</span>
+    
+    <span class="c1">// TODO: Display Device ID below QR code</span>
+    
+    <span class="c1">// TODO: Show instruction text: "Scan to register"</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="backend-registration-api">Backend Registration API</h4>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// C# Controller</span>
+<span class="p">[</span><span class="nf">HttpPost</span><span class="p">(</span><span class="s">"api/vases/register"</span><span class="p">)]</span>
+<span class="k">public</span> <span class="k">async</span> <span class="n">Task</span><span class="p">&lt;</span><span class="n">IActionResult</span><span class="p">&gt;</span> <span class="nf">RegisterVase</span><span class="p">(</span><span class="n">RegisterVaseDto</span> <span class="n">dto</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// TODO: Validate device ID format (ESP32-XXXXXX)</span>
+    
+    <span class="c1">// TODO: Check device not already registered</span>
+    
+    <span class="c1">// TODO: Validate vendor exists and user has permission</span>
+    
+    <span class="c1">// TODO: Create SmartVase database record</span>
+    
+    <span class="c1">// TODO: Generate MQTT credentials for device</span>
+    
+    <span class="c1">// TODO: Publish MQTT config to device:</span>
+    <span class="c1">//   Topic: vases/{deviceId}/config</span>
+    <span class="c1">//   Payload: {</span>
+    <span class="c1">//     action: "registration_confirmed",</span>
+    <span class="c1">//     vendorId, vendorName, locationName,</span>
+    <span class="c1">//     mqttBroker, mqttPort, mqttUser, mqttPassword,</span>
+    <span class="c1">//     heartbeatInterval</span>
+    <span class="c1">//   }</span>
+    
+    <span class="c1">// TODO: Return success response</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="device-config-handler">Device Config Handler</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">handleConfig</span><span class="p">(</span><span class="n">StaticJsonDocument</span><span class="o">&lt;</span><span class="mi">512</span><span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">doc</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">doc</span><span class="p">[</span><span class="s">"action"</span><span class="p">]</span> <span class="o">==</span> <span class="s">"registration_confirmed"</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// TODO: Extract and save:</span>
+        <span class="c1">//   - Vendor ID</span>
+        <span class="c1">//   - MQTT broker settings</span>
+        <span class="c1">//   - Heartbeat interval</span>
+        
+        <span class="c1">// TODO: Update state to REGISTERED</span>
+        
+        <span class="c1">// TODO: Save configuration to NVS</span>
+        
+        <span class="c1">// TODO: Play confirmation beeps (3x)</span>
+        
+        <span class="c1">// TODO: Update LCD to "Ready for Bouquet"</span>
+        
+        <span class="c1">// TODO: Send acknowledgment via MQTT</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="advantages">Advantages</h3>
+<ul>
+  <li>✅ Professional, scalable</li>
+  <li>✅ No USB cables needed</li>
+  <li>✅ Mobile-friendly</li>
+  <li>✅ Industry standard approach</li>
+</ul>
+
+<h3 id="disadvantages">Disadvantages</h3>
+<ul>
+  <li>⚠️ More complex to implement</li>
+  <li>⚠️ Requires web server libraries</li>
+  <li>⚠️ Higher memory usage</li>
+</ul>
+
+<hr />
+
+<h2 id="option-2-usb-serial-configuration">Option 2: USB Serial Configuration</h2>
+
+<h3 id="workflow-overview-1">Workflow Overview</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Connect USB cable to device
+    ↓
+Open serial terminal (115200 baud)
+    ↓
+Type: "setup"
+    ↓
+Enter WiFi SSID + password
+    ↓
+Enter MQTT server + credentials
+    ↓
+Enter Vendor ID
+    ↓
+Device saves configuration
+    ↓
+Device connects &amp; operates normally
+</code></pre></div></div>
+
+<h3 id="implementation">Implementation</h3>
+
+<h4 id="serial-menu-system">Serial Menu System</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">showConfigMenu</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Display menu header with device ID</span>
+    
+    <span class="c1">// TODO: Show current settings (WiFi, MQTT, Vendor)</span>
+    
+    <span class="c1">// TODO: Display numbered options:</span>
+    <span class="c1">//   1. Configure WiFi</span>
+    <span class="c1">//   2. Configure MQTT</span>
+    <span class="c1">//   3. Set Vendor ID</span>
+    <span class="c1">//   4. Test Connection</span>
+    <span class="c1">//   5. Show Status</span>
+    <span class="c1">//   6. Factory Reset</span>
+    <span class="c1">//   7. Save &amp; Exit</span>
+    
+    <span class="c1">// TODO: Wait for user input</span>
+    
+    <span class="c1">// TODO: Call appropriate handler based on selection</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="wifi-configuration-serial">WiFi Configuration (Serial)</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">configureWiFiSerial</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Scan for available networks</span>
+    
+    <span class="c1">// TODO: Display networks with signal strength</span>
+    
+    <span class="c1">// TODO: Prompt for SSID (or number from list)</span>
+    
+    <span class="c1">// TODO: Prompt for password (hidden)</span>
+    
+    <span class="c1">// TODO: Test connection</span>
+    
+    <span class="c1">// TODO: Save if successful</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="mqtt-configuration-serial">MQTT Configuration (Serial)</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">configureMQTTSerial</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Prompt for MQTT broker hostname/IP</span>
+    
+    <span class="c1">// TODO: Prompt for port (default: 1883)</span>
+    
+    <span class="c1">// TODO: Prompt for username</span>
+    
+    <span class="c1">// TODO: Prompt for password (hidden)</span>
+    
+    <span class="c1">// TODO: Save configuration</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="vendor-assignment-serial">Vendor Assignment (Serial)</h4>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">configureVendorSerial</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Prompt for Vendor ID (GUID format)</span>
+    
+    <span class="c1">// TODO: Validate GUID format</span>
+    
+    <span class="c1">// TODO: Prompt for confirmation</span>
+    
+    <span class="c1">// TODO: Set isRegistered = true</span>
+    
+    <span class="c1">// TODO: Save configuration</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="advantages-1">Advantages</h3>
+<ul>
+  <li>✅ Simple to implement</li>
+  <li>✅ Full debugging access</li>
+  <li>✅ No network required</li>
+  <li>✅ Direct control</li>
+</ul>
+
+<h3 id="disadvantages-1">Disadvantages</h3>
+<ul>
+  <li>⚠️ Not scalable (one at a time)</li>
+  <li>⚠️ Requires laptop + USB cable</li>
+  <li>⚠️ Manual typing (error-prone)</li>
+  <li>⚠️ Time-consuming</li>
+</ul>
+
+<hr />
+
+<h2 id="option-3-hybrid-approach">Option 3: Hybrid Approach</h2>
+
+<h3 id="startup-logic">Startup Logic</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">setup</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Initialize hardware (display, sensors, LVGL)</span>
+    
+    <span class="c1">// TODO: Generate device ID from MAC</span>
+    
+    <span class="c1">// TODO: Load saved configuration from NVS</span>
+    
+    <span class="n">Serial</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="s">"Smart Vase v1.0.0"</span><span class="p">);</span>
+    
+    <span class="c1">// ===== PRIORITY 1: Serial Setup Override =====</span>
+    <span class="n">Serial</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="s">"Press 's' for serial setup (5 seconds)..."</span><span class="p">);</span>
+    
+    <span class="c1">// TODO: Wait 5 seconds, check for 's' key</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">serialSetupRequested</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// TODO: Enter serial configuration menu</span>
+        <span class="c1">// (See Option 2 implementation)</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// ===== PRIORITY 2: Check WiFi Configuration =====</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">wifi_ssid</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// TODO: No WiFi configured</span>
+        <span class="c1">// Start WiFi provisioning mode (See Option 1)</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// ===== PRIORITY 3: Connect to WiFi =====</span>
+    <span class="c1">// TODO: Attempt connection to configured WiFi</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">wifiConnected</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// TODO: Connection failed - restart setup mode</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// ===== PRIORITY 4: Check Registration =====</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">isRegistered</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// TODO: Show QR code for vendor assignment</span>
+        <span class="c1">// Wait for MQTT registration message</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// ===== PRIORITY 5: Connect MQTT =====</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">mqtt_server</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// TODO: Setup and connect MQTT client</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// TODO: Begin normal operation</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="decision-tree">Decision Tree</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Power On
+    │
+    ├─→ [5sec] 's' pressed? ──YES──→ Serial Setup Menu
+    │                         NO
+    │                         ↓
+    ├─→ WiFi configured? ──NO──→ Start WiFi Provisioning AP
+    │                     YES
+    │                     ↓
+    ├─→ Connect WiFi ──SUCCESS──→ Continue
+    │                 FAILED
+    │                 ↓
+    │                 Start WiFi Provisioning AP
+    │
+    ├─→ Registered? ──NO──→ Show QR Code (wait for MQTT)
+    │                YES
+    │                ↓
+    ├─→ Connect MQTT
+    │
+    └─→ Normal Operation (sensors, heartbeat, bouquet detection)
+</code></pre></div></div>
+
+<h3 id="advantages-2">Advantages</h3>
+<ul>
+  <li>✅ Best of both worlds</li>
+  <li>✅ Production-ready (WiFi provisioning)</li>
+  <li>✅ Debug-friendly (serial access)</li>
+  <li>✅ Flexible configuration paths</li>
+  <li>✅ Resilient (multiple fallbacks)</li>
+</ul>
+
+<h3 id="disadvantages-2">Disadvantages</h3>
+<ul>
+  <li>⚠️ Most complex to implement</li>
+  <li>⚠️ Multiple code paths to test</li>
+  <li>⚠️ Higher memory usage</li>
+</ul>
+
+<hr />
+
+<h2 id="qr-code-data-formats">QR Code Data Formats</h2>
+
+<h3 id="format-1-simple-device-id">Format 1: Simple Device ID</h3>
+
+<p><strong>Use Case</strong>: Fallback, manual entry required</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">generateSimpleQR</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="n">qrData</span><span class="p">[</span><span class="mi">32</span><span class="p">];</span>
+    <span class="c1">// TODO: Format: "ESP32-40C86C"</span>
+    <span class="n">snprintf</span><span class="p">(</span><span class="n">qrData</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">qrData</span><span class="p">),</span> <span class="s">"%s"</span><span class="p">,</span> <span class="n">device_id</span><span class="p">);</span>
+    
+    <span class="c1">// TODO: Generate QR code with qrcode library</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Result</strong>: <code class="language-plaintext highlighter-rouge">ESP32-40C86C</code></p>
+
+<hr />
+
+<h3 id="format-2-registration-url">Format 2: Registration URL</h3>
+
+<p><strong>Use Case</strong>: Browser-friendly, direct scanning</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">generateRegistrationURLQR</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="n">qrData</span><span class="p">[</span><span class="mi">256</span><span class="p">];</span>
+    
+    <span class="c1">// TODO: Build URL with query parameters</span>
+    <span class="n">snprintf</span><span class="p">(</span><span class="n">qrData</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">qrData</span><span class="p">),</span>
+        <span class="s">"https://flowershop.app/register?"</span>
+        <span class="s">"deviceId=%s&amp;mac=%s&amp;ip=%s&amp;fw=1.0.0"</span><span class="p">,</span>
+        <span class="n">device_id</span><span class="p">,</span>
+        <span class="n">WiFi</span><span class="p">.</span><span class="n">macAddress</span><span class="p">().</span><span class="n">c_str</span><span class="p">(),</span>
+        <span class="n">WiFi</span><span class="p">.</span><span class="n">localIP</span><span class="p">().</span><span class="n">toString</span><span class="p">().</span><span class="n">c_str</span><span class="p">()</span>
+    <span class="p">);</span>
+    
+    <span class="c1">// TODO: Generate QR code</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Result</strong>: <code class="language-plaintext highlighter-rouge">https://flowershop.app/register?deviceId=ESP32-40C86C&amp;mac=24:6F:28:40:C8:6C&amp;ip=192.168.1.45&amp;fw=1.0.0</code></p>
+
+<hr />
+
+<h3 id="format-3-json-payload">Format 3: JSON Payload</h3>
+
+<p><strong>Use Case</strong>: Mobile app, structured data</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">generateJSONQR</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="n">qrData</span><span class="p">[</span><span class="mi">512</span><span class="p">];</span>
+    
+    <span class="c1">// TODO: Build JSON object</span>
+    <span class="n">StaticJsonDocument</span><span class="o">&lt;</span><span class="mi">256</span><span class="o">&gt;</span> <span class="n">doc</span><span class="p">;</span>
+    <span class="n">doc</span><span class="p">[</span><span class="s">"action"</span><span class="p">]</span> <span class="o">=</span> <span class="s">"register_vase"</span><span class="p">;</span>
+    <span class="n">doc</span><span class="p">[</span><span class="s">"deviceId"</span><span class="p">]</span> <span class="o">=</span> <span class="n">device_id</span><span class="p">;</span>
+    <span class="n">doc</span><span class="p">[</span><span class="s">"mac"</span><span class="p">]</span> <span class="o">=</span> <span class="n">WiFi</span><span class="p">.</span><span class="n">macAddress</span><span class="p">();</span>
+    <span class="n">doc</span><span class="p">[</span><span class="s">"ip"</span><span class="p">]</span> <span class="o">=</span> <span class="n">WiFi</span><span class="p">.</span><span class="n">localIP</span><span class="p">().</span><span class="n">toString</span><span class="p">();</span>
+    <span class="n">doc</span><span class="p">[</span><span class="s">"firmware"</span><span class="p">]</span> <span class="o">=</span> <span class="s">"1.0.0"</span><span class="p">;</span>
+    
+    <span class="c1">// TODO: Serialize to string</span>
+    <span class="n">serializeJson</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">qrData</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">qrData</span><span class="p">));</span>
+    
+    <span class="c1">// TODO: Generate QR code</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Result</strong>:</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"register_vase"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"deviceId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ESP32-40C86C"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"mac"</span><span class="p">:</span><span class="w"> </span><span class="s2">"24:6F:28:40:C8:6C"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"ip"</span><span class="p">:</span><span class="w"> </span><span class="s2">"192.168.1.45"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"firmware"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.0"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<hr />
+
+<h3 id="format-4-deep-link-native-app">Format 4: Deep Link (Native App)</h3>
+
+<p><strong>Use Case</strong>: Launch mobile app directly</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">generateDeepLinkQR</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="n">qrData</span><span class="p">[</span><span class="mi">256</span><span class="p">];</span>
+    
+    <span class="c1">// TODO: Format custom URI scheme</span>
+    <span class="n">snprintf</span><span class="p">(</span><span class="n">qrData</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">qrData</span><span class="p">),</span>
+        <span class="s">"flowershop://register/%s?mac=%s"</span><span class="p">,</span>
+        <span class="n">device_id</span><span class="p">,</span>
+        <span class="n">WiFi</span><span class="p">.</span><span class="n">macAddress</span><span class="p">().</span><span class="n">c_str</span><span class="p">()</span>
+    <span class="p">);</span>
+    
+    <span class="c1">// TODO: Generate QR code</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Result</strong>: <code class="language-plaintext highlighter-rouge">flowershop://register/ESP32-40C86C?mac=24:6F:28:40:C8:6C</code></p>
+
+<hr />
+
+<h2 id="implementation-roadmap">Implementation Roadmap</h2>
+
+<h3 id="week-1-serial-configuration-mvp">Week 1: Serial Configuration (MVP)</h3>
+<p><strong>Goal</strong>: Get basic configuration working via USB</p>
+
+<p><strong>Tasks</strong>:</p>
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">processSerialCommands()</code> function</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">showConfigMenu()</code> with numbered options</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">configureWiFiSerial()</code> - scan &amp; connect</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">configureMQTTSerial()</code> - server settings</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">configureVendorSerial()</code> - GUID entry</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">showStatus()</code> - display all settings</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">factoryReset()</code> - clear NVS</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Test end-to-end configuration flow</li>
+</ul>
+
+<p><strong>Deliverable</strong>: Device configurable via serial terminal</p>
+
+<hr />
+
+<h3 id="week-2-wifi-provisioning-portal">Week 2: WiFi Provisioning Portal</h3>
+<p><strong>Goal</strong>: Professional captive portal setup</p>
+
+<p><strong>Tasks</strong>:</p>
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add libraries: <code class="language-plaintext highlighter-rouge">ESPAsyncWebServer</code>, <code class="language-plaintext highlighter-rouge">DNSServer</code></li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">startSetupMode()</code> - create AP</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">startConfigServer()</code> - web routes</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create HTML/CSS for captive portal form</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">/scan</code> endpoint - WiFi network list</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement <code class="language-plaintext highlighter-rouge">/configure</code> endpoint - save credentials</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add DNS captive portal redirect</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement auto-restart after configuration</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Test with multiple devices</li>
+</ul>
+
+<p><strong>Deliverable</strong>: Device configurable via WiFi AP + web portal</p>
+
+<hr />
+
+<h3 id="week-3-qr-based-vendor-assignment">Week 3: QR-Based Vendor Assignment</h3>
+<p><strong>Goal</strong>: Backend integration for registration</p>
+
+<p><strong>Tasks</strong>:</p>
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Generate registration QR codes (choose format)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Display QR on LCD when connected but unregistered</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement backend API: <code class="language-plaintext highlighter-rouge">POST /api/vases/register</code></li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement MQTT config publishing from backend</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement device MQTT config handler</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add registration confirmation (buzzer + LCD)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Test registration flow end-to-end</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add error handling for registration failures</li>
+</ul>
+
+<p><strong>Deliverable</strong>: Complete registration workflow</p>
+
+<hr />
+
+<h3 id="week-4-mobile-app-integration-optional">Week 4: Mobile App Integration (Optional)</h3>
+<p><strong>Goal</strong>: Native mobile app for QR scanning</p>
+
+<p><strong>Tasks</strong>:</p>
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Choose mobile framework (React Native / Flutter)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement QR scanner with camera</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Parse QR data (URL / JSON / Deep Link)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Auto-fill registration form</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Submit to backend API</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Show success/error feedback</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Test on iOS and Android</li>
+</ul>
+
+<p><strong>Deliverable</strong>: Mobile app for streamlined registration</p>
+
+<hr />
+
+<h2 id="testing-checklist">Testing Checklist</h2>
+
+<h3 id="wifi-provisioning-tests">WiFi Provisioning Tests</h3>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device creates AP on first boot</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />AP SSID format: <code class="language-plaintext highlighter-rouge">SmartVase-XXXXXX</code></li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />AP password works</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Captive portal opens automatically</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Network scan returns WiFi list</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />WiFi connection successful with valid credentials</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />WiFi connection fails gracefully with invalid credentials</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Credentials saved to NVS</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device restarts after configuration</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device connects to WiFi automatically after restart</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />AP mode shuts down after successful connection</li>
+</ul>
+
+<h3 id="serial-configuration-tests">Serial Configuration Tests</h3>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Serial menu accessible via <code class="language-plaintext highlighter-rouge">setup</code> command</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />WiFi scan shows available networks</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />WiFi configuration saves and works</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />MQTT configuration saves correctly</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Vendor ID assignment works</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Status display shows accurate information</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Factory reset erases all configuration</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device persists settings after power cycle</li>
+</ul>
+
+<h3 id="registration-tests">Registration Tests</h3>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />QR code displays when WiFi connected but not registered</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />QR code scannable with phone camera</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />QR data format correct (URL / JSON / Deep Link)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Admin portal receives registration request</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Backend validates device ID format</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Backend prevents duplicate registration</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Backend validates vendor permissions</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />MQTT config published to correct topic</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device receives MQTT config message</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device saves MQTT credentials</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device transitions to REGISTERED state</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Buzzer plays confirmation (3 beeps)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />LCD updates to “Ready for Bouquet”</li>
+</ul>
+
+<h3 id="persistence-tests">Persistence Tests</h3>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Configuration survives power cycle</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />WiFi auto-reconnects on boot</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />MQTT auto-reconnects on boot</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Registration status persists</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Factory reset clears everything</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />NVS partition not corrupted after many writes</li>
+</ul>
+
+<h3 id="error-handling-tests">Error Handling Tests</h3>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Invalid WiFi password shows error</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />WiFi connection timeout handled</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />MQTT connection failure handled</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Network loss triggers offline mode</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Network recovery triggers reconnection</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Invalid QR data handled gracefully</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Backend API errors shown to admin</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Device continues functioning if backend unavailable</li>
+</ul>
+
+<hr />
+
+<h2 id="configuration-storage-nvs">Configuration Storage (NVS)</h2>
+
+<h3 id="preferences-keys">Preferences Keys</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// NVS namespace: "vase-config"</span>
+
+<span class="n">String</span> <span class="n">wifi_ssid</span><span class="p">;</span>          <span class="c1">// Key: "wifi_ssid"     (max 32 chars)</span>
+<span class="n">String</span> <span class="n">wifi_password</span><span class="p">;</span>      <span class="c1">// Key: "wifi_pass"     (max 64 chars)</span>
+<span class="n">String</span> <span class="n">mqtt_server</span><span class="p">;</span>        <span class="c1">// Key: "mqtt_server"   (max 32 chars)</span>
+<span class="kt">int</span> <span class="n">mqtt_port</span><span class="p">;</span>             <span class="c1">// Key: "mqtt_port"     (default: 1883)</span>
+<span class="n">String</span> <span class="n">mqtt_user</span><span class="p">;</span>          <span class="c1">// Key: "mqtt_user"     (max 32 chars)</span>
+<span class="n">String</span> <span class="n">mqtt_password</span><span class="p">;</span>      <span class="c1">// Key: "mqtt_pass"     (max 64 chars)</span>
+<span class="n">String</span> <span class="n">shop_id</span><span class="p">;</span>            <span class="c1">// Key: "shop_id"       (GUID, max 40 chars)</span>
+<span class="kt">bool</span> <span class="n">isRegistered</span><span class="p">;</span>         <span class="c1">// Key: "registered"    (boolean)</span>
+</code></pre></div></div>
+
+<h3 id="load-configuration">Load Configuration</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">loadConfiguration</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">preferences</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="s">"vase-config"</span><span class="p">,</span> <span class="nb">true</span><span class="p">);</span> <span class="c1">// Read-only</span>
+    
+    <span class="c1">// TODO: Load all settings from NVS using keys above</span>
+    
+    <span class="n">preferences</span><span class="p">.</span><span class="n">end</span><span class="p">();</span>
+    
+    <span class="c1">// TODO: Log loaded configuration to Serial</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="save-configuration">Save Configuration</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">saveConfiguration</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">preferences</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="s">"vase-config"</span><span class="p">,</span> <span class="nb">false</span><span class="p">);</span> <span class="c1">// Read-write</span>
+    
+    <span class="c1">// TODO: Save all settings to NVS using keys above</span>
+    
+    <span class="n">preferences</span><span class="p">.</span><span class="n">end</span><span class="p">();</span>
+    
+    <span class="n">Serial</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="s">"✓ Configuration saved"</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="factory-reset">Factory Reset</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">factoryReset</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// TODO: Clear entire NVS namespace</span>
+    <span class="n">preferences</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="s">"vase-config"</span><span class="p">,</span> <span class="nb">false</span><span class="p">);</span>
+    <span class="n">preferences</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span>
+    <span class="n">preferences</span><span class="p">.</span><span class="n">end</span><span class="p">();</span>
+    
+    <span class="c1">// TODO: Restart device</span>
+    <span class="n">ESP</span><span class="p">.</span><span class="n">restart</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="mqtt-topics-structure">MQTT Topics Structure</h2>
+
+<h3 id="device-specific-topics">Device-Specific Topics</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vases/{deviceId}/config          # Backend → Device (registration config)
+vases/{deviceId}/commands        # Backend → Device (bouquet commands)
+vases/{deviceId}/status          # Device → Backend (status updates)
+vases/{deviceId}/heartbeat       # Device → Backend (health check)
+vases/{deviceId}/sensors         # Device → Backend (sensor data)
+vases/{deviceId}/bouquets        # Device ↔ Backend (bouquet events)
+</code></pre></div></div>
+
+<h3 id="global-topics">Global Topics</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vases/register                   # Device → Backend (initial registration)
+vases/discovery                  # Backend → All Devices (announcements)
+</code></pre></div></div>
+
+<h3 id="qos-levels">QoS Levels</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>config:     QoS 2 (exactly once) + retained
+commands:   QoS 1 (at least once)
+status:     QoS 0 (at most once)
+heartbeat:  QoS 0 (at most once)
+sensors:    QoS 0 (at most once)
+bouquets:   QoS 1 (at least once)
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="security-considerations">Security Considerations</h2>
+
+<h3 id="wifi-provisioning-security">WiFi Provisioning Security</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// TODO: Implement WPA2 encryption for setup AP</span>
+<span class="c1">// Default password: "flowershop" (should be configurable)</span>
+
+<span class="c1">// TODO: Add timeout for setup mode (30 minutes)</span>
+<span class="c1">// Auto-restart if no configuration received</span>
+
+<span class="c1">// TODO: Rate limit configuration attempts</span>
+<span class="c1">// Prevent brute force password attacks</span>
+</code></pre></div></div>
+
+<h3 id="mqtt-security">MQTT Security</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// TODO: Use TLS/SSL for MQTT connection (port 8883)</span>
+
+<span class="c1">// TODO: Generate unique credentials per device</span>
+
+<span class="c1">// TODO: Implement certificate validation</span>
+
+<span class="c1">// TODO: Rotate credentials periodically</span>
+</code></pre></div></div>
+
+<h3 id="registration-security">Registration Security</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// TODO: Add timestamp to QR code (expire after 10 minutes)</span>
+
+<span class="c1">// TODO: Add checksum/signature to QR data</span>
+
+<span class="c1">// TODO: Validate MAC address matches device</span>
+
+<span class="c1">// TODO: Prevent replay attacks</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="libraries-required">Libraries Required</h2>
+
+<h3 id="esp32-platform">ESP32 Platform</h3>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">; platformio.ini
+</span>
+<span class="nn">[env:esp32]</span>
+<span class="py">platform</span> <span class="p">=</span> <span class="s">espressif32</span>
+<span class="py">board</span> <span class="p">=</span> <span class="s">esp32dev</span>
+<span class="py">framework</span> <span class="p">=</span> <span class="s">arduino</span>
+
+<span class="py">lib_deps</span> <span class="p">=</span> 
+    <span class="c"># Display &amp; UI
+</span>    <span class="s">TFT_eSPI</span>
+    <span class="err">lvgl/lvgl</span> <span class="err">@</span> <span class="err">^8.3.0</span>
+    
+    <span class="c"># Sensors
+</span>    <span class="err">adafruit/DHT</span> <span class="err">sensor</span> <span class="err">library</span>
+    
+    <span class="c"># Networking
+</span>    <span class="err">ESP</span> <span class="err">Async</span> <span class="err">WebServer</span>           <span class="c"># WiFi provisioning portal
+</span>    <span class="err">DNSServer</span>                     <span class="c"># Captive portal redirect
+</span>    <span class="err">PubSubClient</span>                  <span class="c"># MQTT client
+</span>    
+    <span class="c"># QR Code Generation
+</span>    <span class="err">ricmoo/QRCode</span> <span class="err">@</span> <span class="err">^0.0.1</span>
+    
+    <span class="c"># JSON
+</span>    <span class="err">ArduinoJson</span> <span class="err">@</span> <span class="err">^6.21.0</span>
+    
+    <span class="c"># Storage
+</span>    <span class="err">Preferences</span>                   <span class="c"># Built-in NVS library
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="next-steps">Next Steps</h2>
+
+<h3 id="immediate-actions">Immediate Actions</h3>
+
+<ol>
+  <li><strong>Choose Implementation Strategy</strong>
+    <ul>
+      <li>Start with Option 2 (Serial) for quick development</li>
+      <li>Add Option 1 (WiFi Provisioning) for production</li>
+      <li>Combine into Option 3 (Hybrid) for final product</li>
+    </ul>
+  </li>
+  <li><strong>Set Up Development Environment</strong>
+    <ul>
+      <li>Install required libraries</li>
+      <li>Configure platformio.ini</li>
+      <li>Test compilation</li>
+    </ul>
+  </li>
+  <li><strong>Implement Core Functions</strong>
+    <ul>
+      <li>Configuration storage (NVS)</li>
+      <li>WiFi connection logic</li>
+      <li>MQTT client setup</li>
+      <li>Serial command handler</li>
+    </ul>
+  </li>
+  <li><strong>Build Frontend</strong>
+    <ul>
+      <li>Captive portal HTML/CSS/JS</li>
+      <li>Admin registration page</li>
+      <li>Mobile app (optional)</li>
+    </ul>
+  </li>
+  <li><strong>Backend Integration</strong>
+    <ul>
+      <li>Registration API endpoint</li>
+      <li>MQTT broker configuration</li>
+      <li>Credential generation</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="development-priorities">Development Priorities</h3>
+
+<p><strong>Phase 1 (Week 1)</strong>: Serial Configuration</p>
+<ul>
+  <li>Goal: Manual configuration working</li>
+  <li>Deliverable: Device configurable via USB</li>
+</ul>
+
+<p><strong>Phase 2 (Week 2)</strong>: WiFi Provisioning</p>
+<ul>
+  <li>Goal: Professional setup experience</li>
+  <li>Deliverable: Captive portal working</li>
+</ul>
+
+<p><strong>Phase 3 (Week 3)</strong>: QR Registration</p>
+<ul>
+  <li>Goal: End-to-end registration flow</li>
+  <li>Deliverable: Backend integration complete</li>
+</ul>
+
+<p><strong>Phase 4 (Week 4)</strong>: Polish &amp; Testing</p>
+<ul>
+  <li>Goal: Production-ready system</li>
+  <li>Deliverable: Deployed to first shop</li>
+</ul>
+
+<hr />
+
+<h2 id="support--troubleshooting">Support &amp; Troubleshooting</h2>
+
+<h3 id="common-issues">Common Issues</h3>
+
+<p><strong>Issue</strong>: Device won’t connect to WiFi</p>
+<ul>
+  <li>Check SSID/password correct</li>
+  <li>Verify 2.4GHz network (not 5GHz only)</li>
+  <li>Check router MAC filtering</li>
+  <li>Try serial configuration to test</li>
+</ul>
+
+<p><strong>Issue</strong>: Captive portal doesn’t open</p>
+<ul>
+  <li>Check DNS server running</li>
+  <li>Verify phone connected to device AP</li>
+  <li>Manually navigate to 192.168.4.1</li>
+  <li>Check firewall settings</li>
+</ul>
+
+<p><strong>Issue</strong>: QR code won’t scan</p>
+<ul>
+  <li>Increase QR code scale (larger modules)</li>
+  <li>Ensure good lighting</li>
+  <li>Try different QR scanner app</li>
+  <li>Check QR data not too long (use shorter format)</li>
+</ul>
+
+<p><strong>Issue</strong>: MQTT connection fails</p>
+<ul>
+  <li>Verify broker hostname/IP correct</li>
+  <li>Check port (1883 or 8883)</li>
+  <li>Validate credentials</li>
+  <li>Test with MQTT client tool (MQTT Explorer)</li>
+</ul>
+
+<p><strong>Issue</strong>: Registration doesn’t complete</p>
+<ul>
+  <li>Check backend API endpoint accessible</li>
+  <li>Verify device receives MQTT config</li>
+  <li>Check topic subscription successful</li>
+  <li>Review backend logs for errors</li>
+</ul>
+
+<hr />
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This document provides a complete blueprint for implementing smart vase registration workflows. Start with the simplest approach (serial configuration) to validate the concept, then progressively add WiFi provisioning and QR-based registration for a production-ready system.</p>
+
+<p>The hybrid approach gives you maximum flexibility during development while providing a professional user experience in production deployment.</p>
+
+<p><strong>Recommended Path</strong>:</p>
+<ol>
+  <li>Implement serial configuration (Week 1)</li>
+  <li>Add WiFi provisioning (Week 2)</li>
+  <li>Integrate QR registration (Week 3)</li>
+  <li>Deploy and iterate (Week 4+)</li>
+</ol>
+
+<p>Good luck with your implementation! 🌸</p>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+
+  // Sidebar accordion
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // Active link highlight
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      // ensure parent group is open
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // Mobile hamburger
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+</script>
+</body>
+</html>

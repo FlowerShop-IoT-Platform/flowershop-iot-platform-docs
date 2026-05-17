@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rollback &amp; Recovery Playbook — FlowerShop IoT Platform</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: rgba(15,17,23,.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: #9bb5ff;
+      border-bottom-color: #9bb5ff;
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #a5d6ff;
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: #c9d1d9;
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: #c8d0dc;
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/flowershop-iot-platform-docs/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
+  <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
+  <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/cross-cutting">Cross-cutting</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="rollback--recovery-playbook">Rollback &amp; Recovery Playbook</h1>
+
+<blockquote>
+  <p><strong>Purpose</strong>: bring the platform back to a known-good state when a deploy goes wrong, a dependency falls over, or data gets corrupted.
+<strong>Principle</strong>: rollback is always faster than root-cause analysis. Restore service first, investigate on a branch.</p>
+</blockquote>
+
+<h2 id="decision-tree-60-second-read">Decision tree (60-second read)</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Something is wrong in prod
+├── Just deployed?                         → §1 Revert the deploy
+├── Data plane (DB/Redis/Mq/Mqtt) offline? → §2 Dependency outage
+├── One subdomain broken, others fine?     → §3 Per-component recovery
+├── Auth broken (nobody can log in)?       → §4 Keycloak recovery
+├── Data corrupted / bad migration?        → §5 Database restore
+└── Whole site unreachable, DNS level?     → §6 DNS &amp; TLS emergency
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="1-revert-the-most-recent-deploy">§1 Revert the most recent deploy</h2>
+
+<p>Each component has an independent release stream — revert only the one that broke.</p>
+
+<h3 id="11-fly-apps-flowershop-api-flowershop-keycloak-flowershop-customer-app">1.1 Fly apps (<code class="language-plaintext highlighter-rouge">flowershop-api</code>, <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List releases (newest first).</span>
+fly releases <span class="nt">--app</span> flowershop-api
+
+<span class="c"># Roll back to previous.</span>
+fly releases rollback <span class="nt">--app</span> flowershop-api          <span class="c"># interactive — picks N-1</span>
+<span class="c"># or explicit:</span>
+fly image show <span class="nt">--app</span> flowershop-api                 <span class="c"># get current image sha</span>
+fly releases <span class="nt">--app</span> flowershop-api | <span class="nb">head</span> <span class="nt">-5</span>         <span class="c"># find the one before</span>
+fly deploy <span class="nt">--app</span> flowershop-api <span class="nt">--image</span> registry.fly.io/flowershop-api:&lt;previous-tag&gt;
+</code></pre></div></div>
+
+<p>Fly performs a rolling deploy; the old machine is drained cleanly. Expected downtime: 0.</p>
+
+<h3 id="12-render-services-admin--vendor-portals">1.2 Render services (admin + vendor portals)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Via Render API: list deploys.</span>
+curl <span class="nt">-sH</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$RENDER_API_KEY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="s2">"https://api.render.com/v1/services/</span><span class="nv">$RENDER_ADMIN_SERVICE_ID</span><span class="s2">/deploys?limit=5"</span> | jq <span class="nb">.</span>
+
+<span class="c"># Trigger redeploy of a past commit:</span>
+curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$RENDER_API_KEY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{"imageUrl":"ghcr.io/&lt;owner&gt;/flowershop-admin-portal:&lt;prev-sha&gt;"}'</span> <span class="se">\</span>
+  <span class="s2">"https://api.render.com/v1/services/</span><span class="nv">$RENDER_ADMIN_SERVICE_ID</span><span class="s2">/deploys"</span>
+</code></pre></div></div>
+
+<p>Or simpler: re-run the previous green GitHub Actions run from the Actions UI — “Re-run all jobs”.</p>
+
+<h3 id="13-git-level-revert-if-the-deploy-shipped-but-the-code-is-the-problem">1.3 Git-level revert (if the deploy shipped but the code is the problem)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Revert the bad commit — this is a PR, not a force-push.</span>
+git revert &lt;bad-sha&gt;
+git push origin main
+<span class="c"># The path-filtered workflow redeploys only affected components.</span>
+</code></pre></div></div>
+
+<p><strong>Never</strong> <code class="language-plaintext highlighter-rouge">git push --force</code> to <code class="language-plaintext highlighter-rouge">main</code>. Always prefer <code class="language-plaintext highlighter-rouge">git revert</code>.</p>
+
+<hr />
+
+<h2 id="2-dependency-outage-the-saas-vendor-is-down">§2 Dependency outage (the SaaS vendor is down)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Dependency</th>
+      <th>How to detect</th>
+      <th>Immediate action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Aiven PG</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">/health/ready</code> shows DB <code class="language-plaintext highlighter-rouge">Unhealthy</code>; <code class="language-plaintext highlighter-rouge">psql</code> hangs</td>
+      <td>Check <a href="https://status.aiven.io">status.aiven.io</a>. If regional outage, wait it out — site goes read-mostly (no writes) until DB returns. See §5.2 for read-only fallback.</td>
+    </tr>
+    <tr>
+      <td><strong>Upstash Redis</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">/health/ready</code> shows Redis unhealthy</td>
+      <td>Non-fatal today — <code class="language-plaintext highlighter-rouge">CacheService</code> falls back to in-memory. Once real Redis impl (EP-09 T-09-003) lands, consider a circuit breaker.</td>
+    </tr>
+    <tr>
+      <td><strong>CloudAMQP</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> logs connection errors</td>
+      <td>Currently a no-op stub; not impactful. Once EP-09 S-09-06 lands, outage means events queue in-process — risk of memory growth. Monitor.</td>
+    </tr>
+    <tr>
+      <td><strong>HiveMQ</strong></td>
+      <td>MQTT health check fails; no vase heartbeats in logs</td>
+      <td>Restart API subscriber: <code class="language-plaintext highlighter-rouge">fly machines restart --app flowershop-api</code>. If still down, check status page. Vases will reconnect automatically.</td>
+    </tr>
+    <tr>
+      <td><strong>Keycloak</strong></td>
+      <td>All auth’d endpoints 401</td>
+      <td>See §4.</td>
+    </tr>
+    <tr>
+      <td><strong>Stripe</strong></td>
+      <td>Checkout returns errors</td>
+      <td>Stripe has no “rollback” — check <a href="https://status.stripe.com">status.stripe.com</a>. While down: disable checkout via feature flag; existing bouquets still browsable.</td>
+    </tr>
+    <tr>
+      <td><strong>Fly region <code class="language-plaintext highlighter-rouge">waw</code></strong></td>
+      <td><code class="language-plaintext highlighter-rouge">fly status</code> shows all machines down</td>
+      <td>Deploy to an alternate region: <code class="language-plaintext highlighter-rouge">fly deploy --region ams</code>. Update <code class="language-plaintext highlighter-rouge">primary_region</code> in <code class="language-plaintext highlighter-rouge">fly.*.toml</code> if this is sustained.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="3-per-component-recovery">§3 Per-component recovery</h2>
+
+<h3 id="api-machine-crashed--memory-pressure">API machine crashed / memory pressure</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly status <span class="nt">--app</span> flowershop-api              <span class="c"># state?</span>
+fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">tail</span> <span class="nt">-200</span>    <span class="c"># crash reason</span>
+fly machines list <span class="nt">--app</span> flowershop-api       <span class="c"># which machine</span>
+fly machines restart &lt;<span class="nb">id</span><span class="o">&gt;</span> <span class="nt">--app</span> flowershop-api
+</code></pre></div></div>
+
+<p>Persistent OOM → bump memory:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly scale memory 1024 <span class="nt">--app</span> flowershop-api   <span class="c"># from 1gb to 1.5gb (costs ~$1 extra/mo)</span>
+</code></pre></div></div>
+
+<h3 id="render-service-stuck-deploying">Render service stuck “deploying”</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Cancel the stuck deploy:</span>
+curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$RENDER_API_KEY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="s2">"https://api.render.com/v1/services/</span><span class="nv">$RENDER_ADMIN_SERVICE_ID</span><span class="s2">/deploys/&lt;deploy-id&gt;/cancel"</span>
+</code></pre></div></div>
+
+<p>Then re-run the GHA workflow.</p>
+
+<h3 id="customerapp-redirect-loop-after-deploy">CustomerApp redirect loop after deploy</h3>
+
+<p>Usually <code class="language-plaintext highlighter-rouge">Authentication__PostLoginRedirectUri</code> mismatch with Keycloak valid redirect URIs.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check what the app is sending:</span>
+fly secrets list <span class="nt">--app</span> flowershop-customer-app
+<span class="c"># In Keycloak admin, ensure https://app.findmyflowers.pl/signin-oidc is in "Valid redirect URIs".</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="4-keycloak-recovery">§4 Keycloak recovery</h2>
+
+<p>Losing Keycloak = losing login for everyone. Recovery priority is highest.</p>
+
+<h3 id="41-keycloak-up-but-realm-broken">4.1 Keycloak up but realm broken</h3>
+
+<p>Symptom: <code class="language-plaintext highlighter-rouge">/realms/flowershop/.well-known/openid-configuration</code> 404s.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># SSH into the container:</span>
+fly ssh console <span class="nt">--app</span> flowershop-keycloak
+
+<span class="c"># Re-import realm from the mounted file:</span>
+/opt/keycloak/bin/kc.sh import <span class="nt">--file</span> /opt/keycloak/data/import/flowershop-realm.json <span class="nt">--override</span> <span class="nb">true</span>
+</code></pre></div></div>
+
+<h3 id="42-admin-lockout">4.2 Admin lockout</h3>
+
+<p>If <code class="language-plaintext highlighter-rouge">$KEYCLOAK_ADMIN_PASSWORD</code> is lost:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly ssh console <span class="nt">--app</span> flowershop-keycloak
+/opt/keycloak/bin/kcadm.sh config credentials <span class="nt">--server</span> http://localhost:8080 <span class="se">\</span>
+  <span class="nt">--realm</span> master <span class="nt">--user</span> admin <span class="nt">--password</span> <span class="nv">$KEYCLOAK_ADMIN_PASSWORD</span>
+
+<span class="c"># OR nuclear option — reset via env:</span>
+fly secrets <span class="nb">set </span><span class="nv">KEYCLOAK_ADMIN</span><span class="o">=</span>admin <span class="nv">KEYCLOAK_ADMIN_PASSWORD</span><span class="o">=</span><span class="s2">"</span><span class="nv">$NEW_PASSWORD</span><span class="s2">"</span> <span class="nt">--app</span> flowershop-keycloak
+fly machines restart <span class="nt">--app</span> flowershop-keycloak   <span class="c"># admin user is re-created on boot if missing</span>
+</code></pre></div></div>
+
+<h3 id="43-keycloak-db-schema-corruption">4.3 Keycloak DB schema corruption</h3>
+
+<p>Rare, but if <code class="language-plaintext highlighter-rouge">keycloak</code> schema on Aiven is damaged:</p>
+<ol>
+  <li>Create a fresh DB: <code class="language-plaintext highlighter-rouge">CREATE DATABASE keycloak_v2;</code></li>
+  <li>Update <code class="language-plaintext highlighter-rouge">KC_DB_URL</code> to point at it.</li>
+  <li>Redeploy Keycloak — it will migrate schema from scratch.</li>
+  <li>Import realm (§4.1).</li>
+  <li>Regenerate client secrets, update <code class="language-plaintext highlighter-rouge">Authentication__Keycloak__ClientSecret</code> on API and CustomerApp.</li>
+</ol>
+
+<p><strong>Result:</strong> every user must log in again (their sessions are gone), but user accounts persist if you export/import <code class="language-plaintext highlighter-rouge">users</code> — see <a href="https://www.keycloak.org/server/importExport">Keycloak export docs</a>.</p>
+
+<hr />
+
+<h2 id="5-database-restore">§5 Database restore</h2>
+
+<h3 id="51-restore-from-backup">5.1 Restore from backup</h3>
+
+<p><strong>Backups come from the weekly cron</strong> (see §7 below). If Aiven has point-in-time recovery enabled (paid tiers), prefer that.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Download the most recent dump from R2:</span>
+aws <span class="nt">--endpoint-url</span> https://&lt;r2-account&gt;.r2.cloudflarestorage.com s3 <span class="nb">cp</span> <span class="se">\</span>
+  s3://flowershop-backups/flowershop_iot-<span class="si">$(</span><span class="nb">date</span> <span class="nt">-d</span> yesterday +%F<span class="si">)</span>.sql.gz ./
+
+<span class="nb">gunzip </span>flowershop_iot-<span class="k">*</span>.sql.gz
+
+<span class="c"># Restore into a fresh DB (never overwrite prod without a staging copy first):</span>
+psql <span class="s2">"</span><span class="nv">$AIVEN_RESTORE_URI</span><span class="s2">"</span> &lt; flowershop_iot-<span class="k">*</span>.sql
+
+<span class="c"># After verifying data looks correct, swap connection strings.</span>
+fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop-api <span class="se">\</span>
+  <span class="nv">ConnectionStrings__DefaultConnection</span><span class="o">=</span><span class="s2">"</span><span class="nv">$RESTORED_URI</span><span class="s2">"</span>
+</code></pre></div></div>
+
+<h3 id="52-read-only-fallback">5.2 Read-only fallback</h3>
+
+<p>When write path is broken but reads work (bad migration half-applied, etc.):</p>
+
+<ol>
+  <li>Disable write endpoints at the edge — Cloudflare → Rules → create a rule blocking <code class="language-plaintext highlighter-rouge">POST/PUT/DELETE/PATCH</code> to <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl</code>, return custom 503 JSON.</li>
+  <li>Roll back the API (§1.1) to the version before the bad migration.</li>
+  <li>EF migration rollback — <code class="language-plaintext highlighter-rouge">dotnet ef database update &lt;previous-migration-name&gt;</code> (run from a developer machine pointing at prod — risky; prefer §5.1 restore).</li>
+</ol>
+
+<h3 id="53-bad-migration-detection">5.3 Bad migration detection</h3>
+
+<p>Every deploy that adds a migration must be tested against a staging DB first. Red flag: <code class="language-plaintext highlighter-rouge">fly logs</code> shows <code class="language-plaintext highlighter-rouge">RelationDoesNotExistException</code> after rollback — the new migration added/renamed a column, rollback kept old DB schema but old code now expects it.</p>
+
+<p><strong>Prevention:</strong> follow the expand-contract migration pattern (add column in release N, backfill in N+1, make required in N+2).</p>
+
+<hr />
+
+<h2 id="6-dns--tls-emergency">§6 DNS &amp; TLS emergency</h2>
+
+<h3 id="61-subdomain-returning-tls-error">6.1 Subdomain returning TLS error</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check the cert chain:</span>
+openssl s_client <span class="nt">-connect</span> api.findmyflowers.pl:443 <span class="nt">-servername</span> api.findmyflowers.pl &lt; /dev/null
+
+<span class="c"># Common cause: Cloudflare proxy (orange cloud) turned on for a domain Fly/Render manages.</span>
+<span class="c"># Fix: Cloudflare DNS → click the cloud icon to grey (DNS only).</span>
+</code></pre></div></div>
+
+<h3 id="62-cloudflare-zone-deleted--ns-removed">6.2 Cloudflare zone deleted / NS removed</h3>
+
+<p>If the whole zone goes, re-add it in Cloudflare (free tier). NS records at OVH should already point here — no OVH action needed.</p>
+
+<h3 id="63-subdomain-points-at-a-stale-flydev">6.3 Subdomain points at a stale <code class="language-plaintext highlighter-rouge">*.fly.dev</code></h3>
+
+<p>Happens after app rename. Update the CNAME in Cloudflare to the current Fly host, then:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly certs check api.findmyflowers.pl <span class="nt">--app</span> flowershop-api
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="7-database-backup-set-and-forget">§7 Database backup (set-and-forget)</h2>
+
+<p>Aiven free tier has <strong>no automated backups</strong>. Set this up during Stage 10 of the runbook.</p>
+
+<h3 id="71-github-actions-weekly-dump--cloudflare-r2">7.1 GitHub Actions weekly dump → Cloudflare R2</h3>
+
+<p>Create <code class="language-plaintext highlighter-rouge">.github/workflows/backup-db.yml</code>:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">backup-db</span>
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">schedule</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">cron</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">3</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">0"</span>   <span class="c1"># Sun 03:00 UTC</span>
+  <span class="na">workflow_dispatch</span><span class="pi">:</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">dump</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">timeout-minutes</span><span class="pi">:</span> <span class="m">30</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install pg_dump</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">sudo apt-get update &amp;&amp; sudo apt-get install -y postgresql-client</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Dump flowershop_iot</span>
+        <span class="na">env</span><span class="pi">:</span>
+          <span class="na">PGURI</span><span class="pi">:</span> <span class="s">$</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">pg_dump "$PGURI" | gzip &gt; flowershop_iot-$(date +%F).sql.gz</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Upload to R2</span>
+        <span class="na">env</span><span class="pi">:</span>
+          <span class="na">AWS_ACCESS_KEY_ID</span><span class="pi">:</span> <span class="s">$</span>
+          <span class="na">AWS_SECRET_ACCESS_KEY</span><span class="pi">:</span> <span class="s">$</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">aws --endpoint-url https://&lt;r2-account&gt;.r2.cloudflarestorage.com \</span>
+            <span class="s">s3 cp flowershop_iot-*.sql.gz s3://flowershop-backups/</span>
+</code></pre></div></div>
+
+<p>Retention: manually delete anything older than 90 days from R2.</p>
+
+<h3 id="72-restore-drill">7.2 Restore drill</h3>
+
+<p>Practice it. Once a quarter, pick a dump at random, restore to a scratch Aiven DB, and run a smoke query. A backup you’ve never restored is not a backup.</p>
+
+<hr />
+
+<h2 id="8-runbook-for-total-loss">§8 Runbook for total loss</h2>
+
+<p>If the Fly org, Render account, or Aiven project is deleted (billing lapse, hijack, human error):</p>
+
+<ol>
+  <li>Treat domain and Keycloak realm JSON as the only irreplaceable assets — both should be in the git repo or a personal password manager.</li>
+  <li>Rebuild from scratch using <a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK/">DEPLOYMENT-RUNBOOK.md</a>.</li>
+  <li>Restore database from R2 (§5.1).</li>
+  <li>Expected recovery time: 3–4 h if all credentials are in the password manager.</li>
+</ol>
+
+<p>Mitigations against this scenario:</p>
+<ul>
+  <li>Enable 2FA on every SaaS account (Fly, Render, Aiven, Cloudflare, GitHub, Stripe).</li>
+  <li>Keep billing alerts on — Fly free credit exhaustion triggers machine shutdown.</li>
+  <li>Export Keycloak realm monthly: <code class="language-plaintext highlighter-rouge">fly ssh console -a flowershop-keycloak</code> → <code class="language-plaintext highlighter-rouge">kc.sh export --dir /tmp --realm flowershop</code> → <code class="language-plaintext highlighter-rouge">fly sftp shell</code> → <code class="language-plaintext highlighter-rouge">get</code>.</li>
+</ul>
+
+<hr />
+
+<h2 id="9-post-incident-checklist">§9 Post-incident checklist</h2>
+
+<p>After any rollback:</p>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Write a 1-page incident note in <code class="language-plaintext highlighter-rouge">docs/deployment/incidents/YYYY-MM-DD-&lt;summary&gt;.md</code></li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Identify the root cause (not just the fix)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add a regression test or smoke check that would have caught it</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />If a runbook step was ambiguous, fix the runbook</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Rotate any credential that was exposed during the incident</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Verify backups are running (weekly cron last success)</li>
+</ul>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+
+  // Sidebar accordion
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // Active link highlight
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      // ensure parent group is open
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // Mobile hamburger
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+</script>
+</body>
+</html>

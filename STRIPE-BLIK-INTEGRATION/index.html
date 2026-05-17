@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stripe BLIK Payment Integration — Technical Guide — FlowerShop IoT Platform</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: rgba(15,17,23,.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: #9bb5ff;
+      border-bottom-color: #9bb5ff;
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #a5d6ff;
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: #c9d1d9;
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: #c8d0dc;
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/flowershop-iot-platform-docs/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
+  <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
+  <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/cross-cutting">Cross-cutting</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="stripe-blik-payment-integration--technical-guide">Stripe BLIK Payment Integration — Technical Guide</h1>
+
+<blockquote>
+  <p><strong>Epic</strong>: EP-04 (Order Lifecycle &amp; Stripe)
+<strong>Last Updated</strong>: 2026-04-12</p>
+</blockquote>
+
+<hr />
+
+<h2 id="1-current-state">1. Current State</h2>
+
+<p>The backend already has significant Stripe scaffolding in place:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Status</th>
+      <th>Location</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IStripeService</code> interface</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Services/IStripeService.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StripeService</code> implementation</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Payments/StripeService.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StubStripeService</code> (no-key fallback)</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Extensions/ServiceCollectionExtensions.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Stripe.net</code> NuGet (v43.16.0)</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure.csproj</code></td>
+    </tr>
+    <tr>
+      <td>DI registration (conditional)</td>
+      <td>Done</td>
+      <td>Uses real <code class="language-plaintext highlighter-rouge">StripeService</code> when <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> is set, otherwise <code class="language-plaintext highlighter-rouge">StubStripeService</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StripeWebhookController</code></td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/StripeWebhookController.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> → Stripe</td>
+      <td>Done</td>
+      <td>Creates PaymentIntent, stores ID on order</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code> → refund</td>
+      <td>Done</td>
+      <td>Refunds via Stripe if order was paid</td>
+    </tr>
+    <tr>
+      <td>Webhook: <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code></td>
+      <td>Done</td>
+      <td>Confirms payment via <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code></td>
+    </tr>
+    <tr>
+      <td>Webhook: <code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code></td>
+      <td>Done</td>
+      <td>Cancels order via <code class="language-plaintext highlighter-rouge">CancelOrderCommand</code></td>
+    </tr>
+    <tr>
+      <td><strong>Stripe config in appsettings</strong></td>
+      <td><strong>Missing</strong></td>
+      <td>No <code class="language-plaintext highlighter-rouge">Stripe</code> section in any appsettings file</td>
+    </tr>
+    <tr>
+      <td><strong>BLIK payment method type</strong></td>
+      <td><strong>Missing</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">StripeService</code> uses <code class="language-plaintext highlighter-rouge">AutomaticPaymentMethods</code> — needs explicit BLIK opt-in</td>
+    </tr>
+    <tr>
+      <td><strong>Checkout page payment form</strong></td>
+      <td><strong>Missing</strong></td>
+      <td>CustomerApp checkout has no Stripe.js / BLIK code input</td>
+    </tr>
+    <tr>
+      <td><strong>Stripe CLI webhook forwarding</strong></td>
+      <td><strong>Not set up</strong></td>
+      <td>Needed for local testing</td>
+    </tr>
+    <tr>
+      <td><strong>Reservation expiry BackgroundService</strong></td>
+      <td><strong>Missing</strong></td>
+      <td>Orders expire after 15 min but no service cleans them up proactively</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="2-prerequisites">2. Prerequisites</h2>
+
+<h3 id="21-stripe-account-required">2.1 Stripe Account (Required)</h3>
+
+<p><strong>Yes, you need a Stripe account.</strong> Registration is free and instant.</p>
+
+<ol>
+  <li>Go to <strong>https://dashboard.stripe.com/register</strong></li>
+  <li>Sign up with email — no business verification needed for test mode</li>
+  <li>After signup you are in <strong>Test Mode</strong> by default (toggle in top-right of dashboard)</li>
+  <li>Get your test API keys from <strong>Developers → API keys</strong>:
+    <ul>
+      <li><strong>Publishable key</strong>: <code class="language-plaintext highlighter-rouge">pk_test_...</code> (used in browser JavaScript)</li>
+      <li><strong>Secret key</strong>: <code class="language-plaintext highlighter-rouge">sk_test_...</code> (used in backend)</li>
+    </ul>
+  </li>
+</ol>
+
+<blockquote>
+  <p><strong>Important</strong>: Test mode is completely isolated from live mode. No real money is ever charged. No business verification is required to use test mode. You can stay in test mode indefinitely.</p>
+</blockquote>
+
+<h3 id="22-stripe-cli-required-for-webhook-testing">2.2 Stripe CLI (Required for Webhook Testing)</h3>
+
+<p>The Stripe CLI forwards webhook events from Stripe to your local machine.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install (Windows — via scoop)</span>
+scoop <span class="nb">install </span>stripe
+
+<span class="c"># Or download from https://stripe.com/docs/stripe-cli</span>
+
+<span class="c"># Login (one-time)</span>
+stripe login
+
+<span class="c"># Forward webhooks to your local API</span>
+stripe listen <span class="nt">--forward-to</span> http://localhost:8080/api/stripe/webhook
+</code></pre></div></div>
+
+<p>When you run <code class="language-plaintext highlighter-rouge">stripe listen</code>, it prints a <strong>webhook signing secret</strong> (<code class="language-plaintext highlighter-rouge">whsec_...</code>). Copy this — it goes into your config.</p>
+
+<h3 id="23-configuration">2.3 Configuration</h3>
+
+<p>Add to <code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/appsettings.Development.json</code>:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Stripe"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"SecretKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sk_test_YOUR_SECRET_KEY_HERE"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"PublishableKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pk_test_YOUR_PUBLISHABLE_KEY_HERE"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"WebhookSecret"</span><span class="p">:</span><span class="w"> </span><span class="s2">"whsec_YOUR_WEBHOOK_SECRET_HERE"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<blockquote>
+  <p><strong>Never commit real keys.</strong> The <code class="language-plaintext highlighter-rouge">.gitignore</code> already excludes <code class="language-plaintext highlighter-rouge">appsettings.Development.json</code> user secrets. Alternatively, use <code class="language-plaintext highlighter-rouge">dotnet user-secrets</code>:</p>
+  <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>src/backend/FlowerShop.API
+dotnet user-secrets <span class="nb">set</span> <span class="s2">"Stripe:SecretKey"</span> <span class="s2">"sk_test_..."</span>
+dotnet user-secrets <span class="nb">set</span> <span class="s2">"Stripe:PublishableKey"</span> <span class="s2">"pk_test_..."</span>
+dotnet user-secrets <span class="nb">set</span> <span class="s2">"Stripe:WebhookSecret"</span> <span class="s2">"whsec_..."</span>
+</code></pre></div>  </div>
+</blockquote>
+
+<h3 id="24-enable-blik-in-stripe-dashboard">2.4 Enable BLIK in Stripe Dashboard</h3>
+
+<ol>
+  <li>Go to <strong>Settings → Payment methods</strong> in the Stripe Dashboard</li>
+  <li>Enable <strong>BLIK</strong> under “Bank redirects” section</li>
+  <li>BLIK is available in test mode for all Stripe accounts</li>
+</ol>
+
+<hr />
+
+<h2 id="3-how-blik-works-with-stripe">3. How BLIK Works with Stripe</h2>
+
+<h3 id="31-customer-experience">3.1 Customer Experience</h3>
+
+<ol>
+  <li>Customer clicks “Place Order” in the CustomerApp</li>
+  <li>A <strong>6-digit code input</strong> appears (no card form)</li>
+  <li>Customer opens their <strong>banking app</strong> (PKO, mBank, ING, etc.), copies the BLIK code</li>
+  <li>Customer enters the 6-digit code and clicks “Pay”</li>
+  <li>A push notification arrives in the banking app: “Confirm payment of PLN 150.00 to FlowerShop?”</li>
+  <li>Customer confirms → payment succeeds → order moves to <code class="language-plaintext highlighter-rouge">Paid</code></li>
+</ol>
+
+<h3 id="32-technical-flow">3.2 Technical Flow</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+│  CustomerApp  │      │  Backend API │      │    Stripe    │      │  Customer's  │
+│   (Browser)   │      │  (.NET 8)    │      │              │      │  Banking App │
+└──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+       │                     │                      │                     │
+       │  POST /api/v1/orders│                      │                     │
+       │ ───────────────────&gt;│                      │                     │
+       │                     │  CreatePaymentIntent │                     │
+       │                     │  (payment_method_types: ["blik"])          │
+       │                     │ ────────────────────&gt;│                     │
+       │                     │  { clientSecret }    │                     │
+       │                     │ &lt;────────────────────│                     │
+       │  { clientSecret }   │                      │                     │
+       │ &lt;───────────────────│                      │                     │
+       │                     │                      │                     │
+       │  [User enters 6-digit BLIK code]           │                     │
+       │                     │                      │                     │
+       │  stripe.confirmBlikPayment(clientSecret,   │                     │
+       │    { blik: { code: "123456" } })           │                     │
+       │ ──────────────────────────────────────────&gt;│                     │
+       │                     │                      │  Push notification  │
+       │                     │                      │ ───────────────────&gt;│
+       │                     │                      │  [User confirms]    │
+       │                     │                      │ &lt;───────────────────│
+       │                     │                      │                     │
+       │                     │  Webhook: payment_intent.succeeded         │
+       │                     │ &lt;────────────────────│                     │
+       │                     │  ConfirmPaymentCommand                     │
+       │                     │  Order: Created → Paid                     │
+       │  { status: "paid" } │                      │                     │
+       │ &lt;───────────────────│                      │                     │
+</code></pre></div></div>
+
+<h3 id="33-key-api-details">3.3 Key API Details</h3>
+
+<p><strong>Creating a PaymentIntent with BLIK:</strong></p>
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">var</span> <span class="n">options</span> <span class="p">=</span> <span class="k">new</span> <span class="n">PaymentIntentCreateOptions</span>
+<span class="p">{</span>
+    <span class="n">Amount</span> <span class="p">=</span> <span class="m">15000</span><span class="p">,</span>  <span class="c1">// PLN 150.00 in grosze</span>
+    <span class="n">Currency</span> <span class="p">=</span> <span class="s">"pln"</span><span class="p">,</span>
+    <span class="n">PaymentMethodTypes</span> <span class="p">=</span> <span class="k">new</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="p">{</span> <span class="s">"blik"</span> <span class="p">},</span>
+    <span class="c1">// Or keep AutomaticPaymentMethods for flexibility:</span>
+    <span class="c1">// AutomaticPaymentMethods = new() { Enabled = true },</span>
+    <span class="n">Metadata</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Dictionary</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span> <span class="kt">string</span><span class="p">&gt;</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="s">"order_id"</span><span class="p">]</span> <span class="p">=</span> <span class="n">orderId</span><span class="p">.</span><span class="nf">ToString</span><span class="p">(),</span>
+        <span class="p">[</span><span class="s">"customer_id"</span><span class="p">]</span> <span class="p">=</span> <span class="n">customerId</span><span class="p">.</span><span class="nf">ToString</span><span class="p">(),</span>
+    <span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p><strong>Confirming BLIK payment (browser-side JavaScript):</strong></p>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="p">{</span> <span class="nx">error</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">stripe</span><span class="p">.</span><span class="nx">confirmBlikPayment</span><span class="p">(</span><span class="nx">clientSecret</span><span class="p">,</span> <span class="p">{</span>
+    <span class="na">payment_method</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">blik</span><span class="p">:</span> <span class="p">{},</span>
+        <span class="na">billing_details</span><span class="p">:</span> <span class="p">{</span> <span class="na">email</span><span class="p">:</span> <span class="nx">customerEmail</span> <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="na">payment_method_options</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">blik</span><span class="p">:</span> <span class="p">{</span> <span class="na">code</span><span class="p">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="dl">'</span><span class="s1">blik-code</span><span class="dl">'</span><span class="p">).</span><span class="nx">value</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="4-testing-blik-payments">4. Testing BLIK Payments</h2>
+
+<h3 id="41-stripe-test-mode--blik-codes">4.1 Stripe Test Mode — BLIK Codes</h3>
+
+<p>In test mode, enter <strong>any valid 6-digit code</strong> (e.g., <code class="language-plaintext highlighter-rouge">123456</code>) — it will succeed.</p>
+
+<h3 id="42-simulating-failures">4.2 Simulating Failures</h3>
+
+<p>Use specific email addresses on the PaymentIntent to trigger failure scenarios:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Email pattern</th>
+      <th>Behavior</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*@test.com</code> (default)</td>
+      <td>Success</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*invalid_code@*</code></td>
+      <td>Immediate failure — invalid BLIK code</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*expired_code@*</code></td>
+      <td>Immediate failure — code expired</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*insufficient_funds@*</code></td>
+      <td>Fails after 8s — insufficient funds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*customer_timeout@*</code></td>
+      <td>Fails after 60s — customer didn’t confirm in banking app</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*limit_exceeded@*</code></td>
+      <td>Fails — daily transaction limit exceeded</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*bank_declined@*</code></td>
+      <td>Fails — bank declined</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*blik_declined@*</code></td>
+      <td>Fails — BLIK-specific decline</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="43-testing-webhooks-locally">4.3 Testing Webhooks Locally</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Terminal 1: Start the API</span>
+<span class="nb">cd </span>src/backend/FlowerShop.API <span class="o">&amp;&amp;</span> dotnet run
+
+<span class="c"># Terminal 2: Forward Stripe webhooks</span>
+stripe listen <span class="nt">--forward-to</span> http://localhost:8080/api/stripe/webhook
+
+<span class="c"># Terminal 3: Trigger a test event</span>
+stripe trigger payment_intent.succeeded
+stripe trigger payment_intent.payment_failed
+</code></pre></div></div>
+
+<h3 id="44-end-to-end-test-flow">4.4 End-to-End Test Flow</h3>
+
+<ol>
+  <li>Configure <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> in appsettings</li>
+  <li>Start the API + CustomerApp</li>
+  <li>Start <code class="language-plaintext highlighter-rouge">stripe listen --forward-to http://localhost:8080/api/stripe/webhook</code></li>
+  <li>Log in as customer, add bouquet to cart, proceed to checkout</li>
+  <li>Place order → enter any 6-digit BLIK code → confirm</li>
+  <li>Check <code class="language-plaintext highlighter-rouge">stripe listen</code> terminal output for webhook delivery</li>
+  <li>Verify order status changed to <code class="language-plaintext highlighter-rouge">Paid</code> in the Orders page</li>
+</ol>
+
+<hr />
+
+<h2 id="5-what-needs-to-be-built">5. What Needs to Be Built</h2>
+
+<h3 id="51-backend-changes-minimal">5.1 Backend Changes (Minimal)</h3>
+
+<p>The backend is mostly ready. Remaining work:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Effort</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Add <code class="language-plaintext highlighter-rouge">Stripe</code> section to appsettings template</td>
+      <td>5 min</td>
+      <td>Add placeholder keys to <code class="language-plaintext highlighter-rouge">appsettings.json</code> (not Development)</td>
+    </tr>
+    <tr>
+      <td>Explicit BLIK in <code class="language-plaintext highlighter-rouge">StripeService</code></td>
+      <td>10 min</td>
+      <td>Optionally add <code class="language-plaintext highlighter-rouge">PaymentMethodTypes = ["blik", "card"]</code> instead of <code class="language-plaintext highlighter-rouge">AutomaticPaymentMethods</code> for explicit control</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Stripe:PublishableKey</code> config endpoint</td>
+      <td>15 min</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GET /api/v1/config</code> returning the publishable key for the frontend</td>
+    </tr>
+    <tr>
+      <td>Reservation expiry BackgroundService</td>
+      <td>1-2 h</td>
+      <td>EP-04 T-04-013..T-04-016 — auto-cancel orders after 15 min</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="52-frontend-changes-customerapp-checkout">5.2 Frontend Changes (CustomerApp Checkout)</h3>
+
+<p>This is the main work — the checkout page currently has no payment form:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Effort</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Add Stripe.js to checkout page</td>
+      <td>15 min</td>
+      <td><code class="language-plaintext highlighter-rouge">&lt;script src="https://js.stripe.com/v3/"&gt;&lt;/script&gt;</code></td>
+    </tr>
+    <tr>
+      <td>BLIK code input field</td>
+      <td>30 min</td>
+      <td>6-digit input with validation, “Pay” button</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stripe.confirmBlikPayment()</code> call</td>
+      <td>1 h</td>
+      <td>Wire clientSecret from order creation response, handle success/error</td>
+    </tr>
+    <tr>
+      <td>Payment status polling/redirect</td>
+      <td>1 h</td>
+      <td>After payment confirmation, redirect to order details or show success</td>
+    </tr>
+    <tr>
+      <td>Update <code class="language-plaintext highlighter-rouge">CheckoutController.PlaceOrder</code></td>
+      <td>30 min</td>
+      <td>Return <code class="language-plaintext highlighter-rouge">clientSecret</code> to the view instead of redirecting to confirmation</td>
+    </tr>
+    <tr>
+      <td>Error handling UI</td>
+      <td>30 min</td>
+      <td>Show BLIK-specific errors (expired code, declined, etc.)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="53-total-estimated-effort">5.3 Total Estimated Effort</h3>
+
+<p><strong>~4-6 hours</strong> for a working BLIK checkout flow, assuming the backend stays as-is and we focus on the CustomerApp frontend.</p>
+
+<hr />
+
+<h2 id="6-costs">6. Costs</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Provider</th>
+      <th>BLIK Fee per Transaction</th>
+      <th>On a PLN 150 bouquet</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Stripe</strong></td>
+      <td>~0.25 EUR (~1.10 PLN) + 2.0%</td>
+      <td>~4.10 PLN</td>
+    </tr>
+    <tr>
+      <td>PayU</td>
+      <td>0.30 PLN + 1.1%</td>
+      <td>~1.95 PLN</td>
+    </tr>
+    <tr>
+      <td>Tpay</td>
+      <td>0.29 PLN + 1.19%</td>
+      <td>~2.08 PLN</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Stripe is ~2x more expensive per BLIK transaction than local Polish providers. The tradeoff: Stripe is already integrated in the codebase, has an official .NET SDK, and best-in-class developer experience. Switching to PayU later is possible — the <code class="language-plaintext highlighter-rouge">IStripeService</code> abstraction can be generalized to an <code class="language-plaintext highlighter-rouge">IPaymentService</code>.</p>
+
+<hr />
+
+<h2 id="7-blik-constraints">7. BLIK Constraints</h2>
+
+<ul>
+  <li><strong>Currency</strong>: PLN only</li>
+  <li><strong>Country</strong>: Poland only</li>
+  <li><strong>Code validity</strong>: 2 minutes from generation</li>
+  <li><strong>Confirmation</strong>: Customer must approve in their banking app within ~90 seconds</li>
+  <li><strong>Recurring</strong>: BLIK does not support recurring/subscription payments (use cards for subscriptions)</li>
+  <li><strong>Refunds</strong>: Full and partial refunds are supported</li>
+  <li><strong>Mobile banking apps</strong>: PKO BP, mBank, ING, Santander, Pekao, Alior, Millennium, BNP Paribas, Credit Agricole, Revolut, and ~10 more</li>
+  <li><strong>Active users</strong>: ~17 million in Poland (2024)</li>
+</ul>
+
+<hr />
+
+<h2 id="8-file-reference">8. File Reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Services/IStripeService.cs</code></td>
+      <td>Payment abstraction</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Payments/StripeService.cs</code></td>
+      <td>Stripe SDK integration</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Extensions/ServiceCollectionExtensions.cs</code></td>
+      <td>DI — conditional real/stub registration</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/StripeWebhookController.cs</code></td>
+      <td>Webhook handler (<code class="language-plaintext highlighter-rouge">payment_intent.succeeded/failed</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/OrdersController.cs</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code> — creates PaymentIntent</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Handlers/Order/OrderCommandHandlers.cs</code></td>
+      <td>Order creation, payment confirmation, cancellation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/portals/FlowerShop.CustomerApp/Controllers/CheckoutController.cs</code></td>
+      <td>Checkout flow — needs payment form</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/portals/FlowerShop.CustomerApp/Views/Checkout/Index.cshtml</code></td>
+      <td>Checkout UI — needs BLIK input</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">docs/tasks/tasks-ep04-orders-stripe.json</code></td>
+      <td>EP-04 task breakdown (partially stale — many tasks already done)</td>
+    </tr>
+  </tbody>
+</table>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+
+  // Sidebar accordion
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // Active link highlight
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      // ensure parent group is open
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // Mobile hamburger
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>docs/deployment/ — Index — FlowerShop IoT Platform</title>
+  <title>Epics, Stories &amp; Tasks — Option B — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -523,141 +523,309 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="docsdeployment--index"><code class="language-plaintext highlighter-rouge">docs/deployment/</code> — Index</h1>
+      <h1 id="epics-stories--tasks--option-b">Epics, Stories &amp; Tasks — Option B</h1>
+<h2 id="admin-portal-vendor-portal-customer-web-app-analytics-api-iot-integration">Admin Portal, Vendor Portal, Customer Web App, Analytics API, IoT Integration</h2>
 
-<p>All deployment documentation for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. Read in roughly this order.</p>
+<blockquote>
+  <p>Companion to EPICS.md (Option C — Mobile API, EP-01 through EP-09).
+Epics are numbered EP-10 through EP-15 to avoid collision.</p>
+</blockquote>
 
-<h2 id="before-first-deploy">Before first deploy</h2>
+<hr />
+
+<h2 id="dependency-map">Dependency Map</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EP-09 (Performance/Crosscutting — from Option C)
+  └── EP-10 (Analytics API)
+        └── EP-11 (Admin Portal Analytics UI)
+              └── EP-12 (Vendor Portal — Orders &amp; Analytics UI)
+
+EP-05 (Vendor Order Management — from Option C)
+  └── EP-12 (Vendor Portal — Orders &amp; Analytics UI)
+
+EP-01 (Database Migrations — from Option C)
+  └── EP-13 (Customer Web App — Auth &amp; Shopping)
+
+EP-13 (Customer Web App — Auth &amp; Shopping)
+  └── EP-14 (Customer Web App — Profile, Favorites, Subscriptions)
+
+EP-10 (Analytics API)
+  └── EP-14 (Customer Web App — real-time map)
+
+EP-15 (IoT Integration) — independent, can run in parallel
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="ep-10-analytics-api--fix-tenant-context--implement-handlers">EP-10: Analytics API — Fix Tenant Context &amp; Implement Handlers</h2>
+
+<p><strong>Priority</strong>: P0-critical (VendorId.New() bug makes all analytics endpoints broken)
+<strong>Dependencies</strong>: Option C EP-09 (Redis cache available)
+<strong>Requirement refs</strong>: REQ-ANA-01 through REQ-ANA-07</p>
+
+<h3 id="stories">Stories</h3>
+<ul>
+  <li>S-10-01: Fix VendorId.New() bug in AnalyticsController (REQ-ANA-01) — P0</li>
+  <li>S-10-02: Implement vendor and vase analytics handlers (REQ-ANA-02, REQ-ANA-03, REQ-ANA-04)</li>
+  <li>S-10-03: Implement platform and benchmark handlers (REQ-ANA-05, REQ-ANA-06)</li>
+  <li>S-10-04: Implement analytics export handler (REQ-ANA-07)</li>
+</ul>
+
+<h3 id="tasks">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-10-001 | S-10-01 | Inject ITenantContextService into AnalyticsController; replace VendorId.New() with Current.VendorId in 4 actions |
+| T-10-002 | S-10-02 | Implement GetVendorAnalyticsQueryHandler (revenue, orders, avg order value, top bouquets, daily trend) |
+| T-10-003 | S-10-02 | Implement GetVaseAnalyticsQueryHandler (uptime %, scan count, orders attributed, freshness avg per vase) |
+| T-10-004 | S-10-02 | Implement GetRealtimeAnalyticsQueryHandler (active vases, available bouquets, open orders — cache-backed) |
+| T-10-005 | S-10-03 | Implement GetPlatformInsightsQueryHandler (total vendors, customers, GMV, top vendors, geographic distribution) |
+| T-10-006 | S-10-03 | Implement GetBenchmarkAnalyticsQueryHandler (revenue percentile, freshness score vs. peer group) |
+| T-10-007 | S-10-04 | Implement ExportAnalyticsQueryHandler (CSV streaming export of orders/revenue for the requested period) |</p>
+
+<hr />
+
+<h2 id="ep-11-admin-portal--customer-management-platform-analytics--vendor-actions">EP-11: Admin Portal — Customer Management, Platform Analytics &amp; Vendor Actions</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-10 (platform analytics endpoint), Option C EP-09
+<strong>Requirement refs</strong>: REQ-ADM-01 through REQ-ADM-06</p>
+
+<h3 id="stories-1">Stories</h3>
+<ul>
+  <li>S-11-01: Customer management pages (list + detail + suspend/reactivate) (REQ-ADM-01, REQ-ADM-02)</li>
+  <li>S-11-02: Platform analytics dashboard UI (REQ-ADM-03)</li>
+  <li>S-11-03: Vendor suspend/reactivate and direct-by-id detail (REQ-ADM-04, REQ-ADM-05)</li>
+  <li>S-11-04: Platform order oversight (REQ-ADM-06)</li>
+</ul>
+
+<h3 id="tasks-1">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-11-001 | S-11-01 | Add GET /api/v1/admin/customers (paginated, searchable) backend endpoint + handler |
+| T-11-002 | S-11-01 | Add GET /api/v1/admin/customers/{id}, POST /suspend, POST /reactivate backend endpoints |
+| T-11-003 | S-11-01 | Implement Customers/List.cshtml and Customers/Details.cshtml in AdminPortal with ApiClient methods |
+| T-11-004 | S-11-02 | Add platform analytics section to Admin Portal dashboard calling GET /api/analytics/platform |
+| T-11-005 | S-11-03 | Add POST /api/v1/admin/vendors/{id}/suspend and /reactivate backend endpoints |
+| T-11-006 | S-11-03 | Add Suspend/Reactivate buttons to Vendors/Details.cshtml; add ApiClient.SuspendVendorAsync/ReactivateVendorAsync |
+| T-11-007 | S-11-03 | Add GET /api/v1/admin/vendors/{id} endpoint; refactor Vendors/Details.cshtml.cs to call GetVendorByIdAsync |
+| T-11-008 | S-11-04 | Add GET /api/v1/admin/orders (paginated, filterable) + handler; add Orders/List.cshtml to AdminPortal |</p>
+
+<hr />
+
+<h2 id="ep-12-vendor-portal--order-management-analytics--profile">EP-12: Vendor Portal — Order Management, Analytics &amp; Profile</h2>
+
+<p><strong>Priority</strong>: P0-critical (vendors cannot manage orders without this)
+<strong>Dependencies</strong>: Option C EP-05 (vendor order API), EP-10 (analytics API fix)
+<strong>Requirement refs</strong>: REQ-VND-01 through REQ-VND-07, REQ-IOT-01, REQ-IOT-06</p>
+
+<h3 id="stories-2">Stories</h3>
+<ul>
+  <li>S-12-01: Order list and detail pages with status advancement (REQ-VND-01, REQ-VND-02)</li>
+  <li>S-12-02: Fix VendorId session bug and mock-vase upload bug (REQ-VND-05, REQ-VND-06, REQ-IOT-01)</li>
+  <li>S-12-03: Analytics/revenue dashboard page (REQ-VND-04)</li>
+  <li>S-12-04: Opening hours and vendor profile edit (REQ-VND-03, REQ-VND-07)</li>
+</ul>
+
+<h3 id="tasks-2">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-12-001 | S-12-01 | Create Orders/Index.cshtml.cs — list orders with status filter; add ApiClient.GetVendorOrdersAsync |
+| T-12-002 | S-12-01 | Create Orders/Details.cshtml.cs — order lines, timeline, status-advance form; add ApiClient.UpdateOrderStatusAsync |
+| T-12-003 | S-12-02 | Create ICurrentVendorService extracting VendorId from JWT claim; replace session reads across all page models |
+| T-12-004 | S-12-02 | Fix Vases/Details.cshtml.cs: replace mock-vase HttpClient call with _apiClient.UploadBouquetPhotoAsync(vaseId, bytes) |
+| T-12-005 | S-12-03 | Create Analytics/Index.cshtml.cs calling GET /api/analytics/vendor; render revenue/orders chart with Chart.js |
+| T-12-006 | S-12-04 | Create Settings/OpeningHours.cshtml.cs with weekly schedule editor; add ApiClient.UpdateOpeningHoursAsync |
+| T-12-007 | S-12-04 | Create Settings/Profile.cshtml.cs for vendor name/contact/description edit; add ApiClient.UpdateVendorProfileAsync |</p>
+
+<hr />
+
+<h2 id="ep-13-customer-web-app--authentication-integration--shopping">EP-13: Customer Web App — Authentication Integration &amp; Shopping</h2>
+
+<p><strong>Priority</strong>: P0-critical (no authenticated features work without this)
+<strong>Dependencies</strong>: Option C EP-01, EP-04 (Stripe order creation)
+<strong>Requirement refs</strong>: REQ-CWA-01 through REQ-CWA-03, REQ-CWA-08</p>
+
+<h3 id="stories-3">Stories</h3>
+<ul>
+  <li>S-13-01: Wire authentication to protected routes; read customerId from JWT (REQ-CWA-01)</li>
+  <li>S-13-02: Cart UI (REQ-CWA-02)</li>
+  <li>S-13-03: Checkout and order placement UI (REQ-CWA-03)</li>
+  <li>S-13-04: Leaflet.js map view with real-time pins (REQ-CWA-08)</li>
+</ul>
+
+<h3 id="tasks-3">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-13-001 | S-13-01 | Add ICurrentCustomerService reading customer_id claim from HttpContext.User; register in DI |
+| T-13-002 | S-13-01 | Decorate Cart, Checkout, Orders, Favourites, Profile controllers with [Authorize]; redirect anon to /Account/Login |
+| T-13-003 | S-13-01 | Remove customerId Guid from ApiClient method signatures; inject ICurrentCustomerService instead |
+| T-13-004 | S-13-02 | Create CartController (GET /Cart, POST /Cart/Add, POST /Cart/Remove, POST /Cart/Clear) with cart view |
+| T-13-005 | S-13-02 | Add cart item count badge to _Layout.cshtml via a ViewComponent calling GetCartCountAsync |
+| T-13-006 | S-13-03 | Create CheckoutController: GET /Checkout (order preview + Stripe PublishableKey), POST /Checkout/PlaceOrder |
+| T-13-007 | S-13-03 | Load Stripe.js on checkout page; initialize PaymentElement with clientSecret from CreateOrder response |
+| T-13-008 | S-13-03 | Create Checkout/Confirmation view for post-payment success redirect (Stripe return_url) |
+| T-13-009 | S-13-04 | Add Leaflet.js map view to Home/Index.cshtml — initialize map, geocode browser location, load nearby pins |
+| T-13-010 | S-13-04 | Connect Leaflet map to SignalR BouquetHub: add/remove pins on BouquetBecameAvailable/Unavailable events |</p>
+
+<hr />
+
+<h2 id="ep-14-customer-web-app--profile-favorites--subscriptions">EP-14: Customer Web App — Profile, Favorites &amp; Subscriptions</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-13 (authenticated session)
+<strong>Requirement refs</strong>: REQ-CWA-04 through REQ-CWA-07</p>
+
+<h3 id="stories-4">Stories</h3>
+<ul>
+  <li>S-14-01: Order history and tracking pages (REQ-CWA-04)</li>
+  <li>S-14-02: Favorites UI (REQ-CWA-05)</li>
+  <li>S-14-03: Customer profile and saved addresses (REQ-CWA-06)</li>
+  <li>S-14-04: Subscriptions management (REQ-CWA-07)</li>
+</ul>
+
+<h3 id="tasks-4">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-14-001 | S-14-01 | Create OrdersController: GET /Orders (list with status filter), GET /Orders/{id} (detail + timeline) |
+| T-14-002 | S-14-01 | Order detail view: show order lines, timeline events, estimated delivery, delivery QR code (if available) |
+| T-14-003 | S-14-02 | Add heart/unfavorite toggle button to bouquet cards; add ApiClient.AddFavouriteAsync / RemoveFavouriteAsync |
+| T-14-004 | S-14-02 | Create FavouritesController: GET /Favourites listing saved bouquets with availability status badges |
+| T-14-005 | S-14-03 | Create ProfileController: GET /Profile (stats + notification prefs), POST /Profile/Update (name/prefs) |
+| T-14-006 | S-14-03 | Add saved addresses sub-page: GET /Profile/Addresses, POST /Profile/Addresses/Add, DELETE /Profile/Addresses/{id} |
+| T-14-007 | S-14-04 | Create SubscriptionsController: GET /Subscriptions, POST /Subscriptions/Create, DELETE /Subscriptions/{id} |
+| T-14-008 | S-14-04 | Add disable-all button to subscriptions page calling DELETE /api/v1/subscriptions/all |</p>
+
+<hr />
+
+<h2 id="ep-15-iot-integration--production-paths--security">EP-15: IoT Integration — Production Paths &amp; Security</h2>
+
+<p><strong>Priority</strong>: P1-high (P0 for REQ-IOT-01 mock-vase bug)
+<strong>Dependencies</strong>: none (can run in parallel)
+<strong>Requirement refs</strong>: REQ-IOT-01 through REQ-IOT-05</p>
+
+<h3 id="stories-5">Stories</h3>
+<ul>
+  <li>S-15-01: Real bouquet photo upload endpoint (REQ-IOT-01, REQ-IOT-02)</li>
+  <li>S-15-02: MQTT broker authentication (REQ-IOT-03)</li>
+  <li>S-15-03: Vase heartbeat offline detection (REQ-IOT-04)</li>
+  <li>S-15-04: OTA firmware update endpoint (REQ-IOT-05)</li>
+</ul>
+
+<h3 id="tasks-5">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-15-001 | S-15-01 | Implement POST /api/v1/bouquets/{id}/photo multipart endpoint in BouquetsController; store file, return photoUrl |
+| T-15-002 | S-15-01 | Add ApiClient.UploadBouquetPhotoAsync(bouquetId, bytes, contentType) to VendorPortal ApiClient |
+| T-15-003 | S-15-01 | Fix Vases/Details.cshtml.cs to call _apiClient.UploadBouquetPhotoAsync instead of raw HttpClient mock |
+| T-15-004 | S-15-02 | Add Mqtt:Username and Mqtt:Password to IConfiguration; pass credentials in MqttDeviceCommunicationService connection |
+| T-15-005 | S-15-02 | Update docker-compose.dev.yml Mosquitto config to require password file; add dev credentials to appsettings.Development |
+| T-15-006 | S-15-03 | Implement VaseHeartbeatMonitorService (BackgroundService): poll every 5 min, mark stale vases offline, dispatch VaseWentOfflineEvent |
+| T-15-007 | S-15-03 | Add ISmartVaseRepository.GetStaleVasesAsync(cutoffMinutes) and implement in SmartVaseRepository |
+| T-15-008 | S-15-04 | Add POST /api/v1/admin/vases/{id}/firmware endpoint; publish MQTT message to vase/{serial}/ota with download URL |</p>
+
+<hr />
+
+<h2 id="ep-16-e2e-testing--playwright-suite-for-all-three-portals">EP-16: E2E Testing — Playwright Suite for All Three Portals</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: None — independent of all other epics. Tests for unimplemented features are marked <code class="language-plaintext highlighter-rouge">[Trait("Status", "pending")]</code> and skipped until the relevant epic is complete.
+<strong>Requirement refs</strong>: none (quality infrastructure)</p>
+
+<h3 id="stories-6">Stories</h3>
+<ul>
+  <li>S-16-01: Test project setup and shared infrastructure</li>
+  <li>S-16-02: Admin Portal E2E tests — auth, vendor management, vase registration (AP-01 to AP-06)</li>
+  <li>S-16-03: Vendor Portal E2E tests — auth, vase list, bouquet price (VP-01 to VP-06)</li>
+  <li>S-16-04: Customer App E2E tests — browsing (CA-01 to CA-03)</li>
+</ul>
+
+<h3 id="tasks-6">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-16-001 | S-16-01 | Create <code class="language-plaintext highlighter-rouge">FlowerShop.Tests.E2E</code> project with Playwright .NET + xunit, <code class="language-plaintext highlighter-rouge">PlaywrightFixture</code>, <code class="language-plaintext highlighter-rouge">TestConfig</code>, <code class="language-plaintext highlighter-rouge">appsettings.E2E.json</code> |
+| T-16-002 | S-16-02 | Admin Portal page objects (LoginPage, VendorListPage, VendorCreatePage, VendorDetailsPage, VaseListPage, VaseRegisterPage) |
+| T-16-003 | S-16-02 | Admin Portal auth tests — AP-01 valid login, AP-02 invalid login |
+| T-16-004 | S-16-02 | Admin Portal vendor management tests — AP-03 create vendor, AP-04 validation errors |
+| T-16-005 | S-16-02 | Admin Portal vase registration tests — AP-05 register vase, AP-06 duplicate serial error |
+| T-16-006 | S-16-03 | Vendor Portal page objects (LoginPage, VaseListPage, VaseDetailsPage, BouquetListPage, BouquetSetPricePage) |
+| T-16-007 | S-16-03 | Vendor Portal auth tests — VP-01 valid login, VP-02 invalid login, VP-03 session expiry redirect |
+| T-16-008 | S-16-03 | Vendor Portal vase &amp; bouquet tests — VP-04 view vases, VP-05 set price, VP-06 invalid price error |
+| T-16-009 | S-16-04 | Customer App page objects (HomePage, BouquetDetailsPage) |
+| T-16-010 | S-16-04 | Customer App browsing tests — CA-01 home page, CA-02 bouquet details, CA-03 non-existent bouquet 404 |</p>
+
+<hr />
+
+<h2 id="summary">Summary</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-      <th>Read when</th>
+      <th>Epic</th>
+      <th>Priority</th>
+      <th>Stories</th>
+      <th>Tasks</th>
+      <th>Key Dependency</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC/">DEPLOYMENT-SPEC.md</a></td>
-      <td>Why components live where; topology rationale; code changes required before deploy</td>
-      <td>First — establishes the mental model</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD/">REGISTRATION-AND-CICD.md</a></td>
-      <td>Account setup (Fly, Render, Aiven, Cloudflare, OVH, etc.), path-triggered CI/CD, bootstrap commands</td>
-      <td>Before touching any SaaS console</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS/">SECRETS-AND-ENV-VARS.md</a></td>
-      <td>Master table of every secret/env var, where it lives, who consumes it, rotation procedure</td>
-      <td>While registering accounts — populate as you go</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="during-first-deploy">During first deploy</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK/">DEPLOYMENT-RUNBOOK.md</a></td>
-      <td><strong>Ordered</strong> stage-by-stage runbook with health-check gates. This is the doc you follow live on deploy day.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a></td>
-      <td>Scripted end-to-end validation. Run after the runbook says “done”.</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="day-two-operations">Day-two operations</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY/">OBSERVABILITY.md</a></td>
-      <td>Where logs, health endpoints, and metrics live. First thing to read when something is wrong.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY/">ROLLBACK-AND-RECOVERY.md</a></td>
-      <td>Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="diagrams">Diagrams</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>View</th>
-      <th>Render</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1</td>
-      <td>Hosting topology (who lives where)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/01-hosting-topology.svg">01-hosting-topology.svg</a></td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>Customer purchase flow (OIDC → cart → Stripe)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/02-customer-purchase-flow.svg">02-customer-purchase-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>3</td>
-      <td>IoT ingest → freshness push to browsers</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/03-iot-ingest-flow.svg">03-iot-ingest-flow.svg</a></td>
-    </tr>
-    <tr>
+      <td>EP-10 Analytics API</td>
+      <td>P0-critical</td>
       <td>4</td>
-      <td>Network boundaries + DNS</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/04-network-and-dns.svg">04-network-and-dns.svg</a></td>
+      <td>7</td>
+      <td>EP-09</td>
+    </tr>
+    <tr>
+      <td>EP-11 Admin Portal</td>
+      <td>P1-high</td>
+      <td>4</td>
+      <td>8</td>
+      <td>EP-10</td>
+    </tr>
+    <tr>
+      <td>EP-12 Vendor Portal</td>
+      <td>P0-critical</td>
+      <td>4</td>
+      <td>7</td>
+      <td>EP-05, EP-10</td>
+    </tr>
+    <tr>
+      <td>EP-13 Customer Web Shopping</td>
+      <td>P0-critical</td>
+      <td>4</td>
+      <td>10</td>
+      <td>EP-01, EP-04</td>
+    </tr>
+    <tr>
+      <td>EP-14 Customer Web Profile</td>
+      <td>P1-high</td>
+      <td>4</td>
+      <td>8</td>
+      <td>EP-13</td>
+    </tr>
+    <tr>
+      <td>EP-15 IoT Integration</td>
+      <td>P1-high</td>
+      <td>4</td>
+      <td>8</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>EP-16 E2E Testing</td>
+      <td>P2-medium</td>
+      <td>4</td>
+      <td>10</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td> </td>
+      <td><strong>28</strong></td>
+      <td><strong>58</strong></td>
+      <td> </td>
     </tr>
   </tbody>
 </table>
-
-<h2 id="one-sentence-role-reference">One-sentence role reference</h2>
-
-<ul>
-  <li><strong>Fly.io</strong> hosts the always-on VMs: API, Keycloak, CustomerApp.</li>
-  <li><strong>Render</strong> hosts the cold-start-OK Razor portals: AdminPortal, VendorPortal.</li>
-  <li><strong>Aiven</strong> hosts PostgreSQL (two DBs: <code class="language-plaintext highlighter-rouge">flowershop_iot</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>).</li>
-  <li><strong>Upstash</strong> provides Redis (cache; real impl pending EP-09).</li>
-  <li><strong>CloudAMQP</strong> provides RabbitMQ (event bus; real impl pending EP-09).</li>
-  <li><strong>HiveMQ Cloud</strong> provides MQTT broker (vase telemetry).</li>
-  <li><strong>Cloudflare R2</strong> stores bouquet photos (post-EP-15).</li>
-  <li><strong>Cloudflare DNS</strong> is authoritative for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>.</li>
-  <li><strong>OVHcloud</strong> is the domain registrar only.</li>
-  <li><strong>Stripe</strong> processes payments; webhook lands on <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl/api/stripe/webhook</code>.</li>
-  <li><strong>GitHub Actions</strong> runs path-triggered deploys; <strong>GHCR</strong> stores portal images.</li>
-  <li><strong>cron-job.org</strong> keeps Render portals warm and pings health endpoints.</li>
-</ul>
-
-<h2 id="quick-links-for-operators">Quick links for operators</h2>
-
-<ul>
-  <li>Deploy API manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-api.yml</code></li>
-  <li>Deploy portal manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-admin-portal.yml</code> / <code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></li>
-  <li>Tail API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code></li>
-  <li>Rollback API: <code class="language-plaintext highlighter-rouge">fly releases rollback --app flowershop-api</code></li>
-  <li>Smoke test all: <code class="language-plaintext highlighter-rouge">./scripts/smoke.sh</code> (see <a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a>)</li>
-</ul>
 
     </div>
   </main>

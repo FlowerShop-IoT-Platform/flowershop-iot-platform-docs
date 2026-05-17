@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>docs/deployment/ — Index — FlowerShop IoT Platform</title>
+  <title>IoT Flows — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -523,141 +523,82 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="docsdeployment--index"><code class="language-plaintext highlighter-rouge">docs/deployment/</code> — Index</h1>
+      <h1 id="iot-device-flows">IoT Device Flows</h1>
 
-<p>All deployment documentation for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. Read in roughly this order.</p>
+<h2 id="1-vase-registration">1. Vase Registration</h2>
 
-<h2 id="before-first-deploy">Before first deploy</h2>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Tech as Technician
+  participant API as REST API
+  participant DB as PostgreSQL
 
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-      <th>Read when</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC/">DEPLOYMENT-SPEC.md</a></td>
-      <td>Why components live where; topology rationale; code changes required before deploy</td>
-      <td>First — establishes the mental model</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD/">REGISTRATION-AND-CICD.md</a></td>
-      <td>Account setup (Fly, Render, Aiven, Cloudflare, OVH, etc.), path-triggered CI/CD, bootstrap commands</td>
-      <td>Before touching any SaaS console</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS/">SECRETS-AND-ENV-VARS.md</a></td>
-      <td>Master table of every secret/env var, where it lives, who consumes it, rotation procedure</td>
-      <td>While registering accounts — populate as you go</td>
-    </tr>
-  </tbody>
-</table>
+  Tech-&gt;&gt;API: POST /api/v1/smart-vases/register-by-technician {serialNumber, vendorId, location}
+  API-&gt;&gt;DB: Create SmartVase {status=PendingAssignment}
+  API--&gt;&gt;Tech: 201 {vaseId, serialNumber}
 
-<h2 id="during-first-deploy">During first deploy</h2>
+  Tech-&gt;&gt;API: POST /api/v1/smart-vases/{id}/activate
+  API-&gt;&gt;DB: SmartVase RegistrationStatus → Active
+  API--&gt;&gt;Tech: 200 OK
+</code></pre>
 
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK/">DEPLOYMENT-RUNBOOK.md</a></td>
-      <td><strong>Ordered</strong> stage-by-stage runbook with health-check gates. This is the doc you follow live on deploy day.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a></td>
-      <td>Scripted end-to-end validation. Run after the runbook says “done”.</td>
-    </tr>
-  </tbody>
-</table>
+<h2 id="2-mqtt-connect--heartbeat">2. MQTT Connect + Heartbeat</h2>
 
-<h2 id="day-two-operations">Day-two operations</h2>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Vase as SmartVase Device
+  participant MQTT as Mosquitto Broker
+  participant API as MqttDeviceCommunicationService
+  participant DB as PostgreSQL
+  participant Monitor as VaseHealthMonitoringService
 
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY/">OBSERVABILITY.md</a></td>
-      <td>Where logs, health endpoints, and metrics live. First thing to read when something is wrong.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY/">ROLLBACK-AND-RECOVERY.md</a></td>
-      <td>Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist</td>
-    </tr>
-  </tbody>
-</table>
+  Vase-&gt;&gt;MQTT: CONNECT (clientId=vaseId)
+  MQTT-&gt;&gt;API: MqttDeviceStartupService.OnConnectedAsync
+  API-&gt;&gt;DB: SmartVase.LastHeartbeat = now, status=Online
+  API-&gt;&gt;DB: Publish VaseCameOnlineEvent
 
-<h2 id="diagrams">Diagrams</h2>
+  loop Every 30s
+    Vase-&gt;&gt;MQTT: PUBLISH vases/{vaseId}/heartbeat
+    MQTT-&gt;&gt;API: VaseDeviceServiceAdapter.HandleHeartbeat
+    API-&gt;&gt;DB: SmartVase.LastHeartbeat = now
+  end
 
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>View</th>
-      <th>Render</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1</td>
-      <td>Hosting topology (who lives where)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/01-hosting-topology.svg">01-hosting-topology.svg</a></td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>Customer purchase flow (OIDC → cart → Stripe)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/02-customer-purchase-flow.svg">02-customer-purchase-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>3</td>
-      <td>IoT ingest → freshness push to browsers</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/03-iot-ingest-flow.svg">03-iot-ingest-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>4</td>
-      <td>Network boundaries + DNS</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/04-network-and-dns.svg">04-network-and-dns.svg</a></td>
-    </tr>
-  </tbody>
-</table>
+  Monitor-&gt;&gt;DB: Poll: SmartVases where LastHeartbeat &lt; now-1hr
+  DB--&gt;&gt;Monitor: Stale vases
+  Monitor-&gt;&gt;DB: SmartVase status → Offline
+  Monitor-&gt;&gt;DB: Publish VaseWentOfflineEvent
 
-<h2 id="one-sentence-role-reference">One-sentence role reference</h2>
+  note over Vase,Monitor: Error path: missed heartbeat → Offline after 1hr
+</code></pre>
 
-<ul>
-  <li><strong>Fly.io</strong> hosts the always-on VMs: API, Keycloak, CustomerApp.</li>
-  <li><strong>Render</strong> hosts the cold-start-OK Razor portals: AdminPortal, VendorPortal.</li>
-  <li><strong>Aiven</strong> hosts PostgreSQL (two DBs: <code class="language-plaintext highlighter-rouge">flowershop_iot</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>).</li>
-  <li><strong>Upstash</strong> provides Redis (cache; real impl pending EP-09).</li>
-  <li><strong>CloudAMQP</strong> provides RabbitMQ (event bus; real impl pending EP-09).</li>
-  <li><strong>HiveMQ Cloud</strong> provides MQTT broker (vase telemetry).</li>
-  <li><strong>Cloudflare R2</strong> stores bouquet photos (post-EP-15).</li>
-  <li><strong>Cloudflare DNS</strong> is authoritative for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>.</li>
-  <li><strong>OVHcloud</strong> is the domain registrar only.</li>
-  <li><strong>Stripe</strong> processes payments; webhook lands on <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl/api/stripe/webhook</code>.</li>
-  <li><strong>GitHub Actions</strong> runs path-triggered deploys; <strong>GHCR</strong> stores portal images.</li>
-  <li><strong>cron-job.org</strong> keeps Render portals warm and pings health endpoints.</li>
-</ul>
+<h2 id="3-sensor-data">3. Sensor Data</h2>
 
-<h2 id="quick-links-for-operators">Quick links for operators</h2>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Vase as SmartVase Device
+  participant MQTT as Mosquitto Broker
+  participant API as MqttDeviceCommunicationService
+  participant DB as PostgreSQL
 
-<ul>
-  <li>Deploy API manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-api.yml</code></li>
-  <li>Deploy portal manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-admin-portal.yml</code> / <code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></li>
-  <li>Tail API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code></li>
-  <li>Rollback API: <code class="language-plaintext highlighter-rouge">fly releases rollback --app flowershop-api</code></li>
-  <li>Smoke test all: <code class="language-plaintext highlighter-rouge">./scripts/smoke.sh</code> (see <a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a>)</li>
-</ul>
+  Vase-&gt;&gt;MQTT: PUBLISH vases/{vaseId}/sensor {temperature, humidity, waterLevel}
+  MQTT-&gt;&gt;API: HandleSensorData(vaseId, payload)
+  API-&gt;&gt;DB: Update SmartVase sensor fields
+  API-&gt;&gt;DB: Recalculate Bouquet.FreshnessScore (if bouquet assigned)
+  API--&gt;&gt;Vase: ACK
+</code></pre>
+
+<h2 id="4-smartvase-state-machine">4. SmartVase State Machine</h2>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+  [*] --&gt; PendingAssignment : SmartVase.Create()
+  PendingAssignment --&gt; Active : AssignToVendor(vendorId, vendorType)
+  Active --&gt; PendingAssignment : UnassignFromVendor()
+  Active --&gt; Inactive : Admin deactivates
+  Active --&gt; UnderMaintenance : Admin marks for maintenance
+  UnderMaintenance --&gt; Active : Maintenance complete
+  Active --&gt; Decommissioned : Admin decommissions
+  Inactive --&gt; Decommissioned : Admin decommissions
+  Decommissioned --&gt; [*]
+
+  note right of Active : RegistrationStatus; ConnectionStatus (Online/Offline/Unstable) is tracked separately via heartbeat
+</code></pre>
 
     </div>
   </main>

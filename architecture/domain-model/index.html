@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>docs/deployment/ — Index — FlowerShop IoT Platform</title>
+  <title>Domain Model — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -523,141 +523,195 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="docsdeployment--index"><code class="language-plaintext highlighter-rouge">docs/deployment/</code> — Index</h1>
+      <h1 id="domain-model">Domain Model</h1>
 
-<p>All deployment documentation for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. Read in roughly this order.</p>
+<p>All 14 aggregates and their relationships.</p>
 
-<h2 id="before-first-deploy">Before first deploy</h2>
+<pre><code class="language-mermaid">erDiagram
+  Vendor ||--o{ SmartVase : "owns"
+  Vendor ||--o{ Employee : "employs"
+  Vendor {
+    VendorId Id
+    string Name
+    VendorType Type
+    string Email
+    bool IsActive
+  }
+
+  SmartVase ||--o| Bouquet : "currently displays"
+  SmartVase {
+    VaseId Id
+    VendorId VendorId
+    string SerialNumber
+    Location Location
+    VaseStatus Status
+    DateTime LastHeartbeat
+  }
+
+  Bouquet ||--o{ BouquetFeedback : "receives"
+  Bouquet {
+    BouquetId Id
+    VendorId VendorId
+    VaseId VaseId
+    string Name
+    PriceInfo Price
+    BouquetStatus Status
+    string QrShortCode
+    int FreshnessScore
+  }
+
+  Customer ||--o{ Order : "places"
+  Customer ||--o{ Favourite : "saves"
+  Customer ||--o{ Subscription : "subscribes"
+  Customer ||--o{ SavedAddress : "stores"
+  Customer ||--o{ DeviceRegistration : "registers"
+  Customer ||--o{ Notification : "receives"
+  Customer {
+    CustomerId Id
+    string Name
+    ContactInfo ContactInfo
+    Address Address
+    bool PhoneVerified
+  }
+
+  Order ||--|{ OrderLine : "contains"
+  Order ||--o{ BouquetFeedback : "generates"
+  Order {
+    OrderId Id
+    CustomerId CustomerId
+    VendorId VendorId
+    OrderStatus Status
+    decimal LinesSubtotal
+    DeliveryAddress DeliveryAddress
+    DateTime BouquetReservedUntil
+  }
+
+  OrderLine {
+    OrderLineId Id
+    OrderId OrderId
+    BouquetId BouquetId
+    decimal UnitPrice
+  }
+
+  Customer ||--o| Cart : "has"
+  Cart ||--|{ CartItem : "contains"
+  Cart {
+    CartId Id
+    CustomerId CustomerId
+    VendorId VendorId
+    VendorType VendorType
+    DateTime CreatedAt
+    DateTime UpdatedAt
+  }
+
+  CartItem {
+    BouquetId BouquetId
+    VaseId VaseId
+    decimal UnitPrice
+    string BouquetName
+    DateTime AddedAt
+  }
+
+  BouquetFeedback {
+    BouquetFeedbackId Id
+    OrderId OrderId
+    BouquetId BouquetId
+    VendorId VendorId
+    CustomerId CustomerId
+    int Rating
+    string Comment
+    bool IsAnonymous
+  }
+
+  Favourite {
+    FavouriteId Id
+    CustomerId CustomerId
+    BouquetId BouquetId
+  }
+
+  Subscription {
+    SubscriptionId Id
+    CustomerId CustomerId
+    VendorId ShopId
+    SubscriptionType Type
+    bool IsActive
+  }
+
+  Notification {
+    NotificationId Id
+    CustomerId CustomerId
+    string Title
+    string Body
+    bool IsRead
+  }
+
+  DeviceRegistration {
+    DeviceRegistrationId Id
+    CustomerId CustomerId
+    string DeviceToken
+    DevicePlatform Platform
+  }
+
+  SavedAddress {
+    SavedAddressId Id
+    CustomerId CustomerId
+    Address Address
+    string Label
+  }
+
+  Employee {
+    EmployeeId Id
+    VendorId VendorId
+    string Name
+    EmployeeRole Role
+    bool IsActive
+  }
+
+  User {
+    UserId Id
+    UserRole Role
+    CustomerId CustomerId
+    VendorId VendorId
+    VendorType VendorType
+  }
+</code></pre>
+
+<h2 id="aggregate-notes">Aggregate Notes</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-      <th>Read when</th>
+      <th>Aggregate</th>
+      <th>Key Invariants</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC/">DEPLOYMENT-SPEC.md</a></td>
-      <td>Why components live where; topology rationale; code changes required before deploy</td>
-      <td>First — establishes the mental model</td>
+      <td><strong>Vendor</strong></td>
+      <td>Polymorphic — <code class="language-plaintext highlighter-rouge">FlowerShop</code> (location + hours) or <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code> (privacy radius). VendorId + VendorType scope all child data.</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD/">REGISTRATION-AND-CICD.md</a></td>
-      <td>Account setup (Fly, Render, Aiven, Cloudflare, OVH, etc.), path-triggered CI/CD, bootstrap commands</td>
-      <td>Before touching any SaaS console</td>
+      <td><strong>Bouquet</strong></td>
+      <td>Status machine: <code class="language-plaintext highlighter-rouge">Available → Sold / Expired</code>. Price changes only when status is <code class="language-plaintext highlighter-rouge">Available</code>.</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS/">SECRETS-AND-ENV-VARS.md</a></td>
-      <td>Master table of every secret/env var, where it lives, who consumes it, rotation procedure</td>
-      <td>While registering accounts — populate as you go</td>
+      <td><strong>SmartVase</strong></td>
+      <td>One bouquet at a time (<code class="language-plaintext highlighter-rouge">CurrentBouquetId</code>). RegistrationStatus: <code class="language-plaintext highlighter-rouge">PendingAssignment → Active → Inactive / UnderMaintenance / Decommissioned</code>. ConnectionStatus (Online/Offline/Unstable) tracked separately via heartbeat.</td>
+    </tr>
+    <tr>
+      <td><strong>Order</strong></td>
+      <td>Multi-line. Bouquets reserved for 15 min on creation. All lines must belong to the same vendor.</td>
+    </tr>
+    <tr>
+      <td><strong>Cart</strong></td>
+      <td>Vendor-scoped: all items must belong to the same vendor. Adding a different vendor returns 409 <code class="language-plaintext highlighter-rouge">vendor-mismatch</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>User</strong></td>
+      <td>Role determines which of <code class="language-plaintext highlighter-rouge">CustomerId</code> / <code class="language-plaintext highlighter-rouge">VendorId</code> is set.</td>
     </tr>
   </tbody>
 </table>
-
-<h2 id="during-first-deploy">During first deploy</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK/">DEPLOYMENT-RUNBOOK.md</a></td>
-      <td><strong>Ordered</strong> stage-by-stage runbook with health-check gates. This is the doc you follow live on deploy day.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a></td>
-      <td>Scripted end-to-end validation. Run after the runbook says “done”.</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="day-two-operations">Day-two operations</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY/">OBSERVABILITY.md</a></td>
-      <td>Where logs, health endpoints, and metrics live. First thing to read when something is wrong.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY/">ROLLBACK-AND-RECOVERY.md</a></td>
-      <td>Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="diagrams">Diagrams</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>View</th>
-      <th>Render</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1</td>
-      <td>Hosting topology (who lives where)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/01-hosting-topology.svg">01-hosting-topology.svg</a></td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>Customer purchase flow (OIDC → cart → Stripe)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/02-customer-purchase-flow.svg">02-customer-purchase-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>3</td>
-      <td>IoT ingest → freshness push to browsers</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/03-iot-ingest-flow.svg">03-iot-ingest-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>4</td>
-      <td>Network boundaries + DNS</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/04-network-and-dns.svg">04-network-and-dns.svg</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="one-sentence-role-reference">One-sentence role reference</h2>
-
-<ul>
-  <li><strong>Fly.io</strong> hosts the always-on VMs: API, Keycloak, CustomerApp.</li>
-  <li><strong>Render</strong> hosts the cold-start-OK Razor portals: AdminPortal, VendorPortal.</li>
-  <li><strong>Aiven</strong> hosts PostgreSQL (two DBs: <code class="language-plaintext highlighter-rouge">flowershop_iot</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>).</li>
-  <li><strong>Upstash</strong> provides Redis (cache; real impl pending EP-09).</li>
-  <li><strong>CloudAMQP</strong> provides RabbitMQ (event bus; real impl pending EP-09).</li>
-  <li><strong>HiveMQ Cloud</strong> provides MQTT broker (vase telemetry).</li>
-  <li><strong>Cloudflare R2</strong> stores bouquet photos (post-EP-15).</li>
-  <li><strong>Cloudflare DNS</strong> is authoritative for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>.</li>
-  <li><strong>OVHcloud</strong> is the domain registrar only.</li>
-  <li><strong>Stripe</strong> processes payments; webhook lands on <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl/api/stripe/webhook</code>.</li>
-  <li><strong>GitHub Actions</strong> runs path-triggered deploys; <strong>GHCR</strong> stores portal images.</li>
-  <li><strong>cron-job.org</strong> keeps Render portals warm and pings health endpoints.</li>
-</ul>
-
-<h2 id="quick-links-for-operators">Quick links for operators</h2>
-
-<ul>
-  <li>Deploy API manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-api.yml</code></li>
-  <li>Deploy portal manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-admin-portal.yml</code> / <code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></li>
-  <li>Tail API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code></li>
-  <li>Rollback API: <code class="language-plaintext highlighter-rouge">fly releases rollback --app flowershop-api</code></li>
-  <li>Smoke test all: <code class="language-plaintext highlighter-rouge">./scripts/smoke.sh</code> (see <a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a>)</li>
-</ul>
 
     </div>
   </main>

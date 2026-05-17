@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlowerShop Backend — Epics, Stories &amp; Tasks — FlowerShop IoT Platform</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: rgba(15,17,23,.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: #c8d0dc;
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: #9bb5ff;
+      border-bottom-color: #9bb5ff;
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #a5d6ff;
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: #c9d1d9;
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: #c8d0dc;
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/flowershop-iot-platform-docs/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
+  <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
+  <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/cross-cutting">Cross-cutting</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/">Overview</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" href="/flowershop-iot-platform-docs/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="flowershop-backend--epics-stories--tasks">FlowerShop Backend — Epics, Stories &amp; Tasks</h1>
+
+<p><strong>Scope:</strong> Mobile API (FMF) + Vendor Order Management
+<strong>Source:</strong> REQ-GAPS.md (2026-03-21)</p>
+
+<p>Execution order: EP-01 must complete before any other epic. EP-04 depends on EP-01. EP-05 depends on EP-04. All others are independent after EP-01.</p>
+
+<hr />
+
+<h2 id="ep-01--database-foundation--migrations">EP-01 · Database Foundation &amp; Migrations</h2>
+<p><strong>Priority:</strong> P0 · <strong>Blocks:</strong> all other epics</p>
+
+<p>Everything else depends on the DB schema being correct. No application logic can be tested without these tables.</p>
+
+<h3 id="s-01-01--generate-and-apply-pending-migration">S-01-01 · Generate and apply pending migration</h3>
+<p>Aggregates, repositories, and EF configurations for Cart, Order, Subscription, Favourite, Notification, DeviceRegistration, and SavedAddress exist but have no migration.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Requirement</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>T-01-001</td>
+      <td>REQ-DB-01</td>
+      <td>Run <code class="language-plaintext highlighter-rouge">dotnet ef migrations add AddCartAndOrderLines</code> and verify generated SQL covers: Carts, CartItems, Orders (multi-line), OrderLines, Subscriptions, Favourites, Notifications, DeviceRegistrations, SavedAddresses</td>
+    </tr>
+    <tr>
+      <td>T-01-002</td>
+      <td>REQ-DB-01</td>
+      <td>Apply migration to dev DB; verify all 9 new tables exist with correct columns and FK constraints</td>
+    </tr>
+    <tr>
+      <td>T-01-003</td>
+      <td>REQ-DB-01</td>
+      <td>Update <code class="language-plaintext highlighter-rouge">FlowerShopDbContextModelSnapshot</code> — ensure it reflects the new schema</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="s-01-02--qr-short-code-column">S-01-02 · QR short-code column</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-01-004 | REQ-DB-02 | Add <code class="language-plaintext highlighter-rouge">QrCode varchar(8) NOT NULL UNIQUE</code> to <code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate and <code class="language-plaintext highlighter-rouge">BouquetConfiguration</code>; generate migration <code class="language-plaintext highlighter-rouge">AddBouquetQrCode</code> |
+| T-01-005 | REQ-DB-02 | Seed existing bouquets with generated QR codes (data migration in the migration’s <code class="language-plaintext highlighter-rouge">Up()</code>) |</p>
+
+<h3 id="s-01-03--vendor-profile-columns">S-01-03 · Vendor profile columns</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-01-006 | REQ-DB-03 | Add <code class="language-plaintext highlighter-rouge">OpeningHours varchar(300)</code> and <code class="language-plaintext highlighter-rouge">Description text</code> to <code class="language-plaintext highlighter-rouge">FlowerShop</code> and <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code> aggregates and EF configurations; generate migration <code class="language-plaintext highlighter-rouge">AddVendorProfileColumns</code> |</p>
+
+<hr />
+
+<h2 id="ep-02--customer-authentication--registration">EP-02 · Customer Authentication &amp; Registration</h2>
+<p><strong>Priority:</strong> P0–P1 · <strong>Depends on:</strong> EP-01</p>
+
+<h3 id="s-02-01--verify-and-fix-customer-registration">S-02-01 · Verify and fix customer registration</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-02-001 | REQ-AUTH-01 | Audit <code class="language-plaintext highlighter-rouge">CustomerRegistrationController</code> — confirm it creates the Keycloak user, creates a <code class="language-plaintext highlighter-rouge">Customer</code> entity in DB, and links the <code class="language-plaintext highlighter-rouge">customer_id</code> to the Keycloak user as a custom attribute |
+| T-02-002 | REQ-AUTH-01 | Fix <code class="language-plaintext highlighter-rouge">CustomerOnboardingService</code> if the Keycloak user creation and local <code class="language-plaintext highlighter-rouge">Customer</code> record creation are not atomic (wrap in a try/rollback pattern) |
+| T-02-003 | REQ-AUTH-01 | Add integration test: register → login → verify <code class="language-plaintext highlighter-rouge">customer_id</code> claim is present in JWT |</p>
+
+<h3 id="s-02-02--email-verification-resend">S-02-02 · Email verification resend</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-02-004 | REQ-AUTH-02 | Add <code class="language-plaintext highlighter-rouge">POST /api/auth/resend-verification</code> to <code class="language-plaintext highlighter-rouge">AuthController</code>; delegate to <code class="language-plaintext highlighter-rouge">IKeycloakAdminClient.SendVerificationEmailAsync(userId)</code> |
+| T-02-005 | REQ-AUTH-02 | Apply rate limiting: 1 request per 60 s per authenticated user (use REQ-PERF-01 middleware once available, or a per-endpoint <code class="language-plaintext highlighter-rouge">[EnableRateLimiting]</code> attribute) |</p>
+
+<h3 id="s-02-03--password-reset-flow">S-02-03 · Password reset flow</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-02-006 | REQ-AUTH-03 | Add <code class="language-plaintext highlighter-rouge">POST /api/auth/password-reset/request</code> (no auth); delegate to <code class="language-plaintext highlighter-rouge">IKeycloakAdminClient.SendPasswordResetEmailAsync(email)</code>; always return 202 |
+| T-02-007 | REQ-AUTH-04 | Add <code class="language-plaintext highlighter-rouge">POST /api/auth/password-reset/confirm</code>; delegate to Keycloak token endpoint or admin API; return 200 / 400 |</p>
+
+<hr />
+
+<h2 id="ep-03--bouquet-discovery-qr--vendor-profile">EP-03 · Bouquet Discovery, QR &amp; Vendor Profile</h2>
+<p><strong>Priority:</strong> P0–P1 · <strong>Depends on:</strong> EP-01</p>
+
+<h3 id="s-03-01--geo-spatial-nearby-filter">S-03-01 · Geo-spatial nearby filter</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-03-001 | REQ-DISC-01 | Implement Haversine distance computation as a static helper <code class="language-plaintext highlighter-rouge">GeoHelper.DistanceKm(lat1, lng1, lat2, lng2)</code> |
+| T-03-002 | REQ-DISC-01 | Rewrite <code class="language-plaintext highlighter-rouge">GetNearbyBouquetsQueryHandler</code> to: (1) load available bouquets with vase locations, (2) filter by Haversine distance ≤ radiusKm, (3) sort by distance ascending, (4) paginate |
+| T-03-003 | REQ-DISC-01 | Apply <code class="language-plaintext highlighter-rouge">vendorType</code>, <code class="language-plaintext highlighter-rouge">search</code>, <code class="language-plaintext highlighter-rouge">flowerType</code>, <code class="language-plaintext highlighter-rouge">maxPrice</code> filters in the handler |</p>
+
+<h3 id="s-03-02--isfavourite--freelancer-privacy">S-03-02 · isFavourite &amp; freelancer privacy</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-03-004 | REQ-DISC-02 | In <code class="language-plaintext highlighter-rouge">GetNearbyBouquetsQueryHandler</code>, when <code class="language-plaintext highlighter-rouge">customerId</code> is present, load the customer’s favourite bouquet IDs from <code class="language-plaintext highlighter-rouge">IFavouriteRepository</code> and set <code class="language-plaintext highlighter-rouge">IsFavourite</code> on each result item |
+| T-03-005 | REQ-DISC-03 | In <code class="language-plaintext highlighter-rouge">GetNearbyBouquetsQueryHandler</code> and <code class="language-plaintext highlighter-rouge">GetBouquetDetailQueryHandler</code>, fuzz coordinates for freelance florists: add random offset ≤ 0.005° (~500 m) before returning; set <code class="language-plaintext highlighter-rouge">ExactAddressHidden = true</code> |</p>
+
+<h3 id="s-03-03--bouquet-detail-completeness">S-03-03 · Bouquet detail completeness</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-03-006 | REQ-DISC-04 | Implement <code class="language-plaintext highlighter-rouge">OpeningHoursParser.IsOpen(string openingHours, DateTimeOffset now, string timezone = "Europe/Warsaw")</code> — parses human-readable opening hours string and returns <code class="language-plaintext highlighter-rouge">bool?</code> |
+| T-03-007 | REQ-DISC-04 | In <code class="language-plaintext highlighter-rouge">GetBouquetDetailQueryHandler</code>, populate <code class="language-plaintext highlighter-rouge">IsVendorCurrentlyOpen</code> using <code class="language-plaintext highlighter-rouge">OpeningHoursParser.IsOpen</code> |
+| T-03-008 | REQ-DISC-05 | Add <code class="language-plaintext highlighter-rouge">IsFavourite</code>, <code class="language-plaintext highlighter-rouge">AiTags</code>, <code class="language-plaintext highlighter-rouge">VendorOpeningHours</code>, and <code class="language-plaintext highlighter-rouge">DistanceKm</code> (optional) to <code class="language-plaintext highlighter-rouge">BouquetDetailDto</code> and populate in handler |</p>
+
+<h3 id="s-03-04--qr-code-generation--resolution">S-03-04 · QR code generation &amp; resolution</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-03-009 | REQ-DISC-07 | Add <code class="language-plaintext highlighter-rouge">GenerateQrCode()</code> factory method to <code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate that produces a cryptographically random 8-char alphanumeric code |
+| T-03-010 | REQ-DISC-07 | Update <code class="language-plaintext highlighter-rouge">CreateBouquetCommandHandler</code> to call <code class="language-plaintext highlighter-rouge">GenerateQrCode()</code> and persist the code |
+| T-03-011 | REQ-DISC-06 | Add <code class="language-plaintext highlighter-rouge">GetByQrCodeAsync(string code)</code> to <code class="language-plaintext highlighter-rouge">IBouquetRepository</code> and <code class="language-plaintext highlighter-rouge">BouquetRepository</code> |
+| T-03-012 | REQ-DISC-06 | Update <code class="language-plaintext highlighter-rouge">ResolveBouquetByQrQueryHandler</code> to look up by QR short code; return 410 when status is <code class="language-plaintext highlighter-rouge">Sold</code> or <code class="language-plaintext highlighter-rouge">Expired</code> |</p>
+
+<h3 id="s-03-05--vendor-profile--opening-hours">S-03-05 · Vendor profile &amp; opening hours</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-03-013 | REQ-VND-01 | Add <code class="language-plaintext highlighter-rouge">OpeningHours</code> and <code class="language-plaintext highlighter-rouge">Description</code> properties to <code class="language-plaintext highlighter-rouge">FlowerShop</code> and <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code> aggregates with setter methods |
+| T-03-014 | REQ-VND-02 | Wire <code class="language-plaintext highlighter-rouge">OpeningHoursParser.IsOpen</code> into <code class="language-plaintext highlighter-rouge">GetPublicVendorQueryHandler</code> to populate <code class="language-plaintext highlighter-rouge">IsCurrentlyOpen</code> |
+| T-03-015 | REQ-VND-03 | Complete <code class="language-plaintext highlighter-rouge">PublicVendorDto</code> with <code class="language-plaintext highlighter-rouge">isCurrentlyOpen</code>, <code class="language-plaintext highlighter-rouge">openingHours</code>, <code class="language-plaintext highlighter-rouge">description</code>, <code class="language-plaintext highlighter-rouge">activeBouquetCount</code>; populate all fields in <code class="language-plaintext highlighter-rouge">GetPublicVendorQueryHandler</code> |</p>
+
+<hr />
+
+<h2 id="ep-04--order-lifecycle--stripe">EP-04 · Order Lifecycle &amp; Stripe</h2>
+<p><strong>Priority:</strong> P0 · <strong>Depends on:</strong> EP-01</p>
+
+<h3 id="s-04-01--stripe-service">S-04-01 · Stripe service</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-04-001 | REQ-ORD-01 | Add <code class="language-plaintext highlighter-rouge">Stripe.net</code> NuGet package to <code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure</code> |
+| T-04-002 | REQ-ORD-01 | Define <code class="language-plaintext highlighter-rouge">IStripeService</code> interface in <code class="language-plaintext highlighter-rouge">FlowerShop.Application</code>: <code class="language-plaintext highlighter-rouge">CreatePaymentIntentAsync</code>, <code class="language-plaintext highlighter-rouge">RefundPaymentAsync</code> |
+| T-04-003 | REQ-ORD-01 | Implement <code class="language-plaintext highlighter-rouge">StripeService</code> in <code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure.Payments</code>; read <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> from configuration |
+| T-04-004 | REQ-ORD-01 | Register <code class="language-plaintext highlighter-rouge">IStripeService → StripeService</code> in <code class="language-plaintext highlighter-rouge">ServiceCollectionExtensions</code> |</p>
+
+<h3 id="s-04-02--order-creation-with-stripe">S-04-02 · Order creation with Stripe</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-04-005 | REQ-ORD-02 | Inject <code class="language-plaintext highlighter-rouge">IStripeService</code> into <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code>; after persisting the order, call <code class="language-plaintext highlighter-rouge">CreatePaymentIntentAsync</code> with <code class="language-plaintext highlighter-rouge">TotalAmount</code>, <code class="language-plaintext highlighter-rouge">Currency</code>, Stripe customer ID |
+| T-04-006 | REQ-ORD-02 | Add <code class="language-plaintext highlighter-rouge">StripeClientSecret</code>, <code class="language-plaintext highlighter-rouge">StripeEphemeralKey</code>, <code class="language-plaintext highlighter-rouge">StripeCustomerId</code> to <code class="language-plaintext highlighter-rouge">OrderCreatedDto</code> |
+| T-04-007 | REQ-ORD-02 | Store <code class="language-plaintext highlighter-rouge">StripePaymentIntentId</code> and <code class="language-plaintext highlighter-rouge">StripeCustomerId</code> on the <code class="language-plaintext highlighter-rouge">Order</code> aggregate for later webhook correlation |</p>
+
+<h3 id="s-04-03--stripe-webhook-handler">S-04-03 · Stripe webhook handler</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-04-008 | REQ-ORD-03 | Add <code class="language-plaintext highlighter-rouge">StripeWebhookController</code> at <code class="language-plaintext highlighter-rouge">POST /api/stripe/webhook</code>; bypass <code class="language-plaintext highlighter-rouge">[Authorize]</code> and read raw body |
+| T-04-009 | REQ-ORD-03 | Verify <code class="language-plaintext highlighter-rouge">Stripe-Signature</code> header using <code class="language-plaintext highlighter-rouge">Stripe:WebhookSecret</code> from configuration |
+| T-04-010 | REQ-ORD-03 | Handle <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code> → dispatch <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code> |
+| T-04-011 | REQ-ORD-03 | Handle <code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code> → dispatch <code class="language-plaintext highlighter-rouge">CancelOrderCommand</code> |</p>
+
+<h3 id="s-04-04--idempotency-for-order-creation">S-04-04 · Idempotency for order creation</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-04-012 | REQ-ORD-04 | Implement <code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code> or an <code class="language-plaintext highlighter-rouge">IdempotencyFilter</code> that: reads <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header on <code class="language-plaintext highlighter-rouge">POST /api/orders</code>, checks Redis for a cached response keyed by <code class="language-plaintext highlighter-rouge">idempotency:{key}</code>, returns cached response if found, stores the response in Redis with 24 h TTL after successful execution |</p>
+
+<h3 id="s-04-05--reservation-expiry-background-service">S-04-05 · Reservation expiry background service</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-04-013 | REQ-ORD-05 | Implement <code class="language-plaintext highlighter-rouge">OrderReservationExpiryService : BackgroundService</code> in <code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure</code> |
+| T-04-014 | REQ-ORD-05 | Service loops every 30 s; queries <code class="language-plaintext highlighter-rouge">IOrderRepository.GetExpiredReservationsAsync(now)</code> and for each: cancels the order, releases bouquet reservations, dispatches <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> SignalR event |
+| T-04-015 | REQ-ORD-05 | Add <code class="language-plaintext highlighter-rouge">GetExpiredReservationsAsync</code> to <code class="language-plaintext highlighter-rouge">IOrderRepository</code> and <code class="language-plaintext highlighter-rouge">OrderRepository</code> |
+| T-04-016 | REQ-ORD-05 | Register <code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code> as a hosted service in <code class="language-plaintext highlighter-rouge">ServiceCollectionExtensions</code> |</p>
+
+<h3 id="s-04-06--delivery-qr-code--cancel-with-refund">S-04-06 · Delivery QR code &amp; cancel with refund</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-04-017 | REQ-ORD-06 | Add <code class="language-plaintext highlighter-rouge">IQrCodeGenerator</code> interface; implement <code class="language-plaintext highlighter-rouge">QRCoderQrCodeGenerator</code> using <code class="language-plaintext highlighter-rouge">QRCoder</code> NuGet package; generates a base64 PNG data URI from a string payload |
+| T-04-018 | REQ-ORD-06 | In <code class="language-plaintext highlighter-rouge">GetOrderDetailQueryHandler</code>, when <code class="language-plaintext highlighter-rouge">order.Status &gt;= Paid</code>, call <code class="language-plaintext highlighter-rouge">IQrCodeGenerator.GenerateForOrder(orderId)</code> and include in <code class="language-plaintext highlighter-rouge">DeliveryQrCode</code> field of <code class="language-plaintext highlighter-rouge">OrderDetailDto</code> |
+| T-04-019 | REQ-ORD-07 | In <code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code>, when order status is <code class="language-plaintext highlighter-rouge">Paid</code>, call <code class="language-plaintext highlighter-rouge">IStripeService.RefundPaymentAsync(order.StripePaymentIntentId)</code> and set <code class="language-plaintext highlighter-rouge">RefundStatus = "refund_initiated"</code> on the order; return <code class="language-plaintext highlighter-rouge">refundStatus</code> in the cancel response DTO |</p>
+
+<hr />
+
+<h2 id="ep-05--vendor-order-management">EP-05 · Vendor Order Management</h2>
+<p><strong>Priority:</strong> P0 · <strong>Depends on:</strong> EP-04</p>
+
+<h3 id="s-05-01--vendor-order-status-api">S-05-01 · Vendor order status API</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-05-001 | REQ-VOM-01 | Create <code class="language-plaintext highlighter-rouge">VendorOrdersController</code> at <code class="language-plaintext highlighter-rouge">PUT /api/vendor/orders/{id}/status</code> (VendorAccess policy) |
+| T-05-002 | REQ-VOM-01 | Validate the requesting vendor owns the order (via VendorId on order lines) |
+| T-05-003 | REQ-VOM-02 | Implement <code class="language-plaintext highlighter-rouge">UpdateOrderStatusCommand(OrderId, VendorId, NewStatus, EstimatedDeliveryAt?)</code> and <code class="language-plaintext highlighter-rouge">UpdateOrderStatusCommandHandler</code> |
+| T-05-004 | REQ-VOM-02 | Enforce allowed status transitions in <code class="language-plaintext highlighter-rouge">Order.TransitionStatus(newStatus)</code> domain method; return a <code class="language-plaintext highlighter-rouge">Result</code> error for invalid transitions |
+| T-05-005 | REQ-VOM-02 | Append <code class="language-plaintext highlighter-rouge">TimelineEntry</code> on each transition; set <code class="language-plaintext highlighter-rouge">EstimatedDeliveryAt</code> when transitioning to <code class="language-plaintext highlighter-rouge">InDelivery</code> |</p>
+
+<h3 id="s-05-02--real-time--notification-on-status-change">S-05-02 · Real-time &amp; notification on status change</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-05-006 | REQ-VOM-02 | In <code class="language-plaintext highlighter-rouge">UpdateOrderStatusCommandHandler</code>, call <code class="language-plaintext highlighter-rouge">IRealTimeNotificationService.SendOrderStatusChangedAsync(orderId, newStatus, label, estimatedDeliveryAt)</code> |
+| T-05-007 | REQ-VOM-02 | In <code class="language-plaintext highlighter-rouge">UpdateOrderStatusCommandHandler</code>, call <code class="language-plaintext highlighter-rouge">INotificationServiceClient.SendAsync</code> to deliver push notification to the customer’s registered device(s) |</p>
+
+<h3 id="s-05-03--mark-bouquets-sold-on-delivery">S-05-03 · Mark bouquets sold on delivery</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-05-008 | REQ-VOM-04 | When order transitions to <code class="language-plaintext highlighter-rouge">Delivered</code>, set each bouquet’s <code class="language-plaintext highlighter-rouge">Status = Sold</code> and <code class="language-plaintext highlighter-rouge">SoldAt = now</code> via <code class="language-plaintext highlighter-rouge">IBouquetRepository.UpdateAsync</code> |
+| T-05-009 | REQ-VOM-04 | Dispatch <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> (reason: <code class="language-plaintext highlighter-rouge">sold</code>) SignalR event for each bouquet |</p>
+
+<h3 id="s-05-04--vendor-order-list">S-05-04 · Vendor order list</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-05-010 | REQ-VOM-03 | Add <code class="language-plaintext highlighter-rouge">GET /api/vendor/orders</code> to <code class="language-plaintext highlighter-rouge">VendorOrdersController</code>; paginated, filterable by <code class="language-plaintext highlighter-rouge">status</code>; returns only orders belonging to the requesting vendor |
+| T-05-011 | REQ-VOM-03 | Add <code class="language-plaintext highlighter-rouge">GetByVendorIdAsync(vendorId, statusFilter, page, pageSize)</code> to <code class="language-plaintext highlighter-rouge">IOrderRepository</code> and <code class="language-plaintext highlighter-rouge">OrderRepository</code> |</p>
+
+<hr />
+
+<h2 id="ep-06--favourites-subscriptions--notifications">EP-06 · Favourites, Subscriptions &amp; Notifications</h2>
+<p><strong>Priority:</strong> P1 · <strong>Depends on:</strong> EP-01</p>
+
+<h3 id="s-06-01--complete-favourites-handlers">S-06-01 · Complete favourites handlers</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-06-001 | REQ-FAV-01 | Complete <code class="language-plaintext highlighter-rouge">GetFavouritesQueryHandler</code> — join with bouquet data (thumbnail, status, freshness, price, location), compute <code class="language-plaintext highlighter-rouge">DistanceKm</code> when coordinates provided, include <code class="language-plaintext highlighter-rouge">SavedAt</code> |
+| T-06-002 | REQ-FAV-02 | Complete <code class="language-plaintext highlighter-rouge">AddFavouriteCommandHandler</code> — return <code class="language-plaintext highlighter-rouge">Result.Failure("already-favourited")</code> if already exists; controller maps to 409 |
+| T-06-003 | REQ-FAV-03 | Confirm <code class="language-plaintext highlighter-rouge">RemoveFavouriteCommandHandler</code> returns success even if not found (idempotent) |</p>
+
+<h3 id="s-06-02--complete-subscription-validation">S-06-02 · Complete subscription validation</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-06-004 | REQ-SUB-01 | Add <code class="language-plaintext highlighter-rouge">CreateSubscriptionCommandValidator</code> (FluentValidation): validate <code class="language-plaintext highlighter-rouge">flowerType</code> against reference list, <code class="language-plaintext highlighter-rouge">radiusKm</code> ∈ {5, 10, 15}, <code class="language-plaintext highlighter-rouge">notificationFrequency</code> ∈ {immediate, daily, weekly}, <code class="language-plaintext highlighter-rouge">shopId</code> exists |
+| T-06-005 | REQ-SUB-02 | Complete <code class="language-plaintext highlighter-rouge">DisableAllSubscriptionsCommandHandler</code> — sets <code class="language-plaintext highlighter-rouge">IsActive = false</code> on all customer subscriptions; returns count |</p>
+
+<h3 id="s-06-03--push-notification-service">S-06-03 · Push notification service</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-06-006 | REQ-NOTIF-01 | Add <code class="language-plaintext highlighter-rouge">FirebaseAdminSDK</code> NuGet package (or <code class="language-plaintext highlighter-rouge">Google.Apis.FirebaseCloudMessaging.v1</code>) |
+| T-06-007 | REQ-NOTIF-01 | Implement <code class="language-plaintext highlighter-rouge">FirebaseNotificationService : INotificationServiceClient</code>; reads Firebase service account JSON from configuration; implement <code class="language-plaintext highlighter-rouge">SendAsync(deviceToken, title, body, data)</code> |
+| T-06-008 | REQ-NOTIF-01 | Register <code class="language-plaintext highlighter-rouge">INotificationServiceClient → FirebaseNotificationService</code> in DI |</p>
+
+<h3 id="s-06-04--device-registration">S-06-04 · Device registration</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-06-009 | REQ-NOTIF-02 | Complete <code class="language-plaintext highlighter-rouge">DeviceRegistrationService.RegisterAsync</code> — upsert by <code class="language-plaintext highlighter-rouge">(CustomerId, DeviceToken)</code>: update <code class="language-plaintext highlighter-rouge">AppVersion</code>, <code class="language-plaintext highlighter-rouge">Platform</code>, <code class="language-plaintext highlighter-rouge">LastSeenAt</code> if exists; insert if not |
+| T-06-010 | REQ-NOTIF-03 | Complete <code class="language-plaintext highlighter-rouge">DeviceRegistrationService.UnregisterAsync</code> — delete by <code class="language-plaintext highlighter-rouge">DeviceToken</code> |</p>
+
+<h3 id="s-06-05--notification-feed">S-06-05 · Notification feed</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-06-011 | REQ-NOTIF-04 | Update <code class="language-plaintext highlighter-rouge">GetNotificationsQueryHandler</code> to return <code class="language-plaintext highlighter-rouge">UnreadCount</code> in the paginated envelope |
+| T-06-012 | REQ-NOTIF-05 | Complete <code class="language-plaintext highlighter-rouge">MarkNotificationReadCommandHandler</code> and <code class="language-plaintext highlighter-rouge">MarkAllNotificationsReadCommandHandler</code> |</p>
+
+<hr />
+
+<h2 id="ep-07--customer-profile--saved-addresses">EP-07 · Customer Profile &amp; Saved Addresses</h2>
+<p><strong>Priority:</strong> P1 · <strong>Depends on:</strong> EP-01</p>
+
+<h3 id="s-07-01--complete-profile-endpoints">S-07-01 · Complete profile endpoints</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-07-001 | REQ-PRF-01 | Complete <code class="language-plaintext highlighter-rouge">GetProfileQueryHandler</code> — add stats query (total orders, active subscriptions, total spent from <code class="language-plaintext highlighter-rouge">IOrderRepository</code>); add <code class="language-plaintext highlighter-rouge">NotificationSettings</code> from <code class="language-plaintext highlighter-rouge">Customer.NotificationSettings</code> |
+| T-07-002 | REQ-PRF-02 | In <code class="language-plaintext highlighter-rouge">UpdateProfileCommandHandler</code>, call <code class="language-plaintext highlighter-rouge">IKeycloakAdminClient.UpdateUserAsync(userId, firstName, lastName)</code> to sync name changes |
+| T-07-003 | REQ-PRF-03 | Implement <code class="language-plaintext highlighter-rouge">DeleteAccountCommandHandler</code> — validate <code class="language-plaintext highlighter-rouge">confirmationText == "DELETE"</code>, set <code class="language-plaintext highlighter-rouge">Customer.Status = PendingDeletion</code>, set <code class="language-plaintext highlighter-rouge">ScheduledDeletionDate = now + 30 days</code>, return 202 |</p>
+
+<h3 id="s-07-02--saved-addresses-crud">S-07-02 · Saved addresses CRUD</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-07-004 | REQ-PRF-04 | Complete <code class="language-plaintext highlighter-rouge">GetSavedAddressesQueryHandler</code> — return plain array (not paginated) |
+| T-07-005 | REQ-PRF-04 | Complete <code class="language-plaintext highlighter-rouge">CreateSavedAddressCommandHandler</code> — enforce max 10 addresses (return 409 on overflow); handle <code class="language-plaintext highlighter-rouge">isDefault</code> flag (clear existing default if new one set) |
+| T-07-006 | REQ-PRF-04 | Complete <code class="language-plaintext highlighter-rouge">UpdateSavedAddressCommandHandler</code> and <code class="language-plaintext highlighter-rouge">DeleteSavedAddressCommandHandler</code> |</p>
+
+<hr />
+
+<h2 id="ep-08--real-time-events--freshness-engine">EP-08 · Real-time Events &amp; Freshness Engine</h2>
+<p><strong>Priority:</strong> P1 · <strong>Depends on:</strong> EP-01, EP-05</p>
+
+<h3 id="s-08-01--wire-domain-events-to-signalr">S-08-01 · Wire domain events to SignalR</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-08-001 | REQ-RT-01 | Implement <code class="language-plaintext highlighter-rouge">IRealTimeNotificationService.SendBouquetBecameAvailableAsync(payload)</code> in <code class="language-plaintext highlighter-rouge">RealTimeNotificationService</code> — sends to all radius groups that cover the bouquet’s vase location |
+| T-08-002 | REQ-RT-02 | Implement <code class="language-plaintext highlighter-rouge">SendBouquetBecameUnavailableAsync(bouquetId, vendorType, reason)</code> — sends to radius groups |
+| T-08-003 | REQ-RT-03 | Implement <code class="language-plaintext highlighter-rouge">SendFreshnessUpdatedAsync(bouquetId, freshnessScore, freshnessLabel)</code> — sends to radius groups |
+| T-08-004 | REQ-RT-04 | Implement <code class="language-plaintext highlighter-rouge">SendOrderStatusChangedAsync(orderId, newStatus, label, estimatedDeliveryAt)</code> — sends to <code class="language-plaintext highlighter-rouge">order-{orderId}</code> group |
+| T-08-005 | REQ-RT-05 | Register MediatR notification handlers that invoke <code class="language-plaintext highlighter-rouge">RealTimeNotificationService</code> on domain events: <code class="language-plaintext highlighter-rouge">BouquetActivatedEvent</code>, <code class="language-plaintext highlighter-rouge">BouquetSoldEvent</code>, <code class="language-plaintext highlighter-rouge">BouquetReservedEvent</code>, <code class="language-plaintext highlighter-rouge">BouquetReservationReleasedEvent</code>, <code class="language-plaintext highlighter-rouge">VaseStatusChangedEvent</code> |</p>
+
+<h3 id="s-08-02--freshness-scoring-from-mqtt">S-08-02 · Freshness scoring from MQTT</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-08-006 | REQ-FRESH-01 | In <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code>, when a sensor payload is received for a vase, compute <code class="language-plaintext highlighter-rouge">FreshnessScore</code> using a configurable formula (temp/humidity/CO₂ weighted average); look up <code class="language-plaintext highlighter-rouge">FreshnessLabel</code> from the reference table |
+| T-08-007 | REQ-FRESH-01 | Update the associated bouquet’s <code class="language-plaintext highlighter-rouge">FreshnessScore</code> and <code class="language-plaintext highlighter-rouge">FreshnessLabel</code> via <code class="language-plaintext highlighter-rouge">IBouquetRepository</code>; dispatch <code class="language-plaintext highlighter-rouge">FreshnessScoreUpdatedEvent</code> |
+| T-08-008 | REQ-FRESH-02 | In the <code class="language-plaintext highlighter-rouge">FreshnessScoreUpdatedEvent</code> handler, if <code class="language-plaintext highlighter-rouge">FreshnessScore &lt; 20</code>, set bouquet <code class="language-plaintext highlighter-rouge">Status = Expired</code>, dispatch <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> (reason: <code class="language-plaintext highlighter-rouge">removed</code>), and push a vendor notification |</p>
+
+<hr />
+
+<h2 id="ep-09--performance-reliability--cross-cutting">EP-09 · Performance, Reliability &amp; Cross-cutting</h2>
+<p><strong>Priority:</strong> P1–P2 · <strong>Depends on:</strong> EP-01</p>
+
+<h3 id="s-09-01--app-config--reference-data-caching">S-09-01 · App config &amp; reference data caching</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-09-001 | REQ-CFG-01 | Complete <code class="language-plaintext highlighter-rouge">ConfigController.GetConfig</code> — populate all fields from <code class="language-plaintext highlighter-rouge">IConfiguration</code> / env vars; add <code class="language-plaintext highlighter-rouge">Cache-Control: public, max-age=3600</code> response header |
+| T-09-002 | REQ-REF-01 | In <code class="language-plaintext highlighter-rouge">ReferenceDataController</code>, add <code class="language-plaintext highlighter-rouge">Cache-Control: public, max-age=86400</code> and <code class="language-plaintext highlighter-rouge">ETag</code> to flower-types and freshness-labels responses |
+| T-09-003 | REQ-PERF-02 | Implement <code class="language-plaintext highlighter-rouge">CacheService : ICacheService</code> using <code class="language-plaintext highlighter-rouge">StackExchange.Redis</code>; wrap <code class="language-plaintext highlighter-rouge">GET /api/config</code>, <code class="language-plaintext highlighter-rouge">GET /api/reference/*</code> responses with Redis cache |</p>
+
+<h3 id="s-09-02--rate-limiting">S-09-02 · Rate limiting</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-09-004 | REQ-PERF-01 | Configure <code class="language-plaintext highlighter-rouge">Microsoft.AspNetCore.RateLimiting</code> middleware in <code class="language-plaintext highlighter-rouge">Program.cs</code> with four policies: <code class="language-plaintext highlighter-rouge">anonymous</code> (60/min/IP), <code class="language-plaintext highlighter-rouge">authenticated</code> (120/min/user), <code class="language-plaintext highlighter-rouge">order-create</code> (5/min/user), <code class="language-plaintext highlighter-rouge">auth-register</code> (3/min/IP) |
+| T-09-005 | REQ-PERF-01 | Apply <code class="language-plaintext highlighter-rouge">[EnableRateLimiting]</code> attributes to relevant controllers/actions; return 429 with <code class="language-plaintext highlighter-rouge">Retry-After</code>, <code class="language-plaintext highlighter-rouge">X-RateLimit-Limit</code>, <code class="language-plaintext highlighter-rouge">X-RateLimit-Remaining</code> headers |</p>
+
+<h3 id="s-09-03--etag--cache-control">S-09-03 · ETag &amp; Cache-Control</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-09-006 | REQ-PERF-03 | Implement <code class="language-plaintext highlighter-rouge">ETagMiddleware</code> or use <code class="language-plaintext highlighter-rouge">ResponseCachingMiddleware</code> — compute ETag from response body hash; return 304 when <code class="language-plaintext highlighter-rouge">If-None-Match</code> matches for: <code class="language-plaintext highlighter-rouge">GET /api/bouquets/{id}</code>, <code class="language-plaintext highlighter-rouge">GET /api/vendors/{id}</code>, <code class="language-plaintext highlighter-rouge">GET /api/profile</code> |
+| T-09-007 | REQ-PERF-04 | Add <code class="language-plaintext highlighter-rouge">Cache-Control</code> response headers per the policy table in API-CONTRACTS.md § 19 |</p>
+
+<h3 id="s-09-04--cross-cutting-middleware">S-09-04 · Cross-cutting middleware</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-09-008 | REQ-CC-01 | Add <code class="language-plaintext highlighter-rouge">LocalisationMiddleware</code> that reads <code class="language-plaintext highlighter-rouge">Accept-Language</code> header and sets <code class="language-plaintext highlighter-rouge">CultureInfo.CurrentCulture</code> / <code class="language-plaintext highlighter-rouge">CurrentUICulture</code> for the request; default <code class="language-plaintext highlighter-rouge">pl-PL</code> |
+| T-09-009 | REQ-CC-02 | Add <code class="language-plaintext highlighter-rouge">RequestIdMiddleware</code> that sets <code class="language-plaintext highlighter-rouge">X-Request-Id</code> response header using <code class="language-plaintext highlighter-rouge">HttpContext.TraceIdentifier</code> |
+| T-09-010 | REQ-CC-03 | Add <code class="language-plaintext highlighter-rouge">GET /api/health</code> to a <code class="language-plaintext highlighter-rouge">HealthController</code> (no auth); checks DB connectivity via <code class="language-plaintext highlighter-rouge">DbContext.Database.CanConnectAsync()</code> and Redis ping; returns 200 or 503 |
+| T-09-011 | REQ-CC-04 | Add <code class="language-plaintext highlighter-rouge">GlobalExceptionMiddleware</code> that catches unhandled exceptions and returns RFC 7807 Problem Details JSON; log the exception with <code class="language-plaintext highlighter-rouge">ILogger</code> |</p>
+
+<h3 id="s-09-05--subscription-matching-engine">S-09-05 · Subscription matching engine</h3>
+<p>| Task | Requirement | Description |
+|—|—|—|
+| T-09-012 | REQ-CC-05 | Implement <code class="language-plaintext highlighter-rouge">SubscriptionMatchingService : BackgroundService</code> that subscribes to <code class="language-plaintext highlighter-rouge">BouquetActivatedEvent</code> via <code class="language-plaintext highlighter-rouge">IEventBus</code>; for each new bouquet, queries <code class="language-plaintext highlighter-rouge">ISubscriptionRepository.FindMatchingAsync(bouquet)</code> |
+| T-09-013 | REQ-CC-05 | For each matching subscription with <code class="language-plaintext highlighter-rouge">notificationFrequency = immediate</code>: create a <code class="language-plaintext highlighter-rouge">Notification</code> record and call <code class="language-plaintext highlighter-rouge">INotificationServiceClient.SendAsync</code> to the customer’s device(s) |
+| T-09-014 | REQ-CC-05 | Add <code class="language-plaintext highlighter-rouge">FindMatchingAsync(BouquetId, VendorId, FlowerType, Price, Location)</code> to <code class="language-plaintext highlighter-rouge">ISubscriptionRepository</code> — queries active subscriptions by type, filtering by <code class="language-plaintext highlighter-rouge">shopId</code>, <code class="language-plaintext highlighter-rouge">flowerType</code>, <code class="language-plaintext highlighter-rouge">maxPrice</code>, and radius |</p>
+
+<hr />
+
+<h2 id="epic-dependency-map">Epic Dependency Map</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EP-01  ──► EP-02
+       ──► EP-03
+       ──► EP-04 ──► EP-05
+       ──► EP-06
+       ──► EP-07
+       ──► EP-08 (also needs EP-05)
+       ──► EP-09
+</code></pre></div></div>
+
+<h2 id="task-count-per-epic">Task Count per Epic</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Epic</th>
+      <th>Stories</th>
+      <th>Tasks</th>
+      <th>Priority</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EP-01 Database Foundation</td>
+      <td>3</td>
+      <td>6</td>
+      <td>P0</td>
+    </tr>
+    <tr>
+      <td>EP-02 Authentication</td>
+      <td>3</td>
+      <td>7</td>
+      <td>P0–P1</td>
+    </tr>
+    <tr>
+      <td>EP-03 Bouquet Discovery &amp; QR</td>
+      <td>5</td>
+      <td>15</td>
+      <td>P0–P1</td>
+    </tr>
+    <tr>
+      <td>EP-04 Order Lifecycle &amp; Stripe</td>
+      <td>6</td>
+      <td>19</td>
+      <td>P0</td>
+    </tr>
+    <tr>
+      <td>EP-05 Vendor Order Management</td>
+      <td>4</td>
+      <td>11</td>
+      <td>P0</td>
+    </tr>
+    <tr>
+      <td>EP-06 Favourites, Subscriptions &amp; Notifications</td>
+      <td>5</td>
+      <td>12</td>
+      <td>P1</td>
+    </tr>
+    <tr>
+      <td>EP-07 Customer Profile</td>
+      <td>2</td>
+      <td>6</td>
+      <td>P1</td>
+    </tr>
+    <tr>
+      <td>EP-08 Real-time &amp; Freshness</td>
+      <td>2</td>
+      <td>8</td>
+      <td>P1</td>
+    </tr>
+    <tr>
+      <td>EP-09 Performance &amp; Cross-cutting</td>
+      <td>5</td>
+      <td>14</td>
+      <td>P1–P2</td>
+    </tr>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td><strong>35</strong></td>
+      <td><strong>98</strong></td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+
+  // Sidebar accordion
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // Active link highlight
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      // ensure parent group is open
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // Mobile hamburger
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+</script>
+</body>
+</html>

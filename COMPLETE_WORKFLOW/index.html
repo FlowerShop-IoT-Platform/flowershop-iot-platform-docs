@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>docs/deployment/ — Index — FlowerShop IoT Platform</title>
+  <title>Complete FlowerShop IoT Platform Workflow — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -523,141 +523,258 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="docsdeployment--index"><code class="language-plaintext highlighter-rouge">docs/deployment/</code> — Index</h1>
+      <p># Complete FlowerShop IoT Platform Workflow</p>
 
-<p>All deployment documentation for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. Read in roughly this order.</p>
-
-<h2 id="before-first-deploy">Before first deploy</h2>
+<h2 id="services-overview">Services Overview</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-      <th>Read when</th>
+      <th>Service</th>
+      <th>URL</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC/">DEPLOYMENT-SPEC.md</a></td>
-      <td>Why components live where; topology rationale; code changes required before deploy</td>
-      <td>First — establishes the mental model</td>
+      <td><strong>API Backend</strong></td>
+      <td>http://localhost:8080</td>
+      <td>Core business logic, data persistence</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD/">REGISTRATION-AND-CICD.md</a></td>
-      <td>Account setup (Fly, Render, Aiven, Cloudflare, OVH, etc.), path-triggered CI/CD, bootstrap commands</td>
-      <td>Before touching any SaaS console</td>
+      <td><strong>Admin Portal</strong></td>
+      <td>http://localhost:5113</td>
+      <td>Platform administration, vendor/vase management</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS/">SECRETS-AND-ENV-VARS.md</a></td>
-      <td>Master table of every secret/env var, where it lives, who consumes it, rotation procedure</td>
-      <td>While registering accounts — populate as you go</td>
+      <td><strong>Vendor Portal</strong></td>
+      <td>http://localhost:5186</td>
+      <td>Vendor dashboard, bouquet/vase management</td>
+    </tr>
+    <tr>
+      <td><strong>Customer Portal</strong></td>
+      <td>http://localhost:5283</td>
+      <td>Customer browsing, bouquet discovery</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="during-first-deploy">During first deploy</h2>
+<h2 id="complete-workflow-from-vase-to-customer">Complete Workflow: From Vase to Customer</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK/">DEPLOYMENT-RUNBOOK.md</a></td>
-      <td><strong>Ordered</strong> stage-by-stage runbook with health-check gates. This is the doc you follow live on deploy day.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a></td>
-      <td>Scripted end-to-end validation. Run after the runbook says “done”.</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="day-two-operations">Day-two operations</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY/">OBSERVABILITY.md</a></td>
-      <td>Where logs, health endpoints, and metrics live. First thing to read when something is wrong.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY/">ROLLBACK-AND-RECOVERY.md</a></td>
-      <td>Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="diagrams">Diagrams</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>View</th>
-      <th>Render</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1</td>
-      <td>Hosting topology (who lives where)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/01-hosting-topology.svg">01-hosting-topology.svg</a></td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>Customer purchase flow (OIDC → cart → Stripe)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/02-customer-purchase-flow.svg">02-customer-purchase-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>3</td>
-      <td>IoT ingest → freshness push to browsers</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/03-iot-ingest-flow.svg">03-iot-ingest-flow.svg</a></td>
-    </tr>
-    <tr>
-      <td>4</td>
-      <td>Network boundaries + DNS</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/04-network-and-dns.svg">04-network-and-dns.svg</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="one-sentence-role-reference">One-sentence role reference</h2>
-
+<h3 id="1-admin-creates-vendor-admin-portal">1. <strong>Admin Creates Vendor</strong> (Admin Portal)</h3>
 <ul>
-  <li><strong>Fly.io</strong> hosts the always-on VMs: API, Keycloak, CustomerApp.</li>
-  <li><strong>Render</strong> hosts the cold-start-OK Razor portals: AdminPortal, VendorPortal.</li>
-  <li><strong>Aiven</strong> hosts PostgreSQL (two DBs: <code class="language-plaintext highlighter-rouge">flowershop_iot</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>).</li>
-  <li><strong>Upstash</strong> provides Redis (cache; real impl pending EP-09).</li>
-  <li><strong>CloudAMQP</strong> provides RabbitMQ (event bus; real impl pending EP-09).</li>
-  <li><strong>HiveMQ Cloud</strong> provides MQTT broker (vase telemetry).</li>
-  <li><strong>Cloudflare R2</strong> stores bouquet photos (post-EP-15).</li>
-  <li><strong>Cloudflare DNS</strong> is authoritative for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>.</li>
-  <li><strong>OVHcloud</strong> is the domain registrar only.</li>
-  <li><strong>Stripe</strong> processes payments; webhook lands on <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl/api/stripe/webhook</code>.</li>
-  <li><strong>GitHub Actions</strong> runs path-triggered deploys; <strong>GHCR</strong> stores portal images.</li>
-  <li><strong>cron-job.org</strong> keeps Render portals warm and pings health endpoints.</li>
+  <li>Navigate to: http://localhost:5113/Vendors/Create</li>
+  <li>Create a vendor (FlowerShop or FreelanceFlorist)</li>
+  <li>Set vendor location with address and coordinates</li>
+  <li><strong>Result</strong>: Vendor registered and active</li>
 </ul>
 
-<h2 id="quick-links-for-operators">Quick links for operators</h2>
+<h3 id="2-admin-registers-smartvase-admin-portal">2. <strong>Admin Registers SmartVase</strong> (Admin Portal)</h3>
+<ul>
+  <li>Navigate to: http://localhost:5113/Vases/Register</li>
+  <li>Enter Device ID (format: ESP32-XXXXXX)</li>
+  <li>Select vendor from list</li>
+  <li><strong>Result</strong>: Vase assigned to vendor at vendor’s location</li>
+</ul>
+
+<h3 id="3-upload-bouquet-image-admin-or-vendor-portal">3. <strong>Upload Bouquet Image</strong> (Admin or Vendor Portal)</h3>
+
+<p><strong>Option A: Admin Portal</strong></p>
+<ul>
+  <li>Navigate to: http://localhost:5113/Vases/Details/{vaseId}</li>
+  <li>Click “Upload Image”</li>
+  <li>Select bouquet photo</li>
+  <li><strong>Result</strong>: Image stored in mock vase service</li>
+</ul>
+
+<p><strong>Option B: Vendor Portal</strong></p>
+<ul>
+  <li>Navigate to: http://localhost:5186/Vases</li>
+  <li>Click eye icon on any vase</li>
+  <li>Upload bouquet photo</li>
+  <li><strong>Result</strong>: Image stored AND bouquet entity created automatically</li>
+</ul>
+
+<h3 id="4-mock-vase-service-processes-image">4. <strong>Mock Vase Service Processes Image</strong></h3>
+<ul>
+  <li><strong>Stores</strong>: Image in memory (ConcurrentDictionary)</li>
+  <li><strong>Creates</strong>: Bouquet entity in database</li>
+  <li><strong>Links</strong>: Bouquet to vase with image URL</li>
+  <li><strong>Image URL</strong>: <code class="language-plaintext highlighter-rouge">http://localhost:8080/api/mock-vase/image/{vaseId}</code></li>
+</ul>
+
+<h3 id="5-customer-views-bouquet-customer-portal">5. <strong>Customer Views Bouquet</strong> (Customer Portal)</h3>
+<ul>
+  <li>Navigate to: http://localhost:5283</li>
+  <li>See bouquets on map within 2km radius (default)</li>
+  <li><strong>Map Marker</strong>: Round 50px circular icon with bouquet image</li>
+  <li><strong>Click Marker</strong>: Popup shows full image, price, vendor, distance</li>
+  <li><strong>Image Source</strong>: Loaded from mock vase service</li>
+</ul>
+
+<h2 id="key-features-implemented">Key Features Implemented</h2>
+
+<h3 id="admin-portal">Admin Portal</h3>
+<p>✅ Vendor creation and management
+✅ Vase registration with device ID validation
+✅ Vase details page with ping functionality
+✅ Bouquet image upload
+✅ Location editing with geocoding
+✅ Pending installations tracking</p>
+
+<h3 id="vendor-portal">Vendor Portal</h3>
+<p>✅ Dashboard with statistics (active vases, bouquets, orders)
+✅ My Vases page showing:</p>
+<ul>
+  <li>Vendor’s location for all vases</li>
+  <li>Current bouquet thumbnail (40px circle)</li>
+  <li>Last heartbeat status
+✅ Vase details page with image upload
+✅ Action buttons:</li>
+  <li>View vase details</li>
+  <li>Upload bouquet photo</li>
+  <li>Create new bouquet</li>
+</ul>
+
+<h3 id="customer-portal">Customer Portal</h3>
+<p>✅ Interactive map with 2km default radius
+✅ Bouquet count badge at center top
+✅ Round bouquet image markers (50px)
+✅ Detailed popups with images
+✅ Bouquet images loaded from vases
+✅ Distance calculation from user location</p>
+
+<h3 id="mock-smartvase-service">Mock SmartVase Service</h3>
+<p>✅ Ping endpoint (95% success rate)
+✅ Image upload (max 5MB, JPG/PNG/GIF)
+✅ Image serving (public, CORS enabled)
+✅ Auto-creates bouquets when image uploaded
+✅ Status reporting (water level, temp, humidity)
+✅ Heartbeat simulation</p>
+
+<h2 id="bouquet-image-flow">Bouquet Image Flow</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Vendor/Admin Upload Image
+         ↓
+Mock Vase Service Stores Image
+         ↓
+Bouquet Entity Created/Updated
+  (with imageUrl = /api/mock-vase/image/{vaseId})
+         ↓
+Customer Portal Queries Available Bouquets
+         ↓
+Bouquets Include Image URLs
+         ↓
+Map Markers Show Bouquet Images
+         ↓
+Customer Sees Beautiful Bouquet Photos!
+</code></pre></div></div>
+
+<h2 id="testing-the-complete-workflow">Testing the Complete Workflow</h2>
+
+<h3 id="step-by-step-test">Step-by-Step Test:</h3>
+
+<ol>
+  <li><strong>Start All Services</strong>:
+    <div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># API (Docker)</span><span class="w">
+</span><span class="n">docker-compose</span><span class="w"> </span><span class="nx">up</span><span class="w"> </span><span class="nt">-d</span><span class="w">
+   
+</span><span class="c"># Admin Portal</span><span class="w">
+</span><span class="n">cd</span><span class="w"> </span><span class="nx">src\portals\FlowerShop.AdminPortal</span><span class="w">
+</span><span class="n">dotnet</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--launch-profile</span><span class="w"> </span><span class="nx">http</span><span class="w">
+   
+</span><span class="c"># Vendor Portal  </span><span class="w">
+</span><span class="n">cd</span><span class="w"> </span><span class="nx">src\portals\FlowerShop.VendorPortal</span><span class="w">
+</span><span class="n">dotnet</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--launch-profile</span><span class="w"> </span><span class="nx">http</span><span class="w">
+   
+</span><span class="c"># Customer Portal</span><span class="w">
+</span><span class="n">cd</span><span class="w"> </span><span class="nx">src\portals\FlowerShop.CustomerApp</span><span class="w">
+</span><span class="n">dotnet</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--launch-profile</span><span class="w"> </span><span class="nx">http</span><span class="w">
+</span></code></pre></div>    </div>
+  </li>
+  <li><strong>Upload Bouquet Images</strong> (Vendor Portal):
+    <ul>
+      <li>Login to http://localhost:5186</li>
+      <li>Go to “My Vases”</li>
+      <li>Click eye icon on ESP32-234567</li>
+      <li>Upload a beautiful bouquet photo</li>
+      <li>Repeat for ESP32-ASDFGH</li>
+    </ul>
+  </li>
+  <li><strong>Verify Bouquets Created</strong>:
+    <ul>
+      <li>Each upload auto-creates a bouquet</li>
+      <li>Rose Garden now has 2 bouquets (1 per vase)</li>
+    </ul>
+  </li>
+  <li><strong>View on Customer Portal</strong>:
+    <ul>
+      <li>Go to http://localhost:5283</li>
+      <li>See 2 round bouquet image markers on map</li>
+      <li>Click each to see full image and details</li>
+    </ul>
+  </li>
+</ol>
+
+<h2 id="important-notes">Important Notes</h2>
+
+<h3 id="image-persistence">Image Persistence</h3>
+<ul>
+  <li>Images stored <strong>in-memory</strong> (ConcurrentDictionary)</li>
+  <li><strong>Cleared on API restart</strong></li>
+  <li>Production: Use Azure Blob Storage or AWS S3</li>
+</ul>
+
+<h3 id="vendor-location">Vendor Location</h3>
+<ul>
+  <li>All vases inherit vendor’s location</li>
+  <li>Vases don’t have separate addresses</li>
+  <li>Makes sense: vase is physically at shop/home</li>
+</ul>
+
+<h3 id="authentication">Authentication</h3>
+<ul>
+  <li>Mock vase service endpoints are <strong>AllowAnonymous</strong></li>
+  <li>Production: Implement device-specific tokens</li>
+  <li>Vendors can upload without platform admin role</li>
+</ul>
+
+<h3 id="cache-busting">Cache Busting</h3>
+<ul>
+  <li>Image URLs include <code class="language-plaintext highlighter-rouge">?t={timestamp}</code></li>
+  <li>Ensures fresh loads after upload</li>
+  <li>Prevents stale 404 cached responses</li>
+</ul>
+
+<h2 id="current-state-rose-garden">Current State: Rose Garden</h2>
+
+<p><strong>Vendor</strong>: Rose Garden (Traditional Shop)
+<strong>Location</strong>: Geodetów 43, Józefosław (52.092345, 21.045100)
+<strong>Vases</strong>: 2</p>
+<ul>
+  <li>ESP32-234567</li>
+  <li>ESP32-ASDFGH</li>
+</ul>
+
+<p><strong>Expected Behavior</strong>:</p>
+<ul>
+  <li>Upload image to each vase</li>
+  <li>2 bouquets auto-created</li>
+  <li>Customer sees 2 round image markers on map at Rose Garden’s location</li>
+  <li>Clicking markers shows uploaded bouquet photos</li>
+</ul>
+
+<h2 id="success-criteria-">Success Criteria ✅</h2>
 
 <ul>
-  <li>Deploy API manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-api.yml</code></li>
-  <li>Deploy portal manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-admin-portal.yml</code> / <code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></li>
-  <li>Tail API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code></li>
-  <li>Rollback API: <code class="language-plaintext highlighter-rouge">fly releases rollback --app flowershop-api</code></li>
-  <li>Smoke test all: <code class="language-plaintext highlighter-rouge">./scripts/smoke.sh</code> (see <a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a>)</li>
+  <li>✅ Rose Garden has 2 vases</li>
+  <li>✅ Each vase can have a bouquet image</li>
+  <li>✅ Images transmitted to Customer Portal</li>
+  <li>✅ Customer sees bouquets on map with photos</li>
+  <li>✅ Vendor Portal shows current bouquet thumbnails</li>
+  <li>✅ All location data correct</li>
 </ul>
+
 
     </div>
   </main>
