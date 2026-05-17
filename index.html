@@ -883,14 +883,15 @@
   const mo = new MutationObserver(() => {
     document.querySelectorAll('.mermaid-wrap').forEach(wrap => {
       if (wrap.dataset.wired) return;
-      const svg = wrap.querySelector('svg');
-      if (!svg) return; // not rendered yet
+      // Must target .mermaid svg specifically — the expand button also contains an svg icon
+      const mermaidDiv = wrap.querySelector('.mermaid');
+      const svg = mermaidDiv && mermaidDiv.querySelector('svg');
+      if (!svg) return; // Mermaid hasn't rendered yet — observer will fire again
       wrap.dataset.wired = '1';
       const expandBtn = wrap.querySelector('.mermaid-expand-btn');
-      const mermaidDiv = wrap.querySelector('.mermaid');
       const activate = () => openModal(svg, document.title);
       if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
-      if (mermaidDiv) mermaidDiv.addEventListener('click', activate);
+      mermaidDiv.addEventListener('click', activate);
     });
   });
   mo.observe(document.body, { childList: true, subtree: true });
