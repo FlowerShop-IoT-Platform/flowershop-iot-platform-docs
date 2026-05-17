@@ -826,20 +826,26 @@
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // ── 3. Wire expand buttons after Mermaid renders SVGs ──
-  const mo = new MutationObserver(() => {
-    document.querySelectorAll('.mermaid-wrap').forEach(wrap => {
-      if (wrap.dataset.wired) return;
-      // Must target .mermaid svg specifically — the expand button also contains an svg icon
-      const mermaidDiv = wrap.querySelector('.mermaid');
+  // ── 3. Wire expand buttons — look up SVG fresh on every click ──
+  // Do NOT capture svg in a closure: Mermaid may not have rendered yet
+  // when the observer fires, so always call querySelector at click time.
+  function wireDiagramWrap(wrap) {
+    if (wrap.dataset.wired) return;
+    wrap.dataset.wired = '1';
+    const mermaidDiv = wrap.querySelector('.mermaid');
+    const expandBtn  = wrap.querySelector('.mermaid-expand-btn');
+    const activate = () => {
       const svg = mermaidDiv && mermaidDiv.querySelector('svg');
-      if (!svg) return; // Mermaid hasn't rendered yet — observer will fire again
-      wrap.dataset.wired = '1';
-      const expandBtn = wrap.querySelector('.mermaid-expand-btn');
-      const activate = () => openModal(svg, document.title);
-      if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
-      mermaidDiv.addEventListener('click', activate);
-    });
+      if (svg) openModal(svg, document.title);
+    };
+    if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
+    if (mermaidDiv) mermaidDiv.addEventListener('click', activate);
+  }
+
+  // Wire immediately for any wraps already in DOM, then watch for new ones
+  document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
   });
   mo.observe(document.body, { childList: true, subtree: true });
 
