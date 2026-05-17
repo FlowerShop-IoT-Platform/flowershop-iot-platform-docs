@@ -716,27 +716,20 @@
   const dmLabel  = document.getElementById('dmZoomLabel');
 
   let scale = 1, tx = 0, ty = 0;
+  let natW = 800, natH = 600; // natural SVG dimensions — set in openModal
 
   function applyTransform() {
     dmCanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     dmLabel.textContent = Math.round(scale * 100) + '%';
   }
 
-  function centerCanvas() {
-    const bodyR = dmBody.getBoundingClientRect();
-    const svgEl = dmCanvas.querySelector('svg');
-    if (!svgEl) return;
-    const svgW = svgEl.getBoundingClientRect().width || svgEl.viewBox.baseVal.width || 800;
-    const svgH = svgEl.getBoundingClientRect().height || svgEl.viewBox.baseVal.height || 600;
-    // Fit to viewport with 40px padding
-    const fitScale = Math.min(
-      (bodyR.width  - 80) / svgW,
-      (bodyR.height - 80) / svgH,
-      1.5
-    );
-    scale = fitScale;
-    tx = (bodyR.width  - svgW * scale) / 2;
-    ty = (bodyR.height - svgH * scale) / 2;
+  function fitToView() {
+    const bw = dmBody.clientWidth  || window.innerWidth;
+    const bh = dmBody.clientHeight || (window.innerHeight - 56);
+    const pad = 60;
+    scale = Math.min((bw - pad) / natW, (bh - pad) / natH, 2);
+    tx = (bw - natW * scale) / 2;
+    ty = (bh - natH * scale) / 2;
     applyTransform();
   }
 
@@ -744,22 +737,23 @@
     dmTitle.textContent = title || 'Diagram';
     dmCanvas.innerHTML = '';
 
-    // Clone SVG and give it explicit dimensions from its viewBox
-    const clone = svgEl.cloneNode(true);
-    const vb = clone.viewBox && clone.viewBox.baseVal;
-    const w = (vb && vb.width)  || parseInt(svgEl.getAttribute('width'))  || 1200;
-    const h = (vb && vb.height) || parseInt(svgEl.getAttribute('height')) || 800;
-    clone.setAttribute('width',  w);
-    clone.setAttribute('height', h);
-    clone.style.display = 'block';
-    clone.style.maxWidth = 'none';
+    // Read dimensions from the ORIGINAL in-DOM SVG — reliable before cloning
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    natW = (vb && vb.width  > 0) ? vb.width  : (parseFloat(svgEl.getAttribute('width'))  || 1200);
+    natH = (vb && vb.height > 0) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 800);
 
+    const clone = svgEl.cloneNode(true);
+    clone.setAttribute('width',  natW);
+    clone.setAttribute('height', natH);
+    clone.style.cssText = 'display:block;max-width:none;';
     dmCanvas.appendChild(clone);
+
+    scale = 1; tx = 0; ty = 0;
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
 
-    // Wait one frame for layout, then fit
-    requestAnimationFrame(() => requestAnimationFrame(centerCanvas));
+    // dmBody needs one paint to have clientWidth/clientHeight
+    requestAnimationFrame(fitToView);
   }
 
   function closeModal() {
@@ -767,35 +761,28 @@
     document.body.style.overflow = '';
   }
 
-  // Zoom helpers (zoom toward viewport centre)
-  function zoomBy(factor) {
-    const bodyR = dmBody.getBoundingClientRect();
-    const cx = bodyR.width  / 2;
-    const cy = bodyR.height / 2;
-    const newScale = Math.min(Math.max(scale * factor, 0.1), 10);
-    tx = cx - (cx - tx) * (newScale / scale);
-    ty = cy - (cy - ty) * (newScale / scale);
-    scale = newScale;
+  function zoomToward(cx, cy, factor) {
+    const ns = Math.min(Math.max(scale * factor, 0.05), 12);
+    tx = cx - (cx - tx) * (ns / scale);
+    ty = cy - (cy - ty) * (ns / scale);
+    scale = ns;
     applyTransform();
   }
 
   document.getElementById('dmClose').addEventListener('click', closeModal);
-  document.getElementById('dmZoomIn').addEventListener('click',  () => zoomBy(1.3));
-  document.getElementById('dmZoomOut').addEventListener('click', () => zoomBy(1 / 1.3));
-  document.getElementById('dmReset').addEventListener('click',   centerCanvas);
+  document.getElementById('dmZoomIn').addEventListener('click',  () => {
+    zoomToward(dmBody.clientWidth / 2, dmBody.clientHeight / 2, 1.4);
+  });
+  document.getElementById('dmZoomOut').addEventListener('click', () => {
+    zoomToward(dmBody.clientWidth / 2, dmBody.clientHeight / 2, 1 / 1.4);
+  });
+  document.getElementById('dmReset').addEventListener('click', fitToView);
 
-  // Mouse-wheel zoom toward cursor
+  // Wheel zoom toward cursor
   dmBody.addEventListener('wheel', e => {
     e.preventDefault();
-    const bodyR = dmBody.getBoundingClientRect();
-    const cx = e.clientX - bodyR.left;
-    const cy = e.clientY - bodyR.top;
-    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-    const newScale = Math.min(Math.max(scale * factor, 0.1), 10);
-    tx = cx - (cx - tx) * (newScale / scale);
-    ty = cy - (cy - ty) * (newScale / scale);
-    scale = newScale;
-    applyTransform();
+    const r = dmBody.getBoundingClientRect();
+    zoomToward(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
   }, { passive: false });
 
   // Drag / pan
@@ -820,30 +807,21 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // Touch pinch-to-zoom
-  let lastTouchDist = null, lastTouchMid = null;
+  let lastDist = null, lastMid = null;
   dmBody.addEventListener('touchstart', e => {
-    if (e.touches.length === 2) {
-      lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      lastTouchMid = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
-    }
+    if (e.touches.length !== 2) return;
+    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    lastMid  = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
   });
   dmBody.addEventListener('touchmove', e => {
-    if (e.touches.length === 2 && lastTouchDist) {
-      e.preventDefault();
-      const bodyR = dmBody.getBoundingClientRect();
-      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      const factor = d / lastTouchDist;
-      const cx = lastTouchMid.x - bodyR.left;
-      const cy = lastTouchMid.y - bodyR.top;
-      const newScale = Math.min(Math.max(scale * factor, 0.1), 10);
-      tx = cx - (cx - tx) * (newScale / scale);
-      ty = cy - (cy - ty) * (newScale / scale);
-      scale = newScale;
-      lastTouchDist = d;
-      applyTransform();
-    }
+    if (e.touches.length !== 2 || !lastDist) return;
+    e.preventDefault();
+    const r   = dmBody.getBoundingClientRect();
+    const d   = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    zoomToward(lastMid.x - r.left, lastMid.y - r.top, d / lastDist);
+    lastDist = d;
   }, { passive: false });
-  dmBody.addEventListener('touchend', () => { lastTouchDist = null; lastTouchMid = null; });
+  dmBody.addEventListener('touchend', () => { lastDist = null; lastMid = null; });
 
   // ── 3. Wire expand buttons after Mermaid renders SVGs ──
   const mo = new MutationObserver(() => {
