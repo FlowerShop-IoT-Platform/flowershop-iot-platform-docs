@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Complete FlowerShop IoT Platform Workflow | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Complete FlowerShop IoT Platform Workflow</h1>
+  </header>
+
+  <div class="post-content">
+    <p># Complete FlowerShop IoT Platform Workflow</p>
+
+<h2 id="services-overview">Services Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>URL</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>API Backend</strong></td>
+      <td>http://localhost:8080</td>
+      <td>Core business logic, data persistence</td>
+    </tr>
+    <tr>
+      <td><strong>Admin Portal</strong></td>
+      <td>http://localhost:5113</td>
+      <td>Platform administration, vendor/vase management</td>
+    </tr>
+    <tr>
+      <td><strong>Vendor Portal</strong></td>
+      <td>http://localhost:5186</td>
+      <td>Vendor dashboard, bouquet/vase management</td>
+    </tr>
+    <tr>
+      <td><strong>Customer Portal</strong></td>
+      <td>http://localhost:5283</td>
+      <td>Customer browsing, bouquet discovery</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="complete-workflow-from-vase-to-customer">Complete Workflow: From Vase to Customer</h2>
+
+<h3 id="1-admin-creates-vendor-admin-portal">1. <strong>Admin Creates Vendor</strong> (Admin Portal)</h3>
+<ul>
+  <li>Navigate to: http://localhost:5113/Vendors/Create</li>
+  <li>Create a vendor (FlowerShop or FreelanceFlorist)</li>
+  <li>Set vendor location with address and coordinates</li>
+  <li><strong>Result</strong>: Vendor registered and active</li>
+</ul>
+
+<h3 id="2-admin-registers-smartvase-admin-portal">2. <strong>Admin Registers SmartVase</strong> (Admin Portal)</h3>
+<ul>
+  <li>Navigate to: http://localhost:5113/Vases/Register</li>
+  <li>Enter Device ID (format: ESP32-XXXXXX)</li>
+  <li>Select vendor from list</li>
+  <li><strong>Result</strong>: Vase assigned to vendor at vendor’s location</li>
+</ul>
+
+<h3 id="3-upload-bouquet-image-admin-or-vendor-portal">3. <strong>Upload Bouquet Image</strong> (Admin or Vendor Portal)</h3>
+
+<p><strong>Option A: Admin Portal</strong></p>
+<ul>
+  <li>Navigate to: http://localhost:5113/Vases/Details/{vaseId}</li>
+  <li>Click “Upload Image”</li>
+  <li>Select bouquet photo</li>
+  <li><strong>Result</strong>: Image stored in mock vase service</li>
+</ul>
+
+<p><strong>Option B: Vendor Portal</strong></p>
+<ul>
+  <li>Navigate to: http://localhost:5186/Vases</li>
+  <li>Click eye icon on any vase</li>
+  <li>Upload bouquet photo</li>
+  <li><strong>Result</strong>: Image stored AND bouquet entity created automatically</li>
+</ul>
+
+<h3 id="4-mock-vase-service-processes-image">4. <strong>Mock Vase Service Processes Image</strong></h3>
+<ul>
+  <li><strong>Stores</strong>: Image in memory (ConcurrentDictionary)</li>
+  <li><strong>Creates</strong>: Bouquet entity in database</li>
+  <li><strong>Links</strong>: Bouquet to vase with image URL</li>
+  <li><strong>Image URL</strong>: <code class="language-plaintext highlighter-rouge">http://localhost:8080/api/mock-vase/image/{vaseId}</code></li>
+</ul>
+
+<h3 id="5-customer-views-bouquet-customer-portal">5. <strong>Customer Views Bouquet</strong> (Customer Portal)</h3>
+<ul>
+  <li>Navigate to: http://localhost:5283</li>
+  <li>See bouquets on map within 2km radius (default)</li>
+  <li><strong>Map Marker</strong>: Round 50px circular icon with bouquet image</li>
+  <li><strong>Click Marker</strong>: Popup shows full image, price, vendor, distance</li>
+  <li><strong>Image Source</strong>: Loaded from mock vase service</li>
+</ul>
+
+<h2 id="key-features-implemented">Key Features Implemented</h2>
+
+<h3 id="admin-portal">Admin Portal</h3>
+<p>✅ Vendor creation and management
+✅ Vase registration with device ID validation
+✅ Vase details page with ping functionality
+✅ Bouquet image upload
+✅ Location editing with geocoding
+✅ Pending installations tracking</p>
+
+<h3 id="vendor-portal">Vendor Portal</h3>
+<p>✅ Dashboard with statistics (active vases, bouquets, orders)
+✅ My Vases page showing:</p>
+<ul>
+  <li>Vendor’s location for all vases</li>
+  <li>Current bouquet thumbnail (40px circle)</li>
+  <li>Last heartbeat status
+✅ Vase details page with image upload
+✅ Action buttons:</li>
+  <li>View vase details</li>
+  <li>Upload bouquet photo</li>
+  <li>Create new bouquet</li>
+</ul>
+
+<h3 id="customer-portal">Customer Portal</h3>
+<p>✅ Interactive map with 2km default radius
+✅ Bouquet count badge at center top
+✅ Round bouquet image markers (50px)
+✅ Detailed popups with images
+✅ Bouquet images loaded from vases
+✅ Distance calculation from user location</p>
+
+<h3 id="mock-smartvase-service">Mock SmartVase Service</h3>
+<p>✅ Ping endpoint (95% success rate)
+✅ Image upload (max 5MB, JPG/PNG/GIF)
+✅ Image serving (public, CORS enabled)
+✅ Auto-creates bouquets when image uploaded
+✅ Status reporting (water level, temp, humidity)
+✅ Heartbeat simulation</p>
+
+<h2 id="bouquet-image-flow">Bouquet Image Flow</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Vendor/Admin Upload Image
+         ↓
+Mock Vase Service Stores Image
+         ↓
+Bouquet Entity Created/Updated
+  (with imageUrl = /api/mock-vase/image/{vaseId})
+         ↓
+Customer Portal Queries Available Bouquets
+         ↓
+Bouquets Include Image URLs
+         ↓
+Map Markers Show Bouquet Images
+         ↓
+Customer Sees Beautiful Bouquet Photos!
+</code></pre></div></div>
+
+<h2 id="testing-the-complete-workflow">Testing the Complete Workflow</h2>
+
+<h3 id="step-by-step-test">Step-by-Step Test:</h3>
+
+<ol>
+  <li><strong>Start All Services</strong>:
+    <div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># API (Docker)</span><span class="w">
+</span><span class="n">docker-compose</span><span class="w"> </span><span class="nx">up</span><span class="w"> </span><span class="nt">-d</span><span class="w">
+   
+</span><span class="c"># Admin Portal</span><span class="w">
+</span><span class="n">cd</span><span class="w"> </span><span class="nx">src\portals\FlowerShop.AdminPortal</span><span class="w">
+</span><span class="n">dotnet</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--launch-profile</span><span class="w"> </span><span class="nx">http</span><span class="w">
+   
+</span><span class="c"># Vendor Portal  </span><span class="w">
+</span><span class="n">cd</span><span class="w"> </span><span class="nx">src\portals\FlowerShop.VendorPortal</span><span class="w">
+</span><span class="n">dotnet</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--launch-profile</span><span class="w"> </span><span class="nx">http</span><span class="w">
+   
+</span><span class="c"># Customer Portal</span><span class="w">
+</span><span class="n">cd</span><span class="w"> </span><span class="nx">src\portals\FlowerShop.CustomerApp</span><span class="w">
+</span><span class="n">dotnet</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--launch-profile</span><span class="w"> </span><span class="nx">http</span><span class="w">
+</span></code></pre></div>    </div>
+  </li>
+  <li><strong>Upload Bouquet Images</strong> (Vendor Portal):
+    <ul>
+      <li>Login to http://localhost:5186</li>
+      <li>Go to “My Vases”</li>
+      <li>Click eye icon on ESP32-234567</li>
+      <li>Upload a beautiful bouquet photo</li>
+      <li>Repeat for ESP32-ASDFGH</li>
+    </ul>
+  </li>
+  <li><strong>Verify Bouquets Created</strong>:
+    <ul>
+      <li>Each upload auto-creates a bouquet</li>
+      <li>Rose Garden now has 2 bouquets (1 per vase)</li>
+    </ul>
+  </li>
+  <li><strong>View on Customer Portal</strong>:
+    <ul>
+      <li>Go to http://localhost:5283</li>
+      <li>See 2 round bouquet image markers on map</li>
+      <li>Click each to see full image and details</li>
+    </ul>
+  </li>
+</ol>
+
+<h2 id="important-notes">Important Notes</h2>
+
+<h3 id="image-persistence">Image Persistence</h3>
+<ul>
+  <li>Images stored <strong>in-memory</strong> (ConcurrentDictionary)</li>
+  <li><strong>Cleared on API restart</strong></li>
+  <li>Production: Use Azure Blob Storage or AWS S3</li>
+</ul>
+
+<h3 id="vendor-location">Vendor Location</h3>
+<ul>
+  <li>All vases inherit vendor’s location</li>
+  <li>Vases don’t have separate addresses</li>
+  <li>Makes sense: vase is physically at shop/home</li>
+</ul>
+
+<h3 id="authentication">Authentication</h3>
+<ul>
+  <li>Mock vase service endpoints are <strong>AllowAnonymous</strong></li>
+  <li>Production: Implement device-specific tokens</li>
+  <li>Vendors can upload without platform admin role</li>
+</ul>
+
+<h3 id="cache-busting">Cache Busting</h3>
+<ul>
+  <li>Image URLs include <code class="language-plaintext highlighter-rouge">?t={timestamp}</code></li>
+  <li>Ensures fresh loads after upload</li>
+  <li>Prevents stale 404 cached responses</li>
+</ul>
+
+<h2 id="current-state-rose-garden">Current State: Rose Garden</h2>
+
+<p><strong>Vendor</strong>: Rose Garden (Traditional Shop)
+<strong>Location</strong>: Geodetów 43, Józefosław (52.092345, 21.045100)
+<strong>Vases</strong>: 2</p>
+<ul>
+  <li>ESP32-234567</li>
+  <li>ESP32-ASDFGH</li>
+</ul>
+
+<p><strong>Expected Behavior</strong>:</p>
+<ul>
+  <li>Upload image to each vase</li>
+  <li>2 bouquets auto-created</li>
+  <li>Customer sees 2 round image markers on map at Rose Garden’s location</li>
+  <li>Clicking markers shows uploaded bouquet photos</li>
+</ul>
+
+<h2 id="success-criteria-">Success Criteria ✅</h2>
+
+<ul>
+  <li>✅ Rose Garden has 2 vases</li>
+  <li>✅ Each vase can have a bouquet image</li>
+  <li>✅ Images transmitted to Customer Portal</li>
+  <li>✅ Customer sees bouquets on map with photos</li>
+  <li>✅ Vendor Portal shows current bouquet thumbnails</li>
+  <li>✅ All location data correct</li>
+</ul>
+
+
+  </div>
+
+</article>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

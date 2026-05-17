@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Auth Flows | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="authentication--authorisation-flows">Authentication &amp; Authorisation Flows</h1>
+
+<h2 id="keycloak-oidc-login-production">Keycloak OIDC Login (Production)</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Client as Mobile App / Portal
+  participant KC as Keycloak :8090
+  participant API as REST API
+  participant MW as TenantResolutionMiddleware
+  participant Redis as Redis (Blacklist)
+
+  Client-&gt;&gt;KC: POST /realms/flowershop/protocol/openid-connect/token
+  Note over Client,KC: grant_type=password or PKCE code exchange
+  KC--&gt;&gt;Client: access_token (JWT), refresh_token
+
+  Client-&gt;&gt;API: GET /api/v1/... Authorization: Bearer {token}
+  API-&gt;&gt;Redis: TokenBlacklistMiddleware.IsRevoked(jti)?
+  Redis--&gt;&gt;API: false
+  API-&gt;&gt;KC: Validate token signature (JWKS)
+  KC--&gt;&gt;API: Valid
+  API-&gt;&gt;MW: TenantResolutionMiddleware
+  MW-&gt;&gt;MW: Extract claims: sub, role, vendor_id, vendor_type, customer_id
+  MW-&gt;&gt;MW: ITenantContextService.Set[Vendor|Customer|Admin]Context()
+  MW--&gt;&gt;API: Tenant context set
+  API--&gt;&gt;Client: 200 OK
+
+  note over Client,Redis: Error path: token revoked → 401 Unauthorized
+  note over Client,Redis: Error path: tenant claims missing → 403 Forbidden
+</code></pre>
+
+<h2 id="dev-token-development-only">Dev Token (Development Only)</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Dev as Developer
+  participant API as REST API (Authentication__UseKeycloak=false)
+
+  Dev-&gt;&gt;API: POST /api/v1/auth/dev-token {role, vendorId, customerId}
+  API-&gt;&gt;API: Generate JWT locally (no Keycloak)
+  API--&gt;&gt;Dev: access_token (JWT with claims)
+
+  Dev-&gt;&gt;API: Any endpoint with Bearer token
+  API-&gt;&gt;API: TenantResolutionMiddleware reads local JWT claims
+  API--&gt;&gt;Dev: 200 OK
+</code></pre>
+
+<h2 id="logout--token-blacklist">Logout + Token Blacklist</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Client
+  participant API
+  participant Redis as Redis (Blacklist)
+  participant KC as Keycloak
+
+  Client-&gt;&gt;API: POST /api/v1/auth/logout Authorization: Bearer {token}
+  API-&gt;&gt;Redis: RedisTokenBlacklistService.RevokeAsync(jti, expiry)
+  API--&gt;&gt;Client: 204 No Content
+  note over API,Redis: Keycloak session is not terminated — only the JWT token is blacklisted
+
+  Client-&gt;&gt;API: GET /api/v1/... (same token)
+  API-&gt;&gt;Redis: IsRevoked(jti)?
+  Redis--&gt;&gt;API: true
+  API--&gt;&gt;Client: 401 Unauthorized
+</code></pre>
+
+<h2 id="multi-tenant-context-resolution">Multi-Tenant Context Resolution</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+  A[Request arrives] --&gt; B[TokenBlacklistMiddleware]
+  B --&gt;|jti revoked| Z1[401 Unauthorized]
+  B --&gt;|valid| C[TenantResolutionMiddleware]
+  C --&gt; D{role claim?}
+  D --&gt;|VendorAdmin| E[SetTenantContext vendor_id + vendor_type + user_id]
+  D --&gt;|User| F[No vendor claims — falls through to header fallback or 403]
+  D --&gt;|PlatformAdmin| G[SetPlatformAdminContext user_id]
+  D --&gt;|missing| Z2[403 Forbidden]
+  E --&gt; H[TenantValidationBehavior in MediatR pipeline]
+  F --&gt; H
+  G --&gt; H
+  H --&gt; I[Handler receives ITenantContextService.GetTenantContext]
+</code></pre>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

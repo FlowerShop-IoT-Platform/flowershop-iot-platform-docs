@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cross-cutting Concerns | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="cross-cutting-concerns">Cross-cutting Concerns</h1>
+
+<h2 id="middleware-pipeline">Middleware Pipeline</h2>
+
+<p>Every HTTP request passes through these middleware layers in order:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+  A[HTTP Request] --&gt; B[GlobalExceptionMiddleware\nCatches unhandled exceptions → ProblemDetails]
+  B --&gt; C[RequestIdMiddleware\nAdds X-Request-ID header]
+  C --&gt; D[LocalisationMiddleware\nSets Accept-Language culture]
+  D --&gt; E[Authentication\nJWT validation]
+  E --&gt; F[TenantResolutionMiddleware\nExtracts vendor_id / customer_id from JWT claims]
+  F --&gt; G[TokenBlacklistMiddleware\nRejects revoked JTI tokens]
+  G --&gt; H[Authorization\nPolicy enforcement]
+  H --&gt; I[RateLimiter]
+  I --&gt; J[IdempotencyMiddleware\nChecks Idempotency-Key header → Redis]
+  J --&gt;|duplicate request| Z1[Return cached response]
+  J --&gt;|new request| K[ETagMiddleware\nSets ETag / handles If-None-Match]
+  K --&gt; L[Controller]
+</code></pre>
+
+<h2 id="caching-strategy">Caching Strategy</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+  A[Query via MediatR] --&gt; B{Implements ICacheableQuery?}
+  B --&gt;|No| C[Execute handler directly]
+  B --&gt;|Yes| D[CachingBehaviour checks Redis]
+  D --&gt;|Hit| E[Return cached result]
+  D --&gt;|Miss| F[Execute handler]
+  F --&gt; G[Store result in Redis with TTL + version key]
+  G --&gt; E
+
+  subgraph Cache Invalidation
+    H[Command handler runs] --&gt; I[Increment version key in Redis]
+    I --&gt; J[Next read: version mismatch → cache miss]
+  end
+
+  subgraph Special Cases
+    K[Geocoding: CachingGeocodingService uses IMemoryCache in-process]
+    L[Idempotency keys: IdempotencyMiddleware uses Redis directly]
+  end
+</code></pre>
+
+<h2 id="multi-tenancy">Multi-tenancy</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+  A[JWT Token] --&gt; B[TenantResolutionMiddleware]
+  B --&gt; C{Role claim}
+  C --&gt;|VendorAdmin| D[SetTenantContext\nvendor_id + vendor_type + user_id]
+  C --&gt;|User/Customer| E[No vendor claims set\nCustomerAccess policy enforced downstream]
+  C --&gt;|PlatformAdmin| F[SetPlatformAdminContext\nvia dynamic dispatch]
+  D --&gt; G[ITenantContextService]
+  E --&gt; G
+  F --&gt; G
+  G --&gt; H[TenantValidationBehavior in MediatR pipeline]
+  H --&gt; I[Handler: GetTenantContext\nScopes all DB queries by VendorId + VendorType]
+</code></pre>
+
+<h2 id="idempotency">Idempotency</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Client
+  participant API as IdempotencyMiddleware
+  participant Redis
+
+  Client-&gt;&gt;API: POST /orders Idempotency-Key: abc123
+  API-&gt;&gt;Redis: GET idempotency:abc123
+  alt Key not found
+    Redis--&gt;&gt;API: null
+    API-&gt;&gt;API: Process request
+    API-&gt;&gt;Redis: SET idempotency:abc123 {status, body} TTL=24h
+    API--&gt;&gt;Client: 201 Created
+  else Key found
+    Redis--&gt;&gt;API: Cached response
+    API--&gt;&gt;Client: 201 Created (replayed — no duplicate order)
+  end
+</code></pre>
+
+<h2 id="strongly-typed-ids">Strongly-Typed IDs</h2>
+
+<p>All domain identifiers use strongly-typed value objects to prevent ID confusion across aggregates:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Wraps</th>
+      <th>Used in</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VendorId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Guid</code></td>
+      <td>Vendor, SmartVase, Bouquet, Employee</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Guid</code></td>
+      <td>Bouquet, OrderLine, Favourite, Cart</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CustomerId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Guid</code></td>
+      <td>Customer, Order, Favourite, Subscription</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OrderId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Guid</code></td>
+      <td>Order, OrderLine</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VaseId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Guid</code></td>
+      <td>SmartVase, Bouquet</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">UserId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Guid</code></td>
+      <td>User</td>
+    </tr>
+  </tbody>
+</table>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

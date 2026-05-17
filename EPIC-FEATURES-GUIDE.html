@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FlowerShop IoT Platform — Epic Features Guide | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">FlowerShop IoT Platform — Epic Features Guide</h1>
+  </header>
+
+  <div class="post-content">
+    <h1 id="flowershop-iot-platform--epic-features-guide">FlowerShop IoT Platform — Epic Features Guide</h1>
+
+<blockquote>
+  <p>What each epic delivers, why it matters, and how to use the new functionality via the API and portal UIs.</p>
+</blockquote>
+
+<p><strong>Last updated</strong>: 2026-04-06</p>
+
+<hr />
+
+<h2 id="ep-01--database-foundation--migrations">EP-01 · Database Foundation &amp; Migrations</h2>
+
+<h3 id="value">Value</h3>
+
+<p>Establishes the schema for every customer-facing feature that follows. Without these tables, carts, orders, subscriptions, favourites, notifications, and saved addresses cannot be persisted.</p>
+
+<h3 id="what-was-delivered">What was delivered</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Table</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Carts / CartItems</strong></td>
+      <td>DB-backed shopping cart that persists across devices</td>
+    </tr>
+    <tr>
+      <td><strong>Orders / OrderLines</strong></td>
+      <td>Multi-line orders with delivery info and timeline</td>
+    </tr>
+    <tr>
+      <td><strong>Subscriptions</strong></td>
+      <td>Customer notification preferences (flower type, price, radius)</td>
+    </tr>
+    <tr>
+      <td><strong>Favourites</strong></td>
+      <td>Saved bouquets for quick access</td>
+    </tr>
+    <tr>
+      <td><strong>Notifications</strong></td>
+      <td>In-app notification feed</td>
+    </tr>
+    <tr>
+      <td><strong>DeviceRegistrations</strong></td>
+      <td>Push notification token storage (iOS / Android)</td>
+    </tr>
+    <tr>
+      <td><strong>SavedAddresses</strong></td>
+      <td>Customer delivery addresses (max 10)</td>
+    </tr>
+    <tr>
+      <td><strong>Bouquet.QrShortCode</strong></td>
+      <td>8-char alphanumeric code for QR-based bouquet lookup</td>
+    </tr>
+    <tr>
+      <td><strong>Vendor OpeningHours / Description</strong></td>
+      <td>Extended vendor profile data</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="how-to-verify">How to verify</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check all tables exist in dev database</span>
+psql <span class="nt">-h</span> localhost <span class="nt">-U</span> postgres <span class="nt">-d</span> flowershop_iot_dev <span class="se">\</span>
+  <span class="nt">-c</span> <span class="s2">"</span><span class="se">\d</span><span class="s2">t"</span> | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"carts|cart_items|orders|order_lines|subscriptions|favourites|notifications|device_registrations|saved_addresses"</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="ep-02--customer-authentication--registration">EP-02 · Customer Authentication &amp; Registration</h2>
+
+<h3 id="value-1">Value</h3>
+
+<p>Enables customers to create accounts, receive JWTs with a <code class="language-plaintext highlighter-rouge">customer_id</code> claim, and access protected endpoints (cart, orders, profile, favourites).</p>
+
+<h3 id="api-usage">API usage</h3>
+
+<p><strong>Register a new customer:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/customers/register
+Content-Type: application/json
+
+{
+  "username": "jane",
+  "email": "jane@example.com",
+  "password": "SecurePass123!",
+  "customerName": "Jane Doe",
+  "preferredVendorType": "FlowerShop"
+}
+</span></code></pre></div></div>
+<p>Returns a JWT that the mobile app or web client stores and sends as <code class="language-plaintext highlighter-rouge">Authorization: Bearer &lt;token&gt;</code> on every subsequent request.</p>
+
+<p><strong>Dev-mode token (no Keycloak):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/auth/dev-token
+{ "username": "testcustomer", "role": "User" }
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="ep-03--bouquet-discovery-qr--vendor-profile">EP-03 · Bouquet Discovery, QR &amp; Vendor Profile</h2>
+
+<h3 id="value-2">Value</h3>
+
+<p>Powers the core customer experience — finding nearby bouquets on a map, scanning QR codes on physical vases, and seeing whether a vendor is currently open.</p>
+
+<h3 id="api-usage-1">API usage</h3>
+
+<p><strong>Browse nearby bouquets (geo-spatial):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/bouquets/nearby?lat=52.23&amp;lng=21.01&amp;radiusKm=5&amp;sortBy=distance&amp;page=1&amp;pageSize=20
+</span></code></pre></div></div>
+<p>Returns bouquets within 5 km, sorted by distance. Each item includes <code class="language-plaintext highlighter-rouge">distanceKm</code>, <code class="language-plaintext highlighter-rouge">isFavourite</code> (if authenticated), <code class="language-plaintext highlighter-rouge">freshnessScore</code>, and <code class="language-plaintext highlighter-rouge">price</code>. Freelance florist coordinates are fuzzed for privacy.</p>
+
+<p><strong>Apply filters:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/bouquets/nearby?lat=52.23&amp;lng=21.01&amp;radiusKm=10&amp;vendorType=FlowerShop&amp;flowerType=roses&amp;maxPrice=80&amp;search=birthday
+</span></code></pre></div></div>
+
+<p><strong>Scan a QR code:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/bouquets/qr/A7xK2m9P
+</span></code></pre></div></div>
+<p>Returns the full bouquet detail. Returns <code class="language-plaintext highlighter-rouge">410 Gone</code> if the bouquet has been sold or expired.</p>
+
+<p><strong>View vendor profile:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/vendors/{vendorId}/public
+</span></code></pre></div></div>
+<p>Response includes <code class="language-plaintext highlighter-rouge">isCurrentlyOpen</code> (computed from the vendor’s structured opening hours), <code class="language-plaintext highlighter-rouge">openingHours</code>, <code class="language-plaintext highlighter-rouge">description</code>, and <code class="language-plaintext highlighter-rouge">activeBouquetCount</code>.</p>
+
+<h3 id="customer-app-ui">Customer App UI</h3>
+
+<p>The <strong>Home page</strong> (<code class="language-plaintext highlighter-rouge">http://localhost:5003/</code>) displays a Leaflet.js interactive map centered on Warsaw. Markers appear for nearby bouquets; clicking one shows name, price, and a link to the detail page.</p>
+
+<hr />
+
+<h2 id="ep-04--order-lifecycle--stripe">EP-04 · Order Lifecycle &amp; Stripe</h2>
+
+<h3 id="value-3">Value</h3>
+
+<p>Completes the purchase flow end-to-end: cart → preview → order → Stripe payment → delivery. Adds automatic reservation expiry, idempotent order creation, refunds on cancellation, and delivery QR codes.</p>
+
+<h3 id="api-usage--full-purchase-flow">API usage — full purchase flow</h3>
+
+<p><strong>Step 1 — Add to cart:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/cart/items
+Authorization: Bearer &lt;customer-token&gt;
+{ "bouquetId": "..." }
+</span></code></pre></div></div>
+<p>Returns <code class="language-plaintext highlighter-rouge">409 Conflict</code> with <code class="language-plaintext highlighter-rouge">vendor-mismatch</code> if the bouquet belongs to a different vendor than existing cart items.</p>
+
+<p><strong>Step 2 — Preview order:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/orders/preview
+{
+  "bouquetIds": ["id1", "id2"],
+  "deliveryMethod": "delivery",
+  "street": "ul. Marszałkowska 1",
+  "city": "Warszawa",
+  "postalCode": "00-001"
+}
+</span></code></pre></div></div>
+<p>Returns <code class="language-plaintext highlighter-rouge">linesSubtotal</code>, <code class="language-plaintext highlighter-rouge">deliveryFee</code> (15.00 PLN default for delivery), and <code class="language-plaintext highlighter-rouge">totalAmount</code>.</p>
+
+<p><strong>Step 3 — Create order:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/orders
+Idempotency-Key: unique-client-key-123
+{
+  "bouquetIds": ["id1", "id2"],
+  "deliveryMethod": "delivery",
+  "expectedTotalAmount": 145.00,
+  "street": "ul. Marszałkowska 1",
+  "city": "Warszawa",
+  "postalCode": "00-001"
+}
+</span></code></pre></div></div>
+<p>Returns <code class="language-plaintext highlighter-rouge">orderId</code>, <code class="language-plaintext highlighter-rouge">paymentClientSecret</code>, <code class="language-plaintext highlighter-rouge">stripeEphemeralKey</code>, and <code class="language-plaintext highlighter-rouge">stripeCustomerId</code>. Bouquets are reserved for 15 minutes.</p>
+
+<p><strong>Step 4 — Confirm payment (after Stripe client-side):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/orders/{orderId}/confirm-payment
+{ "paymentIntentId": "pi_xxx", "stripeCustomerId": "cus_xxx" }
+</span></code></pre></div></div>
+
+<p><strong>Step 5 — Cancel (with automatic refund if paid):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/orders/{orderId}/cancel
+{ "reason": "Changed my mind" }
+</span></code></pre></div></div>
+<p>If the order was already paid, a Stripe refund is automatically initiated.</p>
+
+<h3 id="stripe-webhook">Stripe webhook</h3>
+
+<p>The platform listens at <code class="language-plaintext highlighter-rouge">POST /api/stripe/webhook</code> for:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code> → confirms payment automatically</li>
+  <li><code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code> → cancels the order</li>
+</ul>
+
+<h3 id="idempotency">Idempotency</h3>
+
+<p>Any <code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code> with the same <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header within 24 hours returns the cached response instead of creating a duplicate order.</p>
+
+<h3 id="reservation-expiry">Reservation expiry</h3>
+
+<p>A background service runs every 30 seconds. Orders stuck in <code class="language-plaintext highlighter-rouge">Created</code> status past their 15-minute reservation window are automatically cancelled, and bouquets become available again (with a SignalR push to connected clients).</p>
+
+<h3 id="delivery-qr-code">Delivery QR code</h3>
+
+<p>Once an order reaches <code class="language-plaintext highlighter-rouge">Paid</code> status, <code class="language-plaintext highlighter-rouge">GET /api/v1/orders/{id}</code> includes a <code class="language-plaintext highlighter-rouge">deliveryQrCode</code> field — a base64 PNG data URI the customer can show at pickup/delivery.</p>
+
+<hr />
+
+<h2 id="ep-05--vendor-order-management">EP-05 · Vendor Order Management</h2>
+
+<h3 id="value-4">Value</h3>
+
+<p>Gives vendors full visibility and control over incoming orders — view, filter, advance status, and mark delivered.</p>
+
+<h3 id="api-usage-2">API usage</h3>
+
+<p><strong>List vendor orders:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/vendor/orders?status=Paid&amp;page=1&amp;pageSize=20
+Authorization: Bearer &lt;vendor-token&gt;
+</span></code></pre></div></div>
+
+<p><strong>View order detail:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/vendor/orders/{orderId}
+</span></code></pre></div></div>
+
+<p><strong>Advance order status:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">PUT /api/v1/vendor/orders/{orderId}/status
+{
+  "status": "InPreparation",
+  "estimatedDeliveryAt": "2026-04-06T16:00:00Z"
+}
+</span></code></pre></div></div>
+
+<p><strong>Valid status transitions (vendor-driven):</strong></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Paid → InPreparation → ReadyForPickup → InDelivery → Delivered
+Any active status → Cancelled
+</code></pre></div></div>
+
+<p>When an order reaches <code class="language-plaintext highlighter-rouge">Delivered</code>, all bouquets in the order are automatically marked as <code class="language-plaintext highlighter-rouge">Sold</code>.</p>
+
+<h3 id="vendor-portal-ui">Vendor Portal UI</h3>
+
+<p>Navigate to <strong>Orders</strong> in the Vendor Portal sidebar (<code class="language-plaintext highlighter-rouge">http://localhost:5002/Orders</code>). The page shows tabs for Pending / Confirmed / Ready / Completed. Click an order to see line items and a timeline. Use the status buttons to advance the order through its lifecycle.</p>
+
+<hr />
+
+<h2 id="ep-06--favourites-subscriptions--notifications">EP-06 · Favourites, Subscriptions &amp; Notifications</h2>
+
+<h3 id="value-5">Value</h3>
+
+<p>Lets customers save bouquets for later, set up alerts for new bouquets matching their preferences, and receive push notifications.</p>
+
+<h3 id="api-usage-3">API usage</h3>
+
+<p><strong>Favourites:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST   /api/v1/favourites/{bouquetId}      # Add (idempotent)
+DELETE /api/v1/favourites/{bouquetId}      # Remove (idempotent)
+GET    /api/v1/favourites?page=1&amp;pageSize=20
+</span></code></pre></div></div>
+
+<p><strong>Subscriptions — get notified when matching bouquets appear:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/subscriptions
+{
+  "type": "ByFlowerType",
+  "flowerType": "roses",
+  "maxPrice": 100,
+  "frequency": "instant",
+  "centerLatitude": 52.23,
+  "centerLongitude": 21.01,
+  "radiusKm": 10
+}
+</span></code></pre></div></div>
+<p>Frequency options: <code class="language-plaintext highlighter-rouge">instant</code> (push immediately), <code class="language-plaintext highlighter-rouge">daily</code>, <code class="language-plaintext highlighter-rouge">weekly</code>.</p>
+
+<p><strong>Disable all subscriptions at once:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">PUT /api/v1/subscriptions/disable-all
+</span></code></pre></div></div>
+
+<p><strong>Register device for push notifications:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/notifications/devices
+{ "deviceToken": "fcm-token-xxx", "platform": "Android", "appVersion": "1.2.0" }
+</span></code></pre></div></div>
+
+<p><strong>Notification feed:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/notifications?unreadOnly=true&amp;page=1&amp;pageSize=20
+PUT /api/v1/notifications/{id}/read
+PUT /api/v1/notifications/read-all
+</span></code></pre></div></div>
+
+<h3 id="customer-app-ui-1">Customer App UI</h3>
+
+<ul>
+  <li><strong>Favourites</strong> page at <code class="language-plaintext highlighter-rouge">/Favourites</code> — card grid of saved bouquets with availability badges.</li>
+  <li><strong>Subscriptions</strong> page at <code class="language-plaintext highlighter-rouge">/Subscriptions</code> — list existing subscriptions and create new ones with a form sidebar.</li>
+  <li>Heart toggle buttons appear on bouquet cards throughout the app.</li>
+</ul>
+
+<hr />
+
+<h2 id="ep-07--customer-profile--saved-addresses">EP-07 · Customer Profile &amp; Saved Addresses</h2>
+
+<h3 id="value-6">Value</h3>
+
+<p>Full customer self-service: edit profile, manage delivery addresses, configure notification preferences, and initiate GDPR-compliant account deletion.</p>
+
+<h3 id="api-usage-4">API usage</h3>
+
+<p><strong>Get profile with stats:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/profile
+</span></code></pre></div></div>
+<p>Returns name, email, phone, preferred flower types, notification settings, plus aggregated stats (total orders, active subscriptions, total spent).</p>
+
+<p><strong>Update profile:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">PUT /api/v1/profile
+{ "firstName": "Jane", "lastName": "Smith", "phone": "+48123456789" }
+</span></code></pre></div></div>
+
+<p><strong>Saved addresses (max 10):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/profile/addresses
+{ "street": "ul. Nowy Świat 15", "city": "Warszawa", "postalCode": "00-029", "isDefault": true }
+
+GET    /api/v1/profile/addresses
+DELETE /api/v1/profile/addresses/{id}
+</span></code></pre></div></div>
+
+<p><strong>Request account deletion (30-day grace period):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">DELETE /api/v1/profile
+{ "confirmationText": "DELETE" }
+</span></code></pre></div></div>
+<p>Returns <code class="language-plaintext highlighter-rouge">202 Accepted</code>. The account enters <code class="language-plaintext highlighter-rouge">PendingDeletion</code> status with a 30-day countdown.</p>
+
+<h3 id="customer-app-ui-2">Customer App UI</h3>
+
+<ul>
+  <li><strong>Profile</strong> page at <code class="language-plaintext highlighter-rouge">/Profile</code> — edit name, view order stats, manage notification preferences.</li>
+  <li><strong>Addresses</strong> sub-page at <code class="language-plaintext highlighter-rouge">/Profile/Addresses</code> — list, add, and delete saved addresses.</li>
+</ul>
+
+<hr />
+
+<h2 id="ep-08--real-time-events--freshness-engine">EP-08 · Real-time Events &amp; Freshness Engine</h2>
+
+<h3 id="value-7">Value</h3>
+
+<p>Powers the live map experience and ensures bouquet freshness scores stay accurate. Customers see bouquets appear/disappear in real-time. Vendors get instant vase status alerts.</p>
+
+<h3 id="how-it-works">How it works</h3>
+
+<p><strong>Freshness scoring</strong> runs every hour (plus on each MQTT sensor reading):</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Score = 100
+  − (temperature − 25°C) × 3    (if temp &gt; 25°C)
+  − (40% − humidity) × 1.5      (if humidity &lt; 40%)
+  − hours_since_placed × 0.5
+
+Labels: "Just picked" (90+), "Very fresh" (70-89), "Fresh" (50-69),
+        "Good" (30-49), "Last chance" (&lt;30)
+</code></pre></div></div>
+<p>Bouquets that drop below score 20 are automatically expired.</p>
+
+<p><strong>SignalR real-time events</strong> (connect to <code class="language-plaintext highlighter-rouge">/hubs/bouquet</code>):</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Browser — join a location group</span>
+<span class="nx">connection</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="dl">"</span><span class="s2">JoinRadiusGroup</span><span class="dl">"</span><span class="p">,</span> <span class="mf">52.23</span><span class="p">,</span> <span class="mf">21.01</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">);</span>
+
+<span class="c1">// Listen for events</span>
+<span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">"</span><span class="s2">BouquetBecameAvailable</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="c1">// Add marker to map</span>
+<span class="p">});</span>
+<span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">"</span><span class="s2">BouquetBecameUnavailable</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="c1">// Remove marker from map</span>
+<span class="p">});</span>
+<span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">"</span><span class="s2">FreshnessUpdated</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="c1">// Update freshness badge on bouquet card</span>
+<span class="p">});</span>
+<span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">"</span><span class="s2">OrderStatusChanged</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="c1">// Update order tracking UI</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<p><strong>Domain events wired to SignalR:</strong></p>
+<ul>
+  <li>New bouquet activated → <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> broadcast to radius groups</li>
+  <li>Bouquet sold → <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> broadcast</li>
+  <li>Vase goes offline → <code class="language-plaintext highlighter-rouge">VaseStatusChanged</code> to vendor group</li>
+  <li>Freshness score changes → <code class="language-plaintext highlighter-rouge">FreshnessUpdated</code> to radius groups</li>
+</ul>
+
+<hr />
+
+<h2 id="ep-09--performance-reliability--cross-cutting">EP-09 · Performance, Reliability &amp; Cross-cutting</h2>
+
+<h3 id="value-8">Value</h3>
+
+<p>Production-hardening: rate limiting prevents abuse, ETag caching reduces bandwidth, the global exception handler ensures consistent error responses, and subscription matching triggers instant push notifications when matching bouquets appear.</p>
+
+<h3 id="middleware-pipeline">Middleware pipeline</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Middleware</th>
+      <th>Header / Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>GlobalExceptionMiddleware</strong></td>
+      <td>Returns RFC 7807 Problem Details JSON for all unhandled exceptions</td>
+    </tr>
+    <tr>
+      <td><strong>RequestIdMiddleware</strong></td>
+      <td>Sets <code class="language-plaintext highlighter-rouge">X-Request-Id</code> response header (correlates with logs)</td>
+    </tr>
+    <tr>
+      <td><strong>LocalisationMiddleware</strong></td>
+      <td>Reads <code class="language-plaintext highlighter-rouge">Accept-Language</code>, defaults to <code class="language-plaintext highlighter-rouge">pl-PL</code></td>
+    </tr>
+    <tr>
+      <td><strong>ETagMiddleware</strong></td>
+      <td>Computes SHA-256 ETag on GET responses; returns <code class="language-plaintext highlighter-rouge">304 Not Modified</code> when <code class="language-plaintext highlighter-rouge">If-None-Match</code> matches</td>
+    </tr>
+    <tr>
+      <td><strong>IdempotencyMiddleware</strong></td>
+      <td>Caches POST responses by <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header for 24 hours</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="rate-limiting-policies">Rate limiting policies</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Policy</th>
+      <th>Limit</th>
+      <th>Applied to</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fixed</code> (global)</td>
+      <td>100 req/min</td>
+      <td>All endpoints</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">auth</code></td>
+      <td>10 req/min</td>
+      <td>Login, registration</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">orders</code></td>
+      <td>20 req/min (sliding)</td>
+      <td>Order creation</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Exceeded limits return <code class="language-plaintext highlighter-rouge">429 Too Many Requests</code> with a <code class="language-plaintext highlighter-rouge">Retry-After</code> header.</p>
+
+<h3 id="subscription-matching-engine">Subscription matching engine</h3>
+
+<p>A background service listens for <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> domain events. For each new bouquet, it finds customers with matching active subscriptions (by flower type, vendor, price range, radius). Subscriptions with <code class="language-plaintext highlighter-rouge">frequency: instant</code> trigger an immediate push notification.</p>
+
+<hr />
+
+<h2 id="ep-10--analytics-api">EP-10 · Analytics API</h2>
+
+<h3 id="value-9">Value</h3>
+
+<p>Fixes the critical VendorId.New() bug (all analytics queries were returning data for random vendors) and delivers 6 working analytics endpoints covering vendor performance, vase health, real-time dashboards, platform-wide insights, peer benchmarks, and CSV export.</p>
+
+<h3 id="api-usage-5">API usage</h3>
+
+<p><strong>Vendor dashboard analytics:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/analytics/vendor?period=30
+Authorization: Bearer &lt;vendor-token&gt;
+</span></code></pre></div></div>
+<p>Returns: total revenue, order count, average order value, top bouquets by revenue, and daily trend data.</p>
+
+<p><strong>Vase performance:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/analytics/vases?vaseId={id}&amp;period=7
+</span></code></pre></div></div>
+<p>Returns: uptime percentage, scan count, orders attributed, average freshness, environment metrics (temp, humidity).</p>
+
+<p><strong>Real-time snapshot:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/analytics/realtime
+</span></code></pre></div></div>
+<p>Returns: active vases (online count), available bouquets, open orders, hourly revenue.</p>
+
+<p><strong>Platform insights (admin only):</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/analytics/platform?period=30
+Authorization: Bearer &lt;admin-token&gt;
+</span></code></pre></div></div>
+<p>Returns: total vendors, customers, GMV (gross marketplace volume), top vendors by revenue.</p>
+
+<p><strong>Peer benchmarks:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/analytics/benchmarks?period=30
+</span></code></pre></div></div>
+<p>Returns: revenue percentile vs. peers, performance ratios, strengths and improvement areas.</p>
+
+<p><strong>Export to CSV:</strong></p>
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET /api/v1/analytics/export?exportType=vendor&amp;format=csv&amp;period=30
+</span></code></pre></div></div>
+<p>Returns CSV file with order and revenue data for the requested period.</p>
+
+<hr />
+
+<h2 id="ep-11--admin-portal--customer-management--platform-analytics">EP-11 · Admin Portal — Customer Management &amp; Platform Analytics</h2>
+
+<h3 id="value-10">Value</h3>
+
+<p>Platform administrators can now manage customers (view, suspend, reactivate), oversee all orders across the platform, view platform-wide analytics, and suspend/reactivate vendors.</p>
+
+<h3 id="admin-portal-ui-httplocalhost5001">Admin Portal UI (<code class="language-plaintext highlighter-rouge">http://localhost:5001</code>)</h3>
+
+<p><strong>Dashboard</strong> (<code class="language-plaintext highlighter-rouge">/</code>) — now shows platform statistics summary (total vendors, customers, orders) with quick-access links to management sections.</p>
+
+<p><strong>Customers</strong> (<code class="language-plaintext highlighter-rouge">/Customers/List</code>) — searchable, paginated table of all registered customers. Click a customer to see their profile details. Use <strong>Suspend</strong> / <strong>Reactivate</strong> buttons to manage account status.</p>
+
+<p><strong>Orders</strong> (<code class="language-plaintext highlighter-rouge">/Orders/List</code>) — platform-wide order list with status filter tabs. Useful for monitoring order volume and identifying stuck orders.</p>
+
+<p><strong>Vendors</strong> (<code class="language-plaintext highlighter-rouge">/Vendors/Details/{id}</code>) — updated with <strong>Suspend</strong> and <strong>Reactivate</strong> buttons. Suspending a vendor disables their storefront and vase connections.</p>
+
+<h3 id="api-endpoints-platformadmin-policy">API endpoints (PlatformAdmin policy)</h3>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET    /api/v1/admin/customers?search=jane&amp;page=1&amp;pageSize=20
+GET    /api/v1/admin/customers/{id}
+POST   /api/v1/admin/customers/{id}/suspend
+POST   /api/v1/admin/customers/{id}/reactivate
+GET    /api/v1/admin/orders?status=Paid&amp;page=1&amp;pageSize=20
+POST   /api/v1/admin/vendors/{id}/suspend
+POST   /api/v1/admin/vendors/{id}/reactivate
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="ep-12--vendor-portal--orders-analytics--profile">EP-12 · Vendor Portal — Orders, Analytics &amp; Profile</h2>
+
+<h3 id="value-11">Value</h3>
+
+<p>Vendors can manage incoming orders, view revenue analytics, edit their business profile, configure opening hours, and upload bouquet photos — all from the portal UI. Critical bugs fixed: VendorId now reads from JWT instead of session; mock-vase upload replaced with real API call.</p>
+
+<h3 id="vendor-portal-ui-httplocalhost5002">Vendor Portal UI (<code class="language-plaintext highlighter-rouge">http://localhost:5002</code>)</h3>
+
+<p><strong>Orders</strong> (<code class="language-plaintext highlighter-rouge">/Orders</code>) — tabbed view (Pending / Confirmed / Ready / Completed). Click an order to see line items and timeline. Advance the status with one click: Confirm → Ready → Complete.</p>
+
+<p><strong>Analytics</strong> (<code class="language-plaintext highlighter-rouge">/Analytics</code>) — six stat cards showing revenue, order count, bouquets sold, average order value, active vases, and available bouquets.</p>
+
+<p><strong>Settings &gt; Profile</strong> (<code class="language-plaintext highlighter-rouge">/Settings/Profile</code>) — edit business name, description, email, and phone.</p>
+
+<p><strong>Settings &gt; Opening Hours</strong> (<code class="language-plaintext highlighter-rouge">/Settings/OpeningHours</code>) — weekly schedule editor. Select operating days and set open/close times. These hours feed the <code class="language-plaintext highlighter-rouge">isCurrentlyOpen</code> flag shown to customers.</p>
+
+<h3 id="bugs-fixed">Bugs fixed</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Bug</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>VendorId read from session</td>
+      <td><code class="language-plaintext highlighter-rouge">ICurrentVendorService</code> reads <code class="language-plaintext highlighter-rouge">vendor_id</code> JWT claim (falls back to session)</td>
+    </tr>
+    <tr>
+      <td>Mock-vase raw HttpClient upload</td>
+      <td>Uses <code class="language-plaintext highlighter-rouge">ApiClient.UploadBouquetPhotoAsync</code> calling <code class="language-plaintext highlighter-rouge">POST /api/v1/bouquets/{id}/photo</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="ep-13--customer-web-app--authentication--shopping">EP-13 · Customer Web App — Authentication &amp; Shopping</h2>
+
+<h3 id="value-12">Value</h3>
+
+<p>Transforms the customer web app from a read-only browser into a full shopping experience with authentication, cart management, checkout, and an interactive map.</p>
+
+<h3 id="customer-app-ui-httplocalhost5003">Customer App UI (<code class="language-plaintext highlighter-rouge">http://localhost:5003</code>)</h3>
+
+<p><strong>Home page</strong> (<code class="language-plaintext highlighter-rouge">/</code>) — Leaflet.js interactive map centered on Warsaw (52.23, 21.01). Nearby bouquet markers load automatically. Click a marker to see the bouquet name, price, and a link to the detail page.</p>
+
+<p><strong>Cart</strong> (<code class="language-plaintext highlighter-rouge">/Cart</code>) — view items with prices, remove individual items, clear all, and proceed to checkout. Cart badge in the navigation shows item count.</p>
+
+<p><strong>Checkout</strong> (<code class="language-plaintext highlighter-rouge">/Checkout</code>) — order preview showing line items, delivery fee, and total. “Place Order” creates the order. Redirects to a confirmation page on success.</p>
+
+<p><strong>Confirmation</strong> (<code class="language-plaintext highlighter-rouge">/Checkout/Confirmation/{orderId}</code>) — displays order ID and a thank-you message.</p>
+
+<p><strong>Protected routes</strong>: Cart, Checkout, Orders, Favourites, Profile, and Subscriptions require authentication. Unauthenticated users are redirected to <code class="language-plaintext highlighter-rouge">/Account/Login</code>.</p>
+
+<hr />
+
+<h2 id="ep-14--customer-web-app--profile-favorites--subscriptions">EP-14 · Customer Web App — Profile, Favorites &amp; Subscriptions</h2>
+
+<h3 id="value-13">Value</h3>
+
+<p>Gives logged-in customers full self-service: order history with timeline tracking, favourite bouquets, profile editing with saved addresses, and subscription management.</p>
+
+<h3 id="customer-app-ui-3">Customer App UI</h3>
+
+<p><strong>Orders</strong> (<code class="language-plaintext highlighter-rouge">/Orders</code>) — list with status filter tabs (All / Pending / Confirmed / In Delivery / Completed / Cancelled). Click an order to see full detail including line items, status timeline, estimated delivery, and delivery QR code.</p>
+
+<p><strong>Favourites</strong> (<code class="language-plaintext highlighter-rouge">/Favourites</code>) — card grid of saved bouquets with availability badges (“Available”, “Sold”, “Expired”). Toggle favourites from any bouquet card.</p>
+
+<p><strong>Profile</strong> (<code class="language-plaintext highlighter-rouge">/Profile</code>) — view and edit name, phone, and notification preferences. Sidebar shows account stats (total orders, active subscriptions).</p>
+
+<p><strong>Addresses</strong> (<code class="language-plaintext highlighter-rouge">/Profile/Addresses</code>) — list saved delivery addresses with an inline add form. Delete addresses with one click.</p>
+
+<p><strong>Subscriptions</strong> (<code class="language-plaintext highlighter-rouge">/Subscriptions</code>) — list active subscriptions with type, criteria, and frequency. Create new subscriptions with a form. “Disable All” button turns off all notifications at once.</p>
+
+<hr />
+
+<h2 id="ep-15--iot-integration">EP-15 · IoT Integration</h2>
+
+<h3 id="value-14">Value</h3>
+
+<p>Moves IoT from simulation to production-readiness: real photo uploads, authenticated MQTT connections, smarter offline detection, and over-the-air firmware updates.</p>
+
+<h3 id="bouquet-photo-upload">Bouquet photo upload</h3>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/bouquets/{id}/photo
+Authorization: Bearer &lt;vendor-token&gt;
+Content-Type: multipart/form-data
+
+# Form field: "photo" — jpg, png, or webp, max 5 MB
+</span></code></pre></div></div>
+<p>Returns <code class="language-plaintext highlighter-rouge">{ "photoUrl": "/uploads/bouquets/{bouquetId}_{filename}" }</code>. The Vendor Portal’s vase details page now uses this endpoint instead of the mock-vase workaround.</p>
+
+<h3 id="mqtt-broker-authentication">MQTT broker authentication</h3>
+
+<p>The MQTT client now reads <code class="language-plaintext highlighter-rouge">Mqtt:Username</code> and <code class="language-plaintext highlighter-rouge">Mqtt:Password</code> from configuration and passes credentials when connecting to Mosquitto. Configure in <code class="language-plaintext highlighter-rouge">appsettings.Development.json</code>:</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Mqtt"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"Host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"localhost"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Port"</span><span class="p">:</span><span class="w"> </span><span class="mi">1883</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flowershop"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dev123"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="stale-vase-detection">Stale vase detection</h3>
+
+<p><code class="language-plaintext highlighter-rouge">ISmartVaseRepository.GetStaleVasesAsync(cutoffMinutes)</code> queries vases whose last heartbeat exceeds the threshold and aren’t already marked offline. The <code class="language-plaintext highlighter-rouge">VaseHealthMonitoringService</code> uses this every 15 seconds to detect and report offline vases.</p>
+
+<h3 id="ota-firmware-updates">OTA firmware updates</h3>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/smartvases/{id}/firmware
+Authorization: Bearer &lt;admin-token&gt;
+{
+  "firmwareUrl": "https://firmware.flowershop.dev/v2.1.0/vase.bin",
+  "version": "2.1.0"
+}
+</span></code></pre></div></div>
+<p>Returns <code class="language-plaintext highlighter-rouge">202 Accepted</code>. The server publishes an MQTT message to <code class="language-plaintext highlighter-rouge">vase/{serialNumber}/ota</code> containing the download URL. The vase firmware handles the update autonomously.</p>
+
+<hr />
+
+<h2 id="quick-reference--service-urls">Quick Reference — Service URLs</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>URL</th>
+      <th>Credentials</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>API + Swagger</td>
+      <td><code class="language-plaintext highlighter-rouge">http://localhost:8080/swagger</code></td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Admin Portal</td>
+      <td><code class="language-plaintext highlighter-rouge">http://localhost:5001</code></td>
+      <td>platformadmin / AdminPass123!</td>
+    </tr>
+    <tr>
+      <td>Vendor Portal</td>
+      <td><code class="language-plaintext highlighter-rouge">http://localhost:5002</code></td>
+      <td>(vendor accounts)</td>
+    </tr>
+    <tr>
+      <td>Customer App</td>
+      <td><code class="language-plaintext highlighter-rouge">http://localhost:5003</code></td>
+      <td>(customer accounts)</td>
+    </tr>
+    <tr>
+      <td>SignalR Hub</td>
+      <td><code class="language-plaintext highlighter-rouge">ws://localhost:8080/hubs/bouquet</code></td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Stripe Webhook</td>
+      <td><code class="language-plaintext highlighter-rouge">POST http://localhost:8080/api/stripe/webhook</code></td>
+      <td>Stripe-Signature header</td>
+    </tr>
+    <tr>
+      <td>Health Check</td>
+      <td><code class="language-plaintext highlighter-rouge">http://localhost:8080/health</code></td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+  </div>
+
+</article>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

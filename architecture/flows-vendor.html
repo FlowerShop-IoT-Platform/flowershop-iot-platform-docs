@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vendor Flows | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="vendor-persona-flows">Vendor Persona Flows</h1>
+
+<h2 id="1-vendor-onboarding">1. Vendor Onboarding</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Admin as Platform Admin
+  participant API as REST API
+  participant KC as Keycloak
+  participant DB as PostgreSQL
+  participant Email as EmailService
+
+  Admin-&gt;&gt;API: POST /api/v1/admin/vendors {name, type, email, ...}
+  API-&gt;&gt;DB: Create Vendor aggregate (FlowerShop or FreelanceFlorist)
+  API-&gt;&gt;KC: KeycloakAdminClient.CreateUserAsync(email, role=VendorAdmin)
+  KC--&gt;&gt;API: userId
+  API-&gt;&gt;DB: Create User {role=VendorAdmin, vendorId}
+  API-&gt;&gt;Email: Send welcome email with verification link
+  API--&gt;&gt;Admin: 201 {vendorId}
+
+  Note over Admin,Email: Vendor receives email, verifies account
+  Admin-&gt;&gt;API: POST /api/v1/admin/vendors/{id}/assign-technician
+  API-&gt;&gt;DB: Assign technician to install vases
+</code></pre>
+
+<h2 id="2-bouquet-lifecycle">2. Bouquet Lifecycle</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant VP as Vendor Portal
+  participant API as REST API
+  participant DB as PostgreSQL
+  participant QR as QrCodeGeneratorService
+
+  VP-&gt;&gt;API: POST /api/v1/bouquets {name, price, vaseId, photoUrl}
+  API-&gt;&gt;DB: Create Bouquet (status=Available)
+  API-&gt;&gt;QR: GenerateQrCode(bouquetId)
+  QR--&gt;&gt;API: qrCodeData
+  API-&gt;&gt;DB: Update Bouquet.QrShortCode
+  API--&gt;&gt;VP: 201 {bouquetId, qrCode}
+
+  VP-&gt;&gt;API: PUT /api/v1/bouquets/{id}/price {price}
+  API-&gt;&gt;DB: Update Bouquet.Price (only when status=Available)
+  API--&gt;&gt;VP: 200 OK
+
+  VP-&gt;&gt;API: DELETE /api/v1/bouquets/{id}
+  API-&gt;&gt;DB: Bouquet status → Expired (soft delete)
+  API--&gt;&gt;VP: 204 No Content
+</code></pre>
+
+<h2 id="3-bouquet-status-state-machine">3. Bouquet Status State Machine</h2>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+  [*] --&gt; Available : POST /bouquets (created)
+  Available --&gt; Reserved : Order created (bouquet reserved 15min)
+  Reserved --&gt; Available : Reservation expired / order cancelled
+  Reserved --&gt; Sold : Payment confirmed (OrderPaidEvent)
+  Available --&gt; Expired : DELETE /bouquets or freshness=0
+  Sold --&gt; [*]
+  Expired --&gt; [*]
+</code></pre>
+
+<h2 id="4-order-fulfillment">4. Order Fulfillment</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant VP as Vendor Portal
+  participant API as REST API
+  participant DB as PostgreSQL
+  participant Bus as InMemoryEventBus
+  participant Hub as BouquetHub (SignalR)
+
+  VP-&gt;&gt;API: GET /api/v1/vendor/orders?status=Confirmed
+  API-&gt;&gt;DB: Orders for vendorId where status=Confirmed
+  API--&gt;&gt;VP: 200 [{orderId, customerName, lines, deliveryAddress}]
+
+  VP-&gt;&gt;API: PUT /api/v1/vendor/orders/{id}/status {status: Preparing}
+  API-&gt;&gt;DB: Order status → Preparing
+  API-&gt;&gt;Bus: Publish OrderStatusChangedEvent
+  Bus-&gt;&gt;Hub: SendAsync("OrderStatusChanged", orderId, status)
+  API--&gt;&gt;VP: 200 OK
+
+  VP-&gt;&gt;API: PUT /api/v1/vendor/orders/{id}/status {status: InDelivery}
+  API-&gt;&gt;DB: Order status → InDelivery
+  API-&gt;&gt;Bus: Publish OrderStatusChangedEvent
+  Bus-&gt;&gt;Hub: SendAsync("OrderStatusChanged", orderId, status)
+  API--&gt;&gt;VP: 200 OK
+
+  note over DB,Hub: Error: vase offline → bouquet still sold, fulfillment continues
+</code></pre>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

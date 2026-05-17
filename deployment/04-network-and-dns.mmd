@@ -1,0 +1,48 @@
+flowchart LR
+    subgraph PUB["Public edge - HTTPS auto-cert"]
+        d1["api.findmyflowers.pl"]
+        d2["app.findmyflowers.pl"]
+        d3["admin.findmyflowers.pl"]
+        d4["vendor.findmyflowers.pl"]
+        d5["auth.findmyflowers.pl"]
+        d6["*.hivemq.cloud:8883"]
+    end
+
+    subgraph COMPUTE["Compute"]
+        direction TB
+        F1["Fly - API<br/>always-on"]
+        F2["Fly - Keycloak<br/>always-on"]
+        R1["Render - CustomerApp<br/>sleeps + cron ping"]
+        R2["Render - AdminPortal<br/>sleeps"]
+        R3["Render - VendorPortal<br/>sleeps"]
+    end
+
+    subgraph DATAPLANE["Data plane - TLS, IP allow-list where supported"]
+        AV[("Aiven PG")]
+        UP[("Upstash Redis")]
+        CAM["CloudAMQP"]
+        CF["Cloudflare R2"]
+    end
+
+    d1 --> F1
+    d5 --> F2
+    d2 --> R1
+    d3 --> R2
+    d4 --> R3
+
+    R1 -->|server-side API calls| F1
+    R2 -->|server-side API calls| F1
+    R3 -->|server-side API calls| F1
+    R1 -. OIDC .-> F2
+
+    F1 --> AV
+    F2 --> AV
+    F1 --> UP
+    F1 --> CAM
+    F1 --> CF
+    F1 -. subscribe .-> d6
+
+    classDef alwaysOn fill:#dff5e1,stroke:#2a8a3e
+    classDef sleeps fill:#fff3cd,stroke:#a07d00
+    class F1,F2 alwaysOn
+    class R1,R2,R3 sleeps

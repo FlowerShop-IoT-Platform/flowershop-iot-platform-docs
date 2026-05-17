@@ -1,0 +1,44 @@
+flowchart TB
+    subgraph Clients
+        BR[Web browser]
+        VASE[ESP32 smart vase]
+        MOB[Mobile app - future]
+    end
+
+    subgraph FLY["Fly.io - always-on VMs"]
+        API["FlowerShop.API<br/>REST + SignalR hub<br/>+ MQTT client<br/>+ 5 hosted workers<br/>+ Stripe webhook"]
+        KC["Keycloak 23<br/>OIDC + admin API"]
+    end
+
+    subgraph RENDER["Render free - Docker web services"]
+        AP["AdminPortal<br/>Razor Pages"]
+        VP["VendorPortal<br/>Razor Pages"]
+        CA["CustomerApp<br/>MVC + OIDC"]
+    end
+
+    subgraph DATA["Managed free tiers"]
+        PG[("Aiven PostgreSQL<br/>flowershop + keycloak DBs")]
+        RD[("Upstash Redis")]
+        RMQ["CloudAMQP<br/>RabbitMQ"]
+        MQTT["HiveMQ Cloud<br/>MQTT broker"]
+        R2["Cloudflare R2<br/>bouquet photos"]
+    end
+
+    BR --> AP
+    BR --> VP
+    BR --> CA
+    MOB --> API
+
+    CA -. OIDC code flow .-> KC
+    AP --> API
+    VP --> API
+    CA --> API
+
+    VASE -. mTLS 8883 .-> MQTT
+    API -. subscribe .-> MQTT
+
+    API --> PG
+    API --> RD
+    API --> RMQ
+    API --> R2
+    KC --> PG

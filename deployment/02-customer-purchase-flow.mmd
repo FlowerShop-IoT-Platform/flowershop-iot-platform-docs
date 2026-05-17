@@ -1,0 +1,33 @@
+sequenceDiagram
+    actor U as Customer
+    participant CA as CustomerApp (Render)
+    participant KC as Keycloak (Fly)
+    participant API as API (Fly)
+    participant PG as Postgres (Aiven)
+    participant RMQ as RabbitMQ (CloudAMQP)
+    participant S as Stripe
+
+    U->>CA: open /app
+    CA->>KC: /auth (code + PKCE)
+    KC-->>CA: id_token + access_token
+    CA->>API: GET /bouquets?lat,lng  (Bearer)
+    API->>PG: nearby available bouquets
+    PG-->>API: rows
+    API-->>CA: JSON
+    CA-->>U: map + list
+
+    U->>CA: add-to-cart, checkout
+    CA->>API: POST /cart/items
+    CA->>API: POST /orders/preview
+    CA->>API: POST /orders
+    API->>PG: reserve bouquets (OrderReservationExpiryService)
+    API->>RMQ: OrderCreated
+    API->>S: PaymentIntent.create
+    S-->>API: client_secret
+    API-->>CA: order + client_secret
+    CA-->>U: Stripe Elements
+
+    U->>S: 3DS + pay
+    S->>API: POST /api/stripe/webhook (signed)
+    API->>PG: confirm order, mark Sold
+    API->>RMQ: BouquetSold

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Real-time Flows | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="real-time-flows">Real-time Flows</h1>
+
+<h2 id="signalr-hub-group-map">SignalR Hub Group Map</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+  subgraph BouquetHub
+    RG["radius:{lat}:{lng}:{radius}\n(Customer: nearby bouquet updates)"]
+    OG["order:{orderId}\n(Customer: order status updates)"]
+    VG["vendor:{vendorId}\n(Vendor Portal: order + vase dashboard)"]
+  end
+
+  Customer --&gt;|JoinRadiusGroup| RG
+  Customer --&gt;|JoinOrderGroup| OG
+  VendorPortal --&gt;|JoinVendorGroup| VG
+</code></pre>
+
+<h2 id="outbox--eventbus--signalr-dispatch">Outbox → EventBus → SignalR Dispatch</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Handler as Command Handler
+  participant UoW as UnitOfWork (EF Core)
+  participant DB as PostgreSQL (outbox_messages)
+  participant Dispatcher as OutboxDispatcherService (BackgroundService)
+  participant Bus as InMemoryEventBus
+  participant Hub as BouquetHub (SignalR)
+  participant Client as Connected Client
+
+  Handler-&gt;&gt;UoW: SaveChangesAsync()
+  UoW-&gt;&gt;DB: INSERT aggregate change + INSERT outbox_messages in same transaction
+
+  loop Every 5s
+    Dispatcher-&gt;&gt;DB: SELECT top 20 WHERE processed_at IS NULL ORDER BY created_at
+    DB--&gt;&gt;Dispatcher: [OutboxMessage]
+    Dispatcher-&gt;&gt;Dispatcher: Deserialize IDomainEvent from payload
+    Dispatcher-&gt;&gt;Bus: InMemoryEventBus.PublishAsync(event)
+    Bus-&gt;&gt;Hub: Matching event handler calls Hub.Clients.Group(...).SendAsync("OrderStatusChanged", ...)
+    Hub--&gt;&gt;Client: Real-time message (WebSocket)
+    Dispatcher-&gt;&gt;DB: UPDATE outbox_messages SET processed_at = now
+  end
+</code></pre>
+
+<blockquote>
+  <p>⚠️ <strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code> — all events are silently dropped when RabbitMQ bus is active. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation currently in use. Fix: wire real RabbitMQ publish in EP-09 S-09-06.</p>
+</blockquote>
+
+<blockquote>
+  <p>⚠️ <strong>Known gap (EP-06):</strong> <code class="language-plaintext highlighter-rouge">DeviceRegistration</code> aggregate and repository are implemented. FCM push notification dispatch (<code class="language-plaintext highlighter-rouge">INotificationServiceClient</code>) is a stub — push notifications are not delivered to mobile devices. Fix planned in EP-06.</p>
+</blockquote>
+
+<h2 id="bouquet-view-counter">Bouquet View Counter</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant App as Mobile App
+  participant API as REST API
+  participant Counter as BouquetViewCounterService
+  participant Hub as BouquetHub (SignalR)
+  participant Vendor as Vendor Portal (subscribed to vendor group)
+
+  App-&gt;&gt;Hub: SignalR: StartViewingBouquet(bouquetId)
+  Hub-&gt;&gt;Counter: BouquetViewCounterService.IncrementViewCount(bouquetId, connectionId)
+  Counter-&gt;&gt;Hub: SendAsync("BouquetViewCountChanged", bouquetId, count)
+  Hub--&gt;&gt;Vendor: Real-time view count update on dashboard
+</code></pre>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

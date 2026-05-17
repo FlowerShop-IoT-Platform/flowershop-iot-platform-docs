@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Observability — Logs, Health, Metrics | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Observability — Logs, Health, Metrics</h1>
+  </header>
+
+  <div class="post-content">
+    <h1 id="observability--logs-health-metrics">Observability — Logs, Health, Metrics</h1>
+
+<blockquote>
+  <p><strong>Purpose</strong>: when something goes wrong in prod, this is the map of where to look first.
+<strong>Scope</strong>: what exists today on the free tier. Upgrade paths to structured logging / APM are listed at the end.</p>
+</blockquote>
+
+<h2 id="tldr--the-site-is-broken">TL;DR — “the site is broken”</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>First place to look</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>“I can’t log in”</td>
+      <td>Keycloak logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-keycloak</code></td>
+    </tr>
+    <tr>
+      <td>“Map is empty / 500s”</td>
+      <td>API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code> + <code class="language-plaintext highlighter-rouge">/health/ready</code></td>
+    </tr>
+    <tr>
+      <td>“Bouquets don’t refresh”</td>
+      <td>MQTT subscriber status: API logs → grep <code class="language-plaintext highlighter-rouge">Mqtt</code></td>
+    </tr>
+    <tr>
+      <td>“Checkout fails”</td>
+      <td>Stripe Dashboard → Events, then API logs → grep <code class="language-plaintext highlighter-rouge">stripe</code></td>
+    </tr>
+    <tr>
+      <td>“Admin portal won’t load”</td>
+      <td>Render dashboard → flowershop-admin-portal → Logs</td>
+    </tr>
+    <tr>
+      <td>“Vendor portal login fails”</td>
+      <td>VendorPortal logs + Keycloak <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code> client settings</td>
+    </tr>
+    <tr>
+      <td>“API intermittently slow”</td>
+      <td>Aiven metrics + Fly metrics on the API app</td>
+    </tr>
+    <tr>
+      <td>“Customer app 502”</td>
+      <td>Fly logs on customer-app; usually an API cold start</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="health-endpoints">Health endpoints</h2>
+
+<p>Every component exposes at least one. Wire them into cron-job.org (§Stage 10 of runbook) for passive monitoring.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Endpoint</th>
+      <th>What it checks</th>
+      <th>Returns</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /health</code></td>
+      <td>All registered checks (DB, MQTT, any future Redis/RabbitMQ)</td>
+      <td><code class="language-plaintext highlighter-rouge">{"status":"Healthy"}</code> 200 / <code class="language-plaintext highlighter-rouge">{"status":"Unhealthy"}</code> 503</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /health/ready</code></td>
+      <td>Only checks tagged <code class="language-plaintext highlighter-rouge">ready</code> — used by Fly for routing decisions</td>
+      <td>200 / 503</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /health/live</code></td>
+      <td>Liveness only — <code class="language-plaintext highlighter-rouge">Predicate = _ =&gt; false</code> means it always returns 200 if the process is up</td>
+      <td>200</td>
+    </tr>
+    <tr>
+      <td>Keycloak</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /health/ready</code></td>
+      <td>Built-in, requires <code class="language-plaintext highlighter-rouge">KC_HEALTH_ENABLED=true</code> (already set in <code class="language-plaintext highlighter-rouge">fly.keycloak.toml</code>)</td>
+      <td>200 / 503</td>
+    </tr>
+    <tr>
+      <td>Keycloak</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /realms/flowershop/.well-known/openid-configuration</code></td>
+      <td>App-specific — proves realm loaded</td>
+      <td>200 with JSON</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AdminPortal</code> / <code class="language-plaintext highlighter-rouge">VendorPortal</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /health</code></td>
+      <td>ASP.NET default — process liveness</td>
+      <td>200</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CustomerApp</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /</code></td>
+      <td>Home page; Fly uses it as health probe</td>
+      <td>200/302</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Check all of them in one shell:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for </span>h <span class="k">in </span>api auth app admin vendor<span class="p">;</span> <span class="k">do
+  </span><span class="nb">printf</span> <span class="s2">"%-8s %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$h</span><span class="s2">"</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}'</span> https://<span class="nv">$h</span>.findmyflowers.pl/health 2&gt;/dev/null <span class="o">||</span> <span class="nb">echo </span>x<span class="si">)</span><span class="s2">"</span>
+<span class="k">done</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="logs">Logs</h2>
+
+<h3 id="fly-apps--live-tail">Fly apps — live tail</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api              <span class="c"># follow</span>
+fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail</span>    <span class="c"># one shot (last ~100 lines)</span>
+</code></pre></div></div>
+
+<p>Filter by grep client-side:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'error|warn|stripe|mqtt'</span>
+</code></pre></div></div>
+
+<p><strong>Retention:</strong> Fly free tier keeps ~24 h of logs. For longer retention, forward with <code class="language-plaintext highlighter-rouge">fly log-shipper</code> (costs extra) or add Serilog sink → Seq / Loki.</p>
+
+<h3 id="render-services">Render services</h3>
+
+<ul>
+  <li>Dashboard → service → <strong>Logs</strong> tab. Streaming UI, 7 days of retention on free tier.</li>
+  <li>CLI alternative: Render doesn’t ship a first-party CLI for logs yet; use the web UI or the REST API (<code class="language-plaintext highlighter-rouge">GET /v1/services/{id}/events</code>).</li>
+</ul>
+
+<h3 id="serilog-structured-output">Serilog structured output</h3>
+
+<p>The API already uses Serilog (see <code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Program.cs</code>). Fields automatically added:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">RequestId</code> — from <code class="language-plaintext highlighter-rouge">RequestIdMiddleware</code></li>
+  <li><code class="language-plaintext highlighter-rouge">TenantId</code> / <code class="language-plaintext highlighter-rouge">VendorId</code> — from <code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code> (after auth)</li>
+  <li><code class="language-plaintext highlighter-rouge">UserId</code>, <code class="language-plaintext highlighter-rouge">Role</code> — from JWT claims</li>
+  <li><code class="language-plaintext highlighter-rouge">Elapsed</code> — from <code class="language-plaintext highlighter-rouge">UseSerilogRequestLogging()</code></li>
+</ul>
+
+<p>Grep a specific request across logs:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="s2">"RequestId=abc-123"</span>
+</code></pre></div></div>
+
+<h3 id="what-to-grep-for">What to grep for</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>What you want</th>
+      <th>grep pattern</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Failed requests</td>
+      <td><code class="language-plaintext highlighter-rouge">"StatusCode":5\|"level":"Error"</code></td>
+    </tr>
+    <tr>
+      <td>Slow requests (&gt;1s)</td>
+      <td><code class="language-plaintext highlighter-rouge">Elapsed=[12][0-9]{3}</code></td>
+    </tr>
+    <tr>
+      <td>Auth failures</td>
+      <td><code class="language-plaintext highlighter-rouge">401\|AuthenticationFailed\|JwtBearer</code></td>
+    </tr>
+    <tr>
+      <td>MQTT ingest</td>
+      <td><code class="language-plaintext highlighter-rouge">MqttDevice\|vase/.*heartbeat</code></td>
+    </tr>
+    <tr>
+      <td>Stripe</td>
+      <td><code class="language-plaintext highlighter-rouge">stripe\|webhook\|payment_intent</code></td>
+    </tr>
+    <tr>
+      <td>DB errors</td>
+      <td><code class="language-plaintext highlighter-rouge">Npgsql\|EntityFramework\|RelationDoesNotExist</code></td>
+    </tr>
+    <tr>
+      <td>Migrations</td>
+      <td><code class="language-plaintext highlighter-rouge">Applied migration\|Pending migration</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="metrics">Metrics</h2>
+
+<h3 id="fly-built-in">Fly built-in</h3>
+
+<p>Dashboard → app → <strong>Metrics</strong>. Shows CPU, memory, network, connections, HTTP status breakdown per machine. Free. 7 days retention.</p>
+
+<h3 id="aiven-postgresql">Aiven PostgreSQL</h3>
+
+<p>Console → service → <strong>Metrics</strong> tab. Shows:</p>
+<ul>
+  <li>Connections in use vs. max</li>
+  <li>Disk usage (5 GB limit on free plan)</li>
+  <li>Query throughput</li>
+  <li>Replication lag (irrelevant on free tier; no replicas)</li>
+</ul>
+
+<p><strong>Watch:</strong> disk hitting 4 GB → start pruning old order data or upgrade plan.</p>
+
+<h3 id="upstash-redis">Upstash Redis</h3>
+
+<p>Console → database → <strong>Usage</strong>. Shows commands/month against the 500k free cap.</p>
+
+<h3 id="cloudamqp">CloudAMQP</h3>
+
+<p>Instance → <strong>Metrics</strong>. Shows message rate, queue depth, connection count.</p>
+
+<h3 id="hivemq-cloud">HiveMQ Cloud</h3>
+
+<p>Cluster → <strong>Monitoring</strong>. Shows connected clients (100 cap on free), messages/hour, storage.</p>
+
+<h3 id="cron-joborg-uptime">Cron-job.org (uptime)</h3>
+
+<p>Per job, shows “Last execution” and success history. Free-tier dashboards are a reasonable UptimeRobot substitute.</p>
+
+<hr />
+
+<h2 id="tracing-a-request-end-to-end">Tracing a request end-to-end</h2>
+
+<p>A customer clicks “Add to cart” → three services touch the request:</p>
+
+<ol>
+  <li><strong>CustomerApp</strong> (Fly) → look for the session cookie in its logs.</li>
+  <li><strong>API</strong> (Fly) → <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api | grep &lt;request-id&gt;</code> — <code class="language-plaintext highlighter-rouge">RequestId</code> is forwarded from CustomerApp if present, otherwise generated.</li>
+  <li><strong>PostgreSQL</strong> (Aiven) → <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> shows the query; enable it in the Aiven console under <em>Advanced configuration</em>.</li>
+</ol>
+
+<p>For IoT path: vase → HiveMQ → API → SignalR → CustomerApp. Correlate by <code class="language-plaintext highlighter-rouge">VaseSerialNumber</code> — it’s stamped on every log line in <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code>.</p>
+
+<hr />
+
+<h2 id="alerting">Alerting</h2>
+
+<p><strong>None configured today.</strong> The cheapest stack that works:</p>
+
+<ol>
+  <li><strong>cron-job.org</strong> → email on 3 consecutive failures. Free. Covers uptime only.</li>
+  <li><strong>Cloudflare</strong> → Health Checks (one free check) → emails if an origin goes down.</li>
+  <li><strong>Stripe</strong> → Dashboard → Developers → Webhooks → failing deliveries trigger email automatically.</li>
+  <li><strong>Aiven</strong> → service → Integrations → “Email notifications” → alerts on disk/CPU thresholds.</li>
+</ol>
+
+<p>For anything richer (paging, PagerDuty, Slack webhooks) you need one of:</p>
+<ul>
+  <li>BetterStack / Logtail (free tier with 1 GB logs/mo) — Serilog sink available</li>
+  <li>Sentry (5k events/mo free) — <code class="language-plaintext highlighter-rouge">Sentry.AspNetCore</code> NuGet, one-line wire-up in <code class="language-plaintext highlighter-rouge">Program.cs</code></li>
+  <li>Seq self-hosted on Fly — ~$2/mo extra, full-text log search</li>
+</ul>
+
+<p>Pick one when on-call becomes a real thing. Before then, cron-job.org + email is adequate.</p>
+
+<hr />
+
+<h2 id="known-noisy-log-lines-safe-to-ignore">Known noisy log lines (safe to ignore)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pattern</th>
+      <th>Source</th>
+      <th>Why it’s safe</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">HealthReport with status Healthy</code> (every 15s)</td>
+      <td>Fly probes <code class="language-plaintext highlighter-rouge">/health/ready</code></td>
+      <td>Just liveness; mute in Serilog filter if annoying</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Keycloak: realm 'master' - Password policy not configured</code></td>
+      <td>Keycloak boot</td>
+      <td><code class="language-plaintext highlighter-rouge">master</code> realm unused in prod</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Idempotency key not found, proceeding</code></td>
+      <td><code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code> on GETs</td>
+      <td>GETs don’t need idempotency; check only on mutations</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">InMemoryEventBus: Published &lt;event&gt;</code></td>
+      <td>Events system (EP-09 pending)</td>
+      <td>Stubbed — replace when RabbitMQ is real</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="upgrade-path-when-the-above-isnt-enough">Upgrade path when the above isn’t enough</h2>
+
+<ol>
+  <li><strong>Structured logs off-site</strong>: add a Serilog sink to BetterStack (free tier) — 10 min of work, immediate searchable history.</li>
+  <li><strong>APM</strong>: Sentry Performance (free tier) or Datadog free trial. Wire via middleware; catches slow queries and exceptions with stack traces.</li>
+  <li><strong>Distributed tracing</strong>: OpenTelemetry → Grafana Cloud (free 50 GB traces). Requires instrumentation changes, but correlates Stripe/DB/MQTT calls with UI requests.</li>
+  <li><strong>Synthetic checks</strong>: Checkly or UptimeRobot Pro for multi-step journeys (login → checkout). Replaces manual §10 of <a href="/flower-shop-backend-core/deployment/POST-DEPLOY-SMOKE-TESTS.html">POST-DEPLOY-SMOKE-TESTS.md</a>.</li>
+</ol>
+
+<p>Estimated upgrade cost to “production-grade observability”: $0–25/mo depending on retention.</p>
+
+  </div>
+
+</article>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

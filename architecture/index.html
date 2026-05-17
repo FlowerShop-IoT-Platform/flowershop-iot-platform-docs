@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Architecture Overview | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+
+<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+
+<h2 id="key-business-concepts">Key Business Concepts</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Vendor</strong></td>
+      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
+    </tr>
+    <tr>
+      <td><strong>Smart Vase</strong></td>
+      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
+    </tr>
+    <tr>
+      <td><strong>Bouquet</strong></td>
+      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
+    </tr>
+    <tr>
+      <td><strong>Customer</strong></td>
+      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
+    </tr>
+    <tr>
+      <td><strong>Platform Admin</strong></td>
+      <td>Manages vendors, vases, and platform analytics</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="technology-stack">Technology Stack</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Technology</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Framework</td>
+      <td>.NET 8 / ASP.NET Core</td>
+    </tr>
+    <tr>
+      <td>ORM</td>
+      <td>Entity Framework Core 8 + PostgreSQL 15</td>
+    </tr>
+    <tr>
+      <td>Auth</td>
+      <td>Keycloak 23.0 (OIDC, JWT)</td>
+    </tr>
+    <tr>
+      <td>CQRS</td>
+      <td>MediatR</td>
+    </tr>
+    <tr>
+      <td>Validation</td>
+      <td>FluentValidation (pipeline behaviour)</td>
+    </tr>
+    <tr>
+      <td>Cache</td>
+      <td>Redis 7 (RedisCacheService)</td>
+    </tr>
+    <tr>
+      <td>Messaging</td>
+      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
+    </tr>
+    <tr>
+      <td>Real-time</td>
+      <td>SignalR (BouquetHub)</td>
+    </tr>
+    <tr>
+      <td>IoT</td>
+      <td>MQTT (Mosquitto)</td>
+    </tr>
+    <tr>
+      <td>Payments</td>
+      <td>Stripe</td>
+    </tr>
+    <tr>
+      <td>SMS</td>
+      <td>Twilio</td>
+    </tr>
+    <tr>
+      <td>Portals</td>
+      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="architecture-layers">Architecture Layers</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
+│  API Layer (Controllers, Middleware)    │
+├─────────────────────────────────────────┤
+│  Application Layer (CQRS via MediatR)  │
+├─────────────────────────────────────────┤
+│  Domain Layer (Aggregates, Events)     │
+├─────────────────────────────────────────┤
+│  Infrastructure (EF Core, Keycloak…)   │
+└─────────────────────────────────────────┘
+</code></pre></div></div>
+
+<h2 id="documentation-pages">Documentation Pages</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/c4-context.html">C4 Context</a></td>
+      <td>System-level view: users and external systems</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/c4-containers.html">C4 Containers</a></td>
+      <td>All runtime containers and their communication</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/c4-components.html">C4 Components</a></td>
+      <td>API layer internals: controllers → handlers → domain</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/domain-model.html">Domain Model</a></td>
+      <td>ER diagram of all 14 aggregates</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-auth.html">Auth Flows</a></td>
+      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-customer.html">Customer Flows</a></td>
+      <td>Browse, QR scan, cart, order, payment, delivery</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-vendor.html">Vendor Flows</a></td>
+      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-admin.html">Admin Flows</a></td>
+      <td>Vendor approval, suspension, analytics</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-iot.html">IoT Flows</a></td>
+      <td>Vase registration, MQTT, heartbeat, sensor data</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-payments.html">Payment Flows</a></td>
+      <td>Stripe checkout, webhook, outbox, confirmation</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/flows-realtime.html">Real-time Flows</a></td>
+      <td>SignalR hub groups, outbox dispatch</td>
+    </tr>
+    <tr>
+      <td><a href="/flower-shop-backend-core/architecture/cross-cutting.html">Cross-cutting</a></td>
+      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="api-reference">API Reference</h2>
+
+<p>Full REST and SignalR contract: <a href="/flower-shop-backend-core/API-CONTRACTS.html">API-CONTRACTS.md</a></p>
+
+<h2 id="planned-work">Planned Work</h2>
+
+<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

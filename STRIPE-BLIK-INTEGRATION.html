@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stripe BLIK Payment Integration — Technical Guide | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Stripe BLIK Payment Integration — Technical Guide</h1>
+  </header>
+
+  <div class="post-content">
+    <h1 id="stripe-blik-payment-integration--technical-guide">Stripe BLIK Payment Integration — Technical Guide</h1>
+
+<blockquote>
+  <p><strong>Epic</strong>: EP-04 (Order Lifecycle &amp; Stripe)
+<strong>Last Updated</strong>: 2026-04-12</p>
+</blockquote>
+
+<hr />
+
+<h2 id="1-current-state">1. Current State</h2>
+
+<p>The backend already has significant Stripe scaffolding in place:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Status</th>
+      <th>Location</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IStripeService</code> interface</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Services/IStripeService.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StripeService</code> implementation</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Payments/StripeService.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StubStripeService</code> (no-key fallback)</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Extensions/ServiceCollectionExtensions.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Stripe.net</code> NuGet (v43.16.0)</td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure.csproj</code></td>
+    </tr>
+    <tr>
+      <td>DI registration (conditional)</td>
+      <td>Done</td>
+      <td>Uses real <code class="language-plaintext highlighter-rouge">StripeService</code> when <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> is set, otherwise <code class="language-plaintext highlighter-rouge">StubStripeService</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StripeWebhookController</code></td>
+      <td>Done</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/StripeWebhookController.cs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> → Stripe</td>
+      <td>Done</td>
+      <td>Creates PaymentIntent, stores ID on order</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code> → refund</td>
+      <td>Done</td>
+      <td>Refunds via Stripe if order was paid</td>
+    </tr>
+    <tr>
+      <td>Webhook: <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code></td>
+      <td>Done</td>
+      <td>Confirms payment via <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code></td>
+    </tr>
+    <tr>
+      <td>Webhook: <code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code></td>
+      <td>Done</td>
+      <td>Cancels order via <code class="language-plaintext highlighter-rouge">CancelOrderCommand</code></td>
+    </tr>
+    <tr>
+      <td><strong>Stripe config in appsettings</strong></td>
+      <td><strong>Missing</strong></td>
+      <td>No <code class="language-plaintext highlighter-rouge">Stripe</code> section in any appsettings file</td>
+    </tr>
+    <tr>
+      <td><strong>BLIK payment method type</strong></td>
+      <td><strong>Missing</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">StripeService</code> uses <code class="language-plaintext highlighter-rouge">AutomaticPaymentMethods</code> — needs explicit BLIK opt-in</td>
+    </tr>
+    <tr>
+      <td><strong>Checkout page payment form</strong></td>
+      <td><strong>Missing</strong></td>
+      <td>CustomerApp checkout has no Stripe.js / BLIK code input</td>
+    </tr>
+    <tr>
+      <td><strong>Stripe CLI webhook forwarding</strong></td>
+      <td><strong>Not set up</strong></td>
+      <td>Needed for local testing</td>
+    </tr>
+    <tr>
+      <td><strong>Reservation expiry BackgroundService</strong></td>
+      <td><strong>Missing</strong></td>
+      <td>Orders expire after 15 min but no service cleans them up proactively</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="2-prerequisites">2. Prerequisites</h2>
+
+<h3 id="21-stripe-account-required">2.1 Stripe Account (Required)</h3>
+
+<p><strong>Yes, you need a Stripe account.</strong> Registration is free and instant.</p>
+
+<ol>
+  <li>Go to <strong>https://dashboard.stripe.com/register</strong></li>
+  <li>Sign up with email — no business verification needed for test mode</li>
+  <li>After signup you are in <strong>Test Mode</strong> by default (toggle in top-right of dashboard)</li>
+  <li>Get your test API keys from <strong>Developers → API keys</strong>:
+    <ul>
+      <li><strong>Publishable key</strong>: <code class="language-plaintext highlighter-rouge">pk_test_...</code> (used in browser JavaScript)</li>
+      <li><strong>Secret key</strong>: <code class="language-plaintext highlighter-rouge">sk_test_...</code> (used in backend)</li>
+    </ul>
+  </li>
+</ol>
+
+<blockquote>
+  <p><strong>Important</strong>: Test mode is completely isolated from live mode. No real money is ever charged. No business verification is required to use test mode. You can stay in test mode indefinitely.</p>
+</blockquote>
+
+<h3 id="22-stripe-cli-required-for-webhook-testing">2.2 Stripe CLI (Required for Webhook Testing)</h3>
+
+<p>The Stripe CLI forwards webhook events from Stripe to your local machine.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install (Windows — via scoop)</span>
+scoop <span class="nb">install </span>stripe
+
+<span class="c"># Or download from https://stripe.com/docs/stripe-cli</span>
+
+<span class="c"># Login (one-time)</span>
+stripe login
+
+<span class="c"># Forward webhooks to your local API</span>
+stripe listen <span class="nt">--forward-to</span> http://localhost:8080/api/stripe/webhook
+</code></pre></div></div>
+
+<p>When you run <code class="language-plaintext highlighter-rouge">stripe listen</code>, it prints a <strong>webhook signing secret</strong> (<code class="language-plaintext highlighter-rouge">whsec_...</code>). Copy this — it goes into your config.</p>
+
+<h3 id="23-configuration">2.3 Configuration</h3>
+
+<p>Add to <code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/appsettings.Development.json</code>:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Stripe"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"SecretKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sk_test_YOUR_SECRET_KEY_HERE"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"PublishableKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pk_test_YOUR_PUBLISHABLE_KEY_HERE"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"WebhookSecret"</span><span class="p">:</span><span class="w"> </span><span class="s2">"whsec_YOUR_WEBHOOK_SECRET_HERE"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<blockquote>
+  <p><strong>Never commit real keys.</strong> The <code class="language-plaintext highlighter-rouge">.gitignore</code> already excludes <code class="language-plaintext highlighter-rouge">appsettings.Development.json</code> user secrets. Alternatively, use <code class="language-plaintext highlighter-rouge">dotnet user-secrets</code>:</p>
+  <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>src/backend/FlowerShop.API
+dotnet user-secrets <span class="nb">set</span> <span class="s2">"Stripe:SecretKey"</span> <span class="s2">"sk_test_..."</span>
+dotnet user-secrets <span class="nb">set</span> <span class="s2">"Stripe:PublishableKey"</span> <span class="s2">"pk_test_..."</span>
+dotnet user-secrets <span class="nb">set</span> <span class="s2">"Stripe:WebhookSecret"</span> <span class="s2">"whsec_..."</span>
+</code></pre></div>  </div>
+</blockquote>
+
+<h3 id="24-enable-blik-in-stripe-dashboard">2.4 Enable BLIK in Stripe Dashboard</h3>
+
+<ol>
+  <li>Go to <strong>Settings → Payment methods</strong> in the Stripe Dashboard</li>
+  <li>Enable <strong>BLIK</strong> under “Bank redirects” section</li>
+  <li>BLIK is available in test mode for all Stripe accounts</li>
+</ol>
+
+<hr />
+
+<h2 id="3-how-blik-works-with-stripe">3. How BLIK Works with Stripe</h2>
+
+<h3 id="31-customer-experience">3.1 Customer Experience</h3>
+
+<ol>
+  <li>Customer clicks “Place Order” in the CustomerApp</li>
+  <li>A <strong>6-digit code input</strong> appears (no card form)</li>
+  <li>Customer opens their <strong>banking app</strong> (PKO, mBank, ING, etc.), copies the BLIK code</li>
+  <li>Customer enters the 6-digit code and clicks “Pay”</li>
+  <li>A push notification arrives in the banking app: “Confirm payment of PLN 150.00 to FlowerShop?”</li>
+  <li>Customer confirms → payment succeeds → order moves to <code class="language-plaintext highlighter-rouge">Paid</code></li>
+</ol>
+
+<h3 id="32-technical-flow">3.2 Technical Flow</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+│  CustomerApp  │      │  Backend API │      │    Stripe    │      │  Customer's  │
+│   (Browser)   │      │  (.NET 8)    │      │              │      │  Banking App │
+└──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+       │                     │                      │                     │
+       │  POST /api/v1/orders│                      │                     │
+       │ ───────────────────&gt;│                      │                     │
+       │                     │  CreatePaymentIntent │                     │
+       │                     │  (payment_method_types: ["blik"])          │
+       │                     │ ────────────────────&gt;│                     │
+       │                     │  { clientSecret }    │                     │
+       │                     │ &lt;────────────────────│                     │
+       │  { clientSecret }   │                      │                     │
+       │ &lt;───────────────────│                      │                     │
+       │                     │                      │                     │
+       │  [User enters 6-digit BLIK code]           │                     │
+       │                     │                      │                     │
+       │  stripe.confirmBlikPayment(clientSecret,   │                     │
+       │    { blik: { code: "123456" } })           │                     │
+       │ ──────────────────────────────────────────&gt;│                     │
+       │                     │                      │  Push notification  │
+       │                     │                      │ ───────────────────&gt;│
+       │                     │                      │  [User confirms]    │
+       │                     │                      │ &lt;───────────────────│
+       │                     │                      │                     │
+       │                     │  Webhook: payment_intent.succeeded         │
+       │                     │ &lt;────────────────────│                     │
+       │                     │  ConfirmPaymentCommand                     │
+       │                     │  Order: Created → Paid                     │
+       │  { status: "paid" } │                      │                     │
+       │ &lt;───────────────────│                      │                     │
+</code></pre></div></div>
+
+<h3 id="33-key-api-details">3.3 Key API Details</h3>
+
+<p><strong>Creating a PaymentIntent with BLIK:</strong></p>
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">var</span> <span class="n">options</span> <span class="p">=</span> <span class="k">new</span> <span class="n">PaymentIntentCreateOptions</span>
+<span class="p">{</span>
+    <span class="n">Amount</span> <span class="p">=</span> <span class="m">15000</span><span class="p">,</span>  <span class="c1">// PLN 150.00 in grosze</span>
+    <span class="n">Currency</span> <span class="p">=</span> <span class="s">"pln"</span><span class="p">,</span>
+    <span class="n">PaymentMethodTypes</span> <span class="p">=</span> <span class="k">new</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="p">{</span> <span class="s">"blik"</span> <span class="p">},</span>
+    <span class="c1">// Or keep AutomaticPaymentMethods for flexibility:</span>
+    <span class="c1">// AutomaticPaymentMethods = new() { Enabled = true },</span>
+    <span class="n">Metadata</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Dictionary</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span> <span class="kt">string</span><span class="p">&gt;</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="s">"order_id"</span><span class="p">]</span> <span class="p">=</span> <span class="n">orderId</span><span class="p">.</span><span class="nf">ToString</span><span class="p">(),</span>
+        <span class="p">[</span><span class="s">"customer_id"</span><span class="p">]</span> <span class="p">=</span> <span class="n">customerId</span><span class="p">.</span><span class="nf">ToString</span><span class="p">(),</span>
+    <span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p><strong>Confirming BLIK payment (browser-side JavaScript):</strong></p>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="p">{</span> <span class="nx">error</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">stripe</span><span class="p">.</span><span class="nx">confirmBlikPayment</span><span class="p">(</span><span class="nx">clientSecret</span><span class="p">,</span> <span class="p">{</span>
+    <span class="na">payment_method</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">blik</span><span class="p">:</span> <span class="p">{},</span>
+        <span class="na">billing_details</span><span class="p">:</span> <span class="p">{</span> <span class="na">email</span><span class="p">:</span> <span class="nx">customerEmail</span> <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="na">payment_method_options</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">blik</span><span class="p">:</span> <span class="p">{</span> <span class="na">code</span><span class="p">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="dl">'</span><span class="s1">blik-code</span><span class="dl">'</span><span class="p">).</span><span class="nx">value</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="4-testing-blik-payments">4. Testing BLIK Payments</h2>
+
+<h3 id="41-stripe-test-mode--blik-codes">4.1 Stripe Test Mode — BLIK Codes</h3>
+
+<p>In test mode, enter <strong>any valid 6-digit code</strong> (e.g., <code class="language-plaintext highlighter-rouge">123456</code>) — it will succeed.</p>
+
+<h3 id="42-simulating-failures">4.2 Simulating Failures</h3>
+
+<p>Use specific email addresses on the PaymentIntent to trigger failure scenarios:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Email pattern</th>
+      <th>Behavior</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*@test.com</code> (default)</td>
+      <td>Success</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*invalid_code@*</code></td>
+      <td>Immediate failure — invalid BLIK code</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*expired_code@*</code></td>
+      <td>Immediate failure — code expired</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*insufficient_funds@*</code></td>
+      <td>Fails after 8s — insufficient funds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*customer_timeout@*</code></td>
+      <td>Fails after 60s — customer didn’t confirm in banking app</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*limit_exceeded@*</code></td>
+      <td>Fails — daily transaction limit exceeded</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*bank_declined@*</code></td>
+      <td>Fails — bank declined</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">*blik_declined@*</code></td>
+      <td>Fails — BLIK-specific decline</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="43-testing-webhooks-locally">4.3 Testing Webhooks Locally</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Terminal 1: Start the API</span>
+<span class="nb">cd </span>src/backend/FlowerShop.API <span class="o">&amp;&amp;</span> dotnet run
+
+<span class="c"># Terminal 2: Forward Stripe webhooks</span>
+stripe listen <span class="nt">--forward-to</span> http://localhost:8080/api/stripe/webhook
+
+<span class="c"># Terminal 3: Trigger a test event</span>
+stripe trigger payment_intent.succeeded
+stripe trigger payment_intent.payment_failed
+</code></pre></div></div>
+
+<h3 id="44-end-to-end-test-flow">4.4 End-to-End Test Flow</h3>
+
+<ol>
+  <li>Configure <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> in appsettings</li>
+  <li>Start the API + CustomerApp</li>
+  <li>Start <code class="language-plaintext highlighter-rouge">stripe listen --forward-to http://localhost:8080/api/stripe/webhook</code></li>
+  <li>Log in as customer, add bouquet to cart, proceed to checkout</li>
+  <li>Place order → enter any 6-digit BLIK code → confirm</li>
+  <li>Check <code class="language-plaintext highlighter-rouge">stripe listen</code> terminal output for webhook delivery</li>
+  <li>Verify order status changed to <code class="language-plaintext highlighter-rouge">Paid</code> in the Orders page</li>
+</ol>
+
+<hr />
+
+<h2 id="5-what-needs-to-be-built">5. What Needs to Be Built</h2>
+
+<h3 id="51-backend-changes-minimal">5.1 Backend Changes (Minimal)</h3>
+
+<p>The backend is mostly ready. Remaining work:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Effort</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Add <code class="language-plaintext highlighter-rouge">Stripe</code> section to appsettings template</td>
+      <td>5 min</td>
+      <td>Add placeholder keys to <code class="language-plaintext highlighter-rouge">appsettings.json</code> (not Development)</td>
+    </tr>
+    <tr>
+      <td>Explicit BLIK in <code class="language-plaintext highlighter-rouge">StripeService</code></td>
+      <td>10 min</td>
+      <td>Optionally add <code class="language-plaintext highlighter-rouge">PaymentMethodTypes = ["blik", "card"]</code> instead of <code class="language-plaintext highlighter-rouge">AutomaticPaymentMethods</code> for explicit control</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Stripe:PublishableKey</code> config endpoint</td>
+      <td>15 min</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GET /api/v1/config</code> returning the publishable key for the frontend</td>
+    </tr>
+    <tr>
+      <td>Reservation expiry BackgroundService</td>
+      <td>1-2 h</td>
+      <td>EP-04 T-04-013..T-04-016 — auto-cancel orders after 15 min</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="52-frontend-changes-customerapp-checkout">5.2 Frontend Changes (CustomerApp Checkout)</h3>
+
+<p>This is the main work — the checkout page currently has no payment form:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Effort</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Add Stripe.js to checkout page</td>
+      <td>15 min</td>
+      <td><code class="language-plaintext highlighter-rouge">&lt;script src="https://js.stripe.com/v3/"&gt;&lt;/script&gt;</code></td>
+    </tr>
+    <tr>
+      <td>BLIK code input field</td>
+      <td>30 min</td>
+      <td>6-digit input with validation, “Pay” button</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stripe.confirmBlikPayment()</code> call</td>
+      <td>1 h</td>
+      <td>Wire clientSecret from order creation response, handle success/error</td>
+    </tr>
+    <tr>
+      <td>Payment status polling/redirect</td>
+      <td>1 h</td>
+      <td>After payment confirmation, redirect to order details or show success</td>
+    </tr>
+    <tr>
+      <td>Update <code class="language-plaintext highlighter-rouge">CheckoutController.PlaceOrder</code></td>
+      <td>30 min</td>
+      <td>Return <code class="language-plaintext highlighter-rouge">clientSecret</code> to the view instead of redirecting to confirmation</td>
+    </tr>
+    <tr>
+      <td>Error handling UI</td>
+      <td>30 min</td>
+      <td>Show BLIK-specific errors (expired code, declined, etc.)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="53-total-estimated-effort">5.3 Total Estimated Effort</h3>
+
+<p><strong>~4-6 hours</strong> for a working BLIK checkout flow, assuming the backend stays as-is and we focus on the CustomerApp frontend.</p>
+
+<hr />
+
+<h2 id="6-costs">6. Costs</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Provider</th>
+      <th>BLIK Fee per Transaction</th>
+      <th>On a PLN 150 bouquet</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Stripe</strong></td>
+      <td>~0.25 EUR (~1.10 PLN) + 2.0%</td>
+      <td>~4.10 PLN</td>
+    </tr>
+    <tr>
+      <td>PayU</td>
+      <td>0.30 PLN + 1.1%</td>
+      <td>~1.95 PLN</td>
+    </tr>
+    <tr>
+      <td>Tpay</td>
+      <td>0.29 PLN + 1.19%</td>
+      <td>~2.08 PLN</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Stripe is ~2x more expensive per BLIK transaction than local Polish providers. The tradeoff: Stripe is already integrated in the codebase, has an official .NET SDK, and best-in-class developer experience. Switching to PayU later is possible — the <code class="language-plaintext highlighter-rouge">IStripeService</code> abstraction can be generalized to an <code class="language-plaintext highlighter-rouge">IPaymentService</code>.</p>
+
+<hr />
+
+<h2 id="7-blik-constraints">7. BLIK Constraints</h2>
+
+<ul>
+  <li><strong>Currency</strong>: PLN only</li>
+  <li><strong>Country</strong>: Poland only</li>
+  <li><strong>Code validity</strong>: 2 minutes from generation</li>
+  <li><strong>Confirmation</strong>: Customer must approve in their banking app within ~90 seconds</li>
+  <li><strong>Recurring</strong>: BLIK does not support recurring/subscription payments (use cards for subscriptions)</li>
+  <li><strong>Refunds</strong>: Full and partial refunds are supported</li>
+  <li><strong>Mobile banking apps</strong>: PKO BP, mBank, ING, Santander, Pekao, Alior, Millennium, BNP Paribas, Credit Agricole, Revolut, and ~10 more</li>
+  <li><strong>Active users</strong>: ~17 million in Poland (2024)</li>
+</ul>
+
+<hr />
+
+<h2 id="8-file-reference">8. File Reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Services/IStripeService.cs</code></td>
+      <td>Payment abstraction</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Payments/StripeService.cs</code></td>
+      <td>Stripe SDK integration</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Extensions/ServiceCollectionExtensions.cs</code></td>
+      <td>DI — conditional real/stub registration</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/StripeWebhookController.cs</code></td>
+      <td>Webhook handler (<code class="language-plaintext highlighter-rouge">payment_intent.succeeded/failed</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/OrdersController.cs</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code> — creates PaymentIntent</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Handlers/Order/OrderCommandHandlers.cs</code></td>
+      <td>Order creation, payment confirmation, cancellation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/portals/FlowerShop.CustomerApp/Controllers/CheckoutController.cs</code></td>
+      <td>Checkout flow — needs payment form</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">src/portals/FlowerShop.CustomerApp/Views/Checkout/Index.cshtml</code></td>
+      <td>Checkout UI — needs BLIK input</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">docs/tasks/tasks-ep04-orders-stripe.json</code></td>
+      <td>EP-04 task breakdown (partially stale — many tasks already done)</td>
+    </tr>
+  </tbody>
+</table>
+
+  </div>
+
+</article>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

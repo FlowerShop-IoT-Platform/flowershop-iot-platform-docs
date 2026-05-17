@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Post-Deploy Smoke Tests | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Post-Deploy Smoke Tests</h1>
+  </header>
+
+  <div class="post-content">
+    <h1 id="post-deploy-smoke-tests">Post-Deploy Smoke Tests</h1>
+
+<blockquote>
+  <p><strong>Purpose</strong>: once every stage of <a href="/flower-shop-backend-core/deployment/DEPLOYMENT-RUNBOOK.html">DEPLOYMENT-RUNBOOK.md</a> is green, these scripted tests prove the platform actually <em>works</em> end-to-end — not just that services respond to <code class="language-plaintext highlighter-rouge">/health</code>.
+<strong>When to run</strong>: after first deploy, after any deploy that touches &gt;1 component, after any Keycloak realm change, after any Stripe key rotation.</p>
+</blockquote>
+
+<h2 id="fast-sanity-layer--60-seconds">Fast sanity layer — 60 seconds</h2>
+
+<p>Stick this in your shell and run whenever you want a quick “is prod up” pulse:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/usr/bin/env bash</span>
+<span class="nb">set</span> <span class="nt">-u</span>
+<span class="nv">BASE</span><span class="o">=</span><span class="s2">"findmyflowers.pl"</span>
+<span class="nv">pass</span><span class="o">=</span>0<span class="p">;</span> <span class="nv">fail</span><span class="o">=</span>0
+check<span class="o">()</span> <span class="o">{</span>
+  <span class="nb">local </span><span class="nv">label</span><span class="o">=</span><span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="nv">url</span><span class="o">=</span><span class="s2">"</span><span class="nv">$2</span><span class="s2">"</span> <span class="nv">expect</span><span class="o">=</span><span class="s2">"</span><span class="nv">$3</span><span class="s2">"</span>
+  <span class="nv">code</span><span class="o">=</span><span class="si">$(</span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s2">"%{http_code}"</span> <span class="nt">--max-time</span> 10 <span class="s2">"</span><span class="nv">$url</span><span class="s2">"</span><span class="si">)</span>
+  <span class="k">if</span> <span class="o">[[</span> <span class="s2">" </span><span class="nv">$expect</span><span class="s2"> "</span> <span class="o">==</span> <span class="k">*</span><span class="s2">" </span><span class="nv">$code</span><span class="s2"> "</span><span class="k">*</span> <span class="o">]]</span><span class="p">;</span> <span class="k">then
+    </span><span class="nb">printf</span> <span class="s2">"[OK]   %-30s %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$label</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$code</span><span class="s2">"</span><span class="p">;</span> <span class="o">((</span>pass++<span class="o">))</span>
+  <span class="k">else
+    </span><span class="nb">printf</span> <span class="s2">"[FAIL] %-30s got %s expected %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$label</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$code</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$expect</span><span class="s2">"</span><span class="p">;</span> <span class="o">((</span>fail++<span class="o">))</span>
+  <span class="k">fi</span>
+<span class="o">}</span>
+check <span class="s2">"API /health/ready"</span>   <span class="s2">"https://api.</span><span class="nv">$BASE</span><span class="s2">/health/ready"</span>    <span class="s2">"200"</span>
+check <span class="s2">"API /health/live"</span>    <span class="s2">"https://api.</span><span class="nv">$BASE</span><span class="s2">/health/live"</span>     <span class="s2">"200"</span>
+check <span class="s2">"Keycloak OIDC disc."</span> <span class="s2">"https://auth.</span><span class="nv">$BASE</span><span class="s2">/realms/flowershop/.well-known/openid-configuration"</span> <span class="s2">"200"</span>
+check <span class="s2">"CustomerApp root"</span>    <span class="s2">"https://app.</span><span class="nv">$BASE</span><span class="s2">/"</span>                <span class="s2">"200 302"</span>
+check <span class="s2">"AdminPortal /health"</span> <span class="s2">"https://admin.</span><span class="nv">$BASE</span><span class="s2">/health"</span>        <span class="s2">"200"</span>
+check <span class="s2">"VendorPortal /health"</span> <span class="s2">"https://vendor.</span><span class="nv">$BASE</span><span class="s2">/health"</span>      <span class="s2">"200"</span>
+<span class="nb">echo</span> <span class="s2">"---- </span><span class="nv">$pass</span><span class="s2"> pass / </span><span class="nv">$fail</span><span class="s2"> fail ----"</span>
+<span class="nb">exit</span> <span class="nv">$fail</span>
+</code></pre></div></div>
+
+<p>Save as <code class="language-plaintext highlighter-rouge">scripts/smoke.sh</code>. Fails with non-zero when anything is down — wire it into cron-job.org for passive monitoring.</p>
+
+<hr />
+
+<h2 id="deep-smoke-matrix">Deep smoke matrix</h2>
+
+<p>Run these in order; each depends on the previous succeeding. Every step has a <strong>Pass</strong> criterion that’s literal enough to script.</p>
+
+<h3 id="1-auth-loop--keycloak-issues-a-working-token">1. Auth loop — Keycloak issues a working token</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">TOKEN</span><span class="o">=</span><span class="si">$(</span>curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="se">\</span>
+  <span class="s2">"https://auth.findmyflowers.pl/realms/flowershop/protocol/openid-connect/token"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"grant_type=password"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"client_id=flowershop-customer-app"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"client_secret=</span><span class="nv">$KEYCLOAK_CLIENT_SECRET_CUSTOMER</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"username=smoketest@findmyflowers.pl"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"password=</span><span class="nv">$SMOKETEST_PASSWORD</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"scope=openid"</span> | jq <span class="nt">-r</span> .access_token<span class="si">)</span>
+
+<span class="o">[[</span> <span class="nt">-n</span> <span class="s2">"</span><span class="nv">$TOKEN</span><span class="s2">"</span> <span class="o">&amp;&amp;</span> <span class="s2">"</span><span class="nv">$TOKEN</span><span class="s2">"</span> <span class="o">!=</span> <span class="s2">"null"</span> <span class="o">]]</span> <span class="o">&amp;&amp;</span> <span class="nb">echo </span>PASS <span class="o">||</span> <span class="nb">echo </span>FAIL
+</code></pre></div></div>
+
+<p><strong>Prereq:</strong> create a one-off <code class="language-plaintext highlighter-rouge">smoketest@findmyflowers.pl</code> user in Keycloak realm (role: <code class="language-plaintext highlighter-rouge">User</code>).
+<strong>Pass:</strong> non-empty JWT printed.</p>
+
+<h3 id="2-authenticated-api-call--tenant-context-resolves">2. Authenticated API call — tenant context resolves</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-fsS</span> <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span> <span class="se">\</span>
+  https://api.findmyflowers.pl/api/v1/customer/me | jq <span class="nb">.</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> 200 with a <code class="language-plaintext highlighter-rouge">customerId</code> in the response. If 401, Keycloak’s JWKS isn’t trusted by the API (re-check <code class="language-plaintext highlighter-rouge">Authentication__Keycloak__Authority</code>). If 404 on the route, the customer profile endpoints aren’t deployed yet — substitute any <code class="language-plaintext highlighter-rouge">[Authorize(Policy = "CustomerAccess")]</code> endpoint.</p>
+
+<h3 id="3-database-round-trip">3. Database round-trip</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-fsS</span> <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="s2">"https://api.findmyflowers.pl/api/v1/bouquets?limit=1"</span> | jq <span class="s1">'.items | length'</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> numeric <code class="language-plaintext highlighter-rouge">0</code> or more (proves API→PostgreSQL read path works).</p>
+
+<h3 id="4-write-path--domain-event">4. Write path + domain event</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># As a vendor: create a bouquet.</span>
+<span class="nv">VENDOR_TOKEN</span><span class="o">=</span><span class="si">$(</span>...same as step 1 with flowershop-vendor-portal client + vendor user...<span class="si">)</span>
+
+curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$VENDOR_TOKEN</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{"name":"smoke-rose","priceMinor":1000,"currency":"PLN"}'</span> <span class="se">\</span>
+  https://api.findmyflowers.pl/api/v1/vendor/bouquets | jq <span class="nb">.</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> 201 with a <code class="language-plaintext highlighter-rouge">bouquetId</code> GUID. Confirms: Postgres write, MediatR pipeline, domain event publish (visible in logs as <code class="language-plaintext highlighter-rouge">Published BouquetCreated to InMemoryEventBus</code> — real RabbitMQ path lands in EP-09).</p>
+
+<h3 id="5-iot-ingest--mqtt--api--signalr">5. IoT ingest — MQTT → API → SignalR</h3>
+
+<p>Terminal A (API log tail):</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'mqtt|vase'</span>
+</code></pre></div></div>
+
+<p>Terminal B (simulate a vase):</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mosquitto_pub <span class="nt">-h</span> <span class="s2">"</span><span class="nv">$HIVEMQ_HOST</span><span class="s2">"</span> <span class="nt">-p</span> 8883 <span class="nt">--cafile</span> /etc/ssl/certs/ca-certificates.crt <span class="se">\</span>
+  <span class="nt">-u</span> <span class="s2">"</span><span class="nv">$HIVEMQ_USER</span><span class="s2">"</span> <span class="nt">-P</span> <span class="s2">"</span><span class="nv">$HIVEMQ_PASS</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-t</span> <span class="s2">"vase/SMOKE-VASE-001/heartbeat"</span> <span class="se">\</span>
+  <span class="nt">-m</span> <span class="s1">'{"timestamp":"2026-05-11T10:00:00Z","uptimeSeconds":120,"firmware":"smoke-1.0"}'</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> within 5 s, terminal A shows a log line containing <code class="language-plaintext highlighter-rouge">SMOKE-VASE-001</code> handled by <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code>.</p>
+
+<h3 id="6-stripe-order-loop-test-mode">6. Stripe order loop (test-mode)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add a cart item, preview, create order, confirm payment via test card.</span>
+<span class="c"># The full 4-call sequence is in docs/API-CONTRACTS.md — the critical thing to</span>
+<span class="c"># smoke-test is that /confirm-payment returns 200 with a `paid` status.</span>
+
+<span class="nv">STRIPE_TEST_PM</span><span class="o">=</span><span class="s2">"pm_card_visa"</span>   <span class="c"># canonical Stripe test payment method</span>
+
+<span class="c"># (Full scripted version lives in scripts/stripe-smoke.sh — see below.)</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> order transitions to <code class="language-plaintext highlighter-rouge">Paid</code>, bouquet status to <code class="language-plaintext highlighter-rouge">Sold</code>, and in Stripe dashboard → Payments the test charge is visible.</p>
+
+<h3 id="7-signalr-freshness-push">7. SignalR freshness push</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install a quick SignalR client (any language works). Node example:</span>
+npm i <span class="nt">-g</span> @microsoft/signalr@latest
+node <span class="nt">-e</span> <span class="s2">"
+const s = require('@microsoft/signalr');
+const c = new s.HubConnectionBuilder()
+  .withUrl('https://api.findmyflowers.pl/hubs/bouquet', { accessTokenFactory: () =&gt; process.env.TOKEN })
+  .build();
+c.on('FreshnessUpdated', b =&gt; { console.log('PASS', b); process.exit(0); });
+c.start().then(() =&gt; console.log('connected'));
+setTimeout(() =&gt; { console.log('FAIL: no event in 30s'); process.exit(1); }, 30000);
+"</span>
+</code></pre></div></div>
+
+<p>Then, in another terminal, publish an MQTT sensor reading for a bouquet’s vase.
+<strong>Pass:</strong> the Node client prints <code class="language-plaintext highlighter-rouge">PASS</code> with payload within 30 s.</p>
+
+<h3 id="8-rate-limit-enforcement">8. Rate-limit enforcement</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for </span>i <span class="k">in</span> <span class="o">{</span>1..120<span class="o">}</span><span class="p">;</span> <span class="k">do
+  </span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s2">"%{http_code}</span><span class="se">\n</span><span class="s2">"</span> https://api.findmyflowers.pl/api/v1/bouquets
+<span class="k">done</span> | <span class="nb">sort</span> | <span class="nb">uniq</span> <span class="nt">-c</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> you see a mix of <code class="language-plaintext highlighter-rouge">200</code> and <code class="language-plaintext highlighter-rouge">429</code>. All <code class="language-plaintext highlighter-rouge">200</code> means the limiter isn’t wired (check <code class="language-plaintext highlighter-rouge">app.UseRateLimiter()</code> in <code class="language-plaintext highlighter-rouge">Program.cs</code> — should be present). All <code class="language-plaintext highlighter-rouge">429</code> means limits are too aggressive — relax in config.</p>
+
+<h3 id="9-cors-from-the-real-customer-origin">9. CORS from the real customer origin</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-si</span> <span class="nt">-X</span> OPTIONS https://api.findmyflowers.pl/api/v1/bouquets <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Origin: https://app.findmyflowers.pl"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Access-Control-Request-Method: GET"</span> <span class="se">\</span>
+  | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"access-control-allow-origin"</span>
+</code></pre></div></div>
+
+<p><strong>Pass:</strong> <code class="language-plaintext highlighter-rouge">Access-Control-Allow-Origin: https://app.findmyflowers.pl</code>. If it echoes <code class="language-plaintext highlighter-rouge">*</code>, the CORS config still has the dev wildcard — fix in <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code>.</p>
+
+<h3 id="10-browser-driven-critical-path">10. Browser-driven critical path</h3>
+
+<p>Do this manually in an incognito window:</p>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" /><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code> loads without TLS warning.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />“Sign in” redirects to <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code>, shows the flowershop realm login.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Login succeeds and returns to <code class="language-plaintext highlighter-rouge">/</code> authenticated.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Map page shows at least one bouquet pin (or, if DB empty, empty-state copy — not an error).</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Click pin → details page loads with image, price, vendor name.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add to cart → checkout → Stripe test card <code class="language-plaintext highlighter-rouge">4242 4242 4242 4242</code> → redirected to success page.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Order appears under “My Orders”.</li>
+</ul>
+
+<p><strong>Pass:</strong> every box checked.</p>
+
+<hr />
+
+<h2 id="scripted-suite-optional">Scripted suite (optional)</h2>
+
+<p>Consolidate all 10 checks into <code class="language-plaintext highlighter-rouge">scripts/smoke-full.sh</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/usr/bin/env bash</span>
+<span class="nb">set</span> <span class="nt">-e</span>
+./scripts/smoke.sh                     <span class="c"># fast sanity</span>
+./scripts/smoke-auth.sh                <span class="c"># step 1</span>
+./scripts/smoke-api-authenticated.sh   <span class="c"># steps 2–4</span>
+./scripts/smoke-mqtt.sh                <span class="c"># step 5</span>
+./scripts/stripe-smoke.sh              <span class="c"># step 6</span>
+./scripts/smoke-signalr.js             <span class="c"># step 7</span>
+./scripts/smoke-ratelimit.sh           <span class="c"># step 8</span>
+./scripts/smoke-cors.sh                <span class="c"># step 9</span>
+<span class="nb">echo</span> <span class="s2">"=== Now run §10 manually in incognito ==="</span>
+</code></pre></div></div>
+
+<p>Add it to CI as a <strong>post-deploy job</strong> in <code class="language-plaintext highlighter-rouge">deploy-api.yml</code>, gated on a <code class="language-plaintext highlighter-rouge">SMOKE_ENABLED</code> var so PRs don’t churn through it.</p>
+
+<hr />
+
+<h2 id="what-failure-modes-each-test-catches">What failure modes each test catches</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Test</th>
+      <th>Protects against</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1 Auth loop</td>
+      <td>Keycloak realm not imported, client secrets rotated, realm disabled</td>
+    </tr>
+    <tr>
+      <td>2 Authenticated call</td>
+      <td>Wrong <code class="language-plaintext highlighter-rouge">Authority</code>, <code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code> broken, JWT mapping regression</td>
+    </tr>
+    <tr>
+      <td>3 DB read</td>
+      <td>Aiven creds wrong, migration missing, <code class="language-plaintext highlighter-rouge">DbContext</code> DI broken</td>
+    </tr>
+    <tr>
+      <td>4 Write path</td>
+      <td>Handler DI, validation pipeline, outbox / event publish wiring</td>
+    </tr>
+    <tr>
+      <td>5 MQTT ingest</td>
+      <td>HiveMQ creds, broker TLS, <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code> not subscribed (common after redeploy)</td>
+    </tr>
+    <tr>
+      <td>6 Stripe loop</td>
+      <td>Webhook signing secret mismatch, bouquet reservation regression</td>
+    </tr>
+    <tr>
+      <td>7 SignalR</td>
+      <td><code class="language-plaintext highlighter-rouge">UseWebSockets()</code> missing, CORS blocks hub, forwarded headers misconfig</td>
+    </tr>
+    <tr>
+      <td>8 Rate limit</td>
+      <td>Limiter removed or accidentally disabled in config</td>
+    </tr>
+    <tr>
+      <td>9 CORS</td>
+      <td>Wildcard leak, allowed origins drift from DNS</td>
+    </tr>
+    <tr>
+      <td>10 Browser</td>
+      <td>End-to-end integration catches anything the API tests can’t reproduce</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="incident-playbook-hook">Incident playbook hook</h2>
+
+<p>If <em>any</em> smoke test fails after a deploy that was previously green:</p>
+
+<ol>
+  <li>Don’t start debugging — <strong>roll back first</strong> (see <a href="/flower-shop-backend-core/deployment/ROLLBACK-AND-RECOVERY.html">ROLLBACK-AND-RECOVERY.md</a>). A failing deploy is a production incident.</li>
+  <li>Rerun smoke against the rolled-back version. If it passes, you have your bisect baseline.</li>
+  <li>Investigate on a branch, not on <code class="language-plaintext highlighter-rouge">main</code>.</li>
+</ol>
+
+  </div>
+
+</article>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>C4 Containers | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="c4-level-2--containers">C4 Level 2 — Containers</h1>
+
+<p>How the platform’s runtime containers communicate.</p>
+
+<pre><code class="language-mermaid">C4Container
+  title FlowerShop IoT Platform — Containers
+
+  Person(customer, "Customer")
+  Person(vendor, "Vendor")
+  Person(admin, "Platform Admin")
+
+  Container_Boundary(platform, "FlowerShop IoT Platform") {
+    Container(api, "REST API", ".NET 8 / ASP.NET Core", "CQRS, multi-tenant, 23 controllers, MediatR pipeline")
+    Container(adminPortal, "Admin Portal", "ASP.NET Razor Pages :5001", "Vendor management, analytics, vase registration")
+    Container(vendorPortal, "Vendor Portal", "ASP.NET Razor Pages :5002", "Bouquet catalog, order management, analytics dashboard")
+    Container(customerApp, "Customer Web App", "ASP.NET MVC :5003", "Browse map, cart, checkout, profile, subscriptions")
+    ContainerDb(postgres, "PostgreSQL 15", "Database", "All domain aggregates: Vendor, Bouquet, Order, Cart, Customer, SmartVase, etc.")
+    ContainerDb(redis, "Redis 7", "Cache + Blacklist", "Query cache (versioned), token blacklist, idempotency keys")
+    Container(keycloak, "Keycloak 23", "Identity Provider", "OIDC, JWT issuance, user management, email verification")
+    Container(rabbitmq, "RabbitMQ", "Message Broker", "Domain event bus (InMemoryEventBus currently active)")
+    Container(mqtt, "Mosquitto MQTT", "IoT Broker", "Vase telemetry, heartbeat, command dispatch")
+    Container(signalr, "SignalR Hub (in-process)", "WebSocket Hub (inside REST API process)", "BouquetHub — real-time bouquet updates, order tracking; runs in-process with the REST API")
+  }
+
+  System_Ext(stripe, "Stripe")
+  System_Ext(fcm, "Firebase FCM")
+  System_Ext(twilio, "Twilio")
+  System_Ext(nominatim, "Nominatim OSM")
+
+  Rel(customer, api, "REST/JSON", "HTTPS :8080")
+  Rel(customer, customerApp, "HTTP", "HTTPS :5003")
+  Rel(vendor, vendorPortal, "HTTP", "HTTPS :5002")
+  Rel(admin, adminPortal, "HTTP", "HTTPS :5001")
+
+  Rel(adminPortal, api, "API calls", "HTTPS")
+  Rel(vendorPortal, api, "API calls", "HTTPS")
+  Rel(customerApp, api, "API calls", "HTTPS")
+
+  Rel(api, postgres, "EF Core", "TCP :5432")
+  Rel(api, redis, "StackExchange.Redis", "TCP :6379")
+  Rel(api, keycloak, "Admin REST API", "HTTPS :8090")
+  Rel(api, rabbitmq, "AMQP", "TCP :5672")
+  Rel(api, mqtt, "MQTT", "TCP :1883")
+  Rel(mqtt, api, "Vase telemetry, heartbeats", "MQTT")
+  Rel(api, signalr, "BouquetHub (in-process)", "WebSocket")
+  Rel(api, stripe, "Stripe SDK", "HTTPS")
+  Rel(api, fcm, "FCM HTTP", "HTTPS")
+  Rel(api, twilio, "Twilio SDK", "HTTPS")
+  Rel(api, nominatim, "REST", "HTTPS")
+</code></pre>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Customer Flows | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="customer-persona-flows">Customer Persona Flows</h1>
+
+<h2 id="1-browse-bouquets-nearby--qr-scan">1. Browse Bouquets Nearby / QR Scan</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant App as Mobile App
+  participant API as REST API
+  participant Cache as Redis Cache
+  participant DB as PostgreSQL
+  participant GEO as Nominatim
+
+  App-&gt;&gt;API: GET /api/v1/bouquets/nearby?lat=&amp;lng=&amp;radius=
+  API-&gt;&gt;Cache: GetAsync(BouquetsNearby:lat:lng:radius:page)
+  alt cache hit
+    Cache--&gt;&gt;API: Cached result
+  else cache miss
+    API-&gt;&gt;DB: Geo query — bouquets within radius, status=Available
+    DB--&gt;&gt;API: Bouquet list with vendor + vase location
+    API-&gt;&gt;Cache: SetAsync(result, ttl=5min)
+  end
+  API--&gt;&gt;App: 200 [{bouquetId, name, price, distance, vendorName, photoUrl}]
+
+  App-&gt;&gt;API: GET /api/v1/bouquets/{id}/detail
+  API-&gt;&gt;DB: Bouquet + vendor + vase details
+  API--&gt;&gt;App: 200 {detail, feedbackSummary, vendorProfile}
+
+  Note over App,GEO: QR Scan path
+  App-&gt;&gt;API: GET /api/v1/bouquets/qr/{code}
+  API-&gt;&gt;DB: Resolve bouquet by QR code
+  API--&gt;&gt;App: 200 Bouquet detail (same as above)
+</code></pre>
+
+<h2 id="2-cart-management">2. Cart Management</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant App as Mobile App
+  participant API as REST API
+  participant DB as PostgreSQL
+
+  App-&gt;&gt;API: GET /api/v1/cart/me
+  API-&gt;&gt;DB: Cart for customerId
+  API--&gt;&gt;App: 200 {items, subtotal, vendorId}
+
+  App-&gt;&gt;API: POST /api/v1/cart/items {bouquetId, quantity}
+  API-&gt;&gt;DB: Load cart + bouquet
+  alt different vendor
+    API--&gt;&gt;App: 409 vendor-mismatch
+  else same vendor or empty cart
+    API-&gt;&gt;DB: Add CartItem, update subtotal
+    API--&gt;&gt;App: 200 Updated cart
+  end
+
+  App-&gt;&gt;API: DELETE /api/v1/cart/items/{itemId}
+  API-&gt;&gt;DB: Remove CartItem
+  API--&gt;&gt;App: 200 Updated cart
+
+  App-&gt;&gt;API: PATCH /api/v1/cart/items/{itemId} {quantity}
+  API-&gt;&gt;DB: Update CartItem quantity
+  API--&gt;&gt;App: 200 Updated cart
+</code></pre>
+
+<h2 id="3-order--payment">3. Order + Payment</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant App as Mobile App
+  participant API as REST API
+  participant DB as PostgreSQL
+  participant Stripe
+  participant Bus as InMemoryEventBus
+  participant Hub as BouquetHub (SignalR)
+
+  App-&gt;&gt;API: POST /api/v1/orders/preview
+  API-&gt;&gt;DB: Check bouquet prices + availability
+  API--&gt;&gt;App: 200 {lines, subtotal, deliveryAddress}
+
+  App-&gt;&gt;API: POST /api/v1/orders {deliveryAddress}
+  API-&gt;&gt;DB: Create Order, set status=PendingPayment
+  API-&gt;&gt;DB: Reserve bouquets (status=Reserved, reservedUntil=+15min)
+  API--&gt;&gt;App: 201 {orderId, clientSecret}
+
+  App-&gt;&gt;Stripe: Confirm payment intent (clientSecret)
+  Stripe--&gt;&gt;API: POST /api/stripe/webhook (payment_intent.succeeded)
+  API-&gt;&gt;DB: Order status → Confirmed, bouquets → Sold
+  API-&gt;&gt;Bus: Publish OrderPaidEvent
+  Bus-&gt;&gt;Hub: SendAsync("OrderStatusChanged", orderId, status)
+  Hub--&gt;&gt;App: Real-time: order confirmed
+
+  note over DB,Stripe: Error: payment declined → reservation expires after 15min
+  note over DB,Stripe: Error: price changed between preview and create → 409 price-conflict
+</code></pre>
+
+<h2 id="4-delivery-confirmation--feedback">4. Delivery Confirmation + Feedback</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant App as Mobile App
+  participant API as REST API
+  participant DB as PostgreSQL
+  participant Bus as InMemoryEventBus
+
+  App-&gt;&gt;API: POST /api/v1/orders/{id}/confirm-delivery
+  API-&gt;&gt;DB: Order status → Delivered
+  API-&gt;&gt;Bus: Publish OrderDeliveredEvent
+  API--&gt;&gt;App: 200 OK
+
+  App-&gt;&gt;API: GET /api/v1/orders/me/pending-feedback
+  API-&gt;&gt;DB: OrderLines where FeedbackSubmitted=false, order=Delivered
+  API--&gt;&gt;App: 200 [{orderId, bouquetId, bouquetName}]
+
+  App-&gt;&gt;API: POST /api/v1/orders/{id}/lines/{bouquetId}/feedback {rating, comment, isAnonymous}
+  API-&gt;&gt;DB: Create BouquetFeedback, mark OrderLine.FeedbackSubmitted=true
+  API-&gt;&gt;Bus: Publish BouquetFeedbackSubmittedEvent
+  API--&gt;&gt;App: 201 Created
+</code></pre>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

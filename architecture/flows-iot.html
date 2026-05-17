@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IoT Flows | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="iot-device-flows">IoT Device Flows</h1>
+
+<h2 id="1-vase-registration">1. Vase Registration</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Tech as Technician
+  participant API as REST API
+  participant DB as PostgreSQL
+
+  Tech-&gt;&gt;API: POST /api/v1/smart-vases/register-by-technician {serialNumber, vendorId, location}
+  API-&gt;&gt;DB: Create SmartVase {status=PendingAssignment}
+  API--&gt;&gt;Tech: 201 {vaseId, serialNumber}
+
+  Tech-&gt;&gt;API: POST /api/v1/smart-vases/{id}/activate
+  API-&gt;&gt;DB: SmartVase RegistrationStatus → Active
+  API--&gt;&gt;Tech: 200 OK
+</code></pre>
+
+<h2 id="2-mqtt-connect--heartbeat">2. MQTT Connect + Heartbeat</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Vase as SmartVase Device
+  participant MQTT as Mosquitto Broker
+  participant API as MqttDeviceCommunicationService
+  participant DB as PostgreSQL
+  participant Monitor as VaseHealthMonitoringService
+
+  Vase-&gt;&gt;MQTT: CONNECT (clientId=vaseId)
+  MQTT-&gt;&gt;API: MqttDeviceStartupService.OnConnectedAsync
+  API-&gt;&gt;DB: SmartVase.LastHeartbeat = now, status=Online
+  API-&gt;&gt;DB: Publish VaseCameOnlineEvent
+
+  loop Every 30s
+    Vase-&gt;&gt;MQTT: PUBLISH vases/{vaseId}/heartbeat
+    MQTT-&gt;&gt;API: VaseDeviceServiceAdapter.HandleHeartbeat
+    API-&gt;&gt;DB: SmartVase.LastHeartbeat = now
+  end
+
+  Monitor-&gt;&gt;DB: Poll: SmartVases where LastHeartbeat &lt; now-1hr
+  DB--&gt;&gt;Monitor: Stale vases
+  Monitor-&gt;&gt;DB: SmartVase status → Offline
+  Monitor-&gt;&gt;DB: Publish VaseWentOfflineEvent
+
+  note over Vase,Monitor: Error path: missed heartbeat → Offline after 1hr
+</code></pre>
+
+<h2 id="3-sensor-data">3. Sensor Data</h2>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Vase as SmartVase Device
+  participant MQTT as Mosquitto Broker
+  participant API as MqttDeviceCommunicationService
+  participant DB as PostgreSQL
+
+  Vase-&gt;&gt;MQTT: PUBLISH vases/{vaseId}/sensor {temperature, humidity, waterLevel}
+  MQTT-&gt;&gt;API: HandleSensorData(vaseId, payload)
+  API-&gt;&gt;DB: Update SmartVase sensor fields
+  API-&gt;&gt;DB: Recalculate Bouquet.FreshnessScore (if bouquet assigned)
+  API--&gt;&gt;Vase: ACK
+</code></pre>
+
+<h2 id="4-smartvase-state-machine">4. SmartVase State Machine</h2>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+  [*] --&gt; PendingAssignment : SmartVase.Create()
+  PendingAssignment --&gt; Active : AssignToVendor(vendorId, vendorType)
+  Active --&gt; PendingAssignment : UnassignFromVendor()
+  Active --&gt; Inactive : Admin deactivates
+  Active --&gt; UnderMaintenance : Admin marks for maintenance
+  UnderMaintenance --&gt; Active : Maintenance complete
+  Active --&gt; Decommissioned : Admin decommissions
+  Inactive --&gt; Decommissioned : Admin decommissions
+  Decommissioned --&gt; [*]
+
+  note right of Active : RegistrationStatus; ConnectionStatus (Online/Offline/Unstable) is tracked separately via heartbeat
+</code></pre>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant V as ESP32 vase
+    participant HM as HiveMQ Cloud
+    participant MQ as MqttDeviceCommunicationService (in API)
+    participant API as API request pipeline
+    participant PG as Postgres
+    participant RD as Upstash Redis
+    participant HUB as BouquetHub /hubs/bouquet
+    participant BR as Browser on map
+
+    V->>HM: publish vase/{serial}/heartbeat
+    V->>HM: publish vase/{serial}/sensors
+    HM-->>MQ: deliver (subscribed)
+    MQ->>PG: update LastHeartbeat, FreshnessScore
+    MQ->>RD: invalidate bouquet:{id} cache
+
+    Note over API: BouquetFreshnessUpdateService tick
+    API->>HUB: Clients.Group("radius:geohash").BouquetUpdated
+    HUB-->>BR: WebSocket frame
+    BR-->>BR: re-render marker

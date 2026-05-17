@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Domain Model | FlowerShop IoT Platform — Architecture</title>
+    <link rel="stylesheet" href="/flower-shop-backend-core/assets/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="/flower-shop-backend-core/">FlowerShop IoT Platform — Architecture</a>
+        <nav class="site-nav">
+          <a href="/flower-shop-backend-core/architecture/">Architecture</a>
+        </nav>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="wrapper">
+        <h1 id="domain-model">Domain Model</h1>
+
+<p>All 14 aggregates and their relationships.</p>
+
+<pre><code class="language-mermaid">erDiagram
+  Vendor ||--o{ SmartVase : "owns"
+  Vendor ||--o{ Employee : "employs"
+  Vendor {
+    VendorId Id
+    string Name
+    VendorType Type
+    string Email
+    bool IsActive
+  }
+
+  SmartVase ||--o| Bouquet : "currently displays"
+  SmartVase {
+    VaseId Id
+    VendorId VendorId
+    string SerialNumber
+    Location Location
+    VaseStatus Status
+    DateTime LastHeartbeat
+  }
+
+  Bouquet ||--o{ BouquetFeedback : "receives"
+  Bouquet {
+    BouquetId Id
+    VendorId VendorId
+    VaseId VaseId
+    string Name
+    PriceInfo Price
+    BouquetStatus Status
+    string QrShortCode
+    int FreshnessScore
+  }
+
+  Customer ||--o{ Order : "places"
+  Customer ||--o{ Favourite : "saves"
+  Customer ||--o{ Subscription : "subscribes"
+  Customer ||--o{ SavedAddress : "stores"
+  Customer ||--o{ DeviceRegistration : "registers"
+  Customer ||--o{ Notification : "receives"
+  Customer {
+    CustomerId Id
+    string Name
+    ContactInfo ContactInfo
+    Address Address
+    bool PhoneVerified
+  }
+
+  Order ||--|{ OrderLine : "contains"
+  Order ||--o{ BouquetFeedback : "generates"
+  Order {
+    OrderId Id
+    CustomerId CustomerId
+    VendorId VendorId
+    OrderStatus Status
+    decimal LinesSubtotal
+    DeliveryAddress DeliveryAddress
+    DateTime BouquetReservedUntil
+  }
+
+  OrderLine {
+    OrderLineId Id
+    OrderId OrderId
+    BouquetId BouquetId
+    decimal UnitPrice
+  }
+
+  Customer ||--o| Cart : "has"
+  Cart ||--|{ CartItem : "contains"
+  Cart {
+    CartId Id
+    CustomerId CustomerId
+    VendorId VendorId
+    VendorType VendorType
+    DateTime CreatedAt
+    DateTime UpdatedAt
+  }
+
+  CartItem {
+    BouquetId BouquetId
+    VaseId VaseId
+    decimal UnitPrice
+    string BouquetName
+    DateTime AddedAt
+  }
+
+  BouquetFeedback {
+    BouquetFeedbackId Id
+    OrderId OrderId
+    BouquetId BouquetId
+    VendorId VendorId
+    CustomerId CustomerId
+    int Rating
+    string Comment
+    bool IsAnonymous
+  }
+
+  Favourite {
+    FavouriteId Id
+    CustomerId CustomerId
+    BouquetId BouquetId
+  }
+
+  Subscription {
+    SubscriptionId Id
+    CustomerId CustomerId
+    VendorId ShopId
+    SubscriptionType Type
+    bool IsActive
+  }
+
+  Notification {
+    NotificationId Id
+    CustomerId CustomerId
+    string Title
+    string Body
+    bool IsRead
+  }
+
+  DeviceRegistration {
+    DeviceRegistrationId Id
+    CustomerId CustomerId
+    string DeviceToken
+    DevicePlatform Platform
+  }
+
+  SavedAddress {
+    SavedAddressId Id
+    CustomerId CustomerId
+    Address Address
+    string Label
+  }
+
+  Employee {
+    EmployeeId Id
+    VendorId VendorId
+    string Name
+    EmployeeRole Role
+    bool IsActive
+  }
+
+  User {
+    UserId Id
+    UserRole Role
+    CustomerId CustomerId
+    VendorId VendorId
+    VendorType VendorType
+  }
+</code></pre>
+
+<h2 id="aggregate-notes">Aggregate Notes</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aggregate</th>
+      <th>Key Invariants</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Vendor</strong></td>
+      <td>Polymorphic — <code class="language-plaintext highlighter-rouge">FlowerShop</code> (location + hours) or <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code> (privacy radius). VendorId + VendorType scope all child data.</td>
+    </tr>
+    <tr>
+      <td><strong>Bouquet</strong></td>
+      <td>Status machine: <code class="language-plaintext highlighter-rouge">Available → Sold / Expired</code>. Price changes only when status is <code class="language-plaintext highlighter-rouge">Available</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>SmartVase</strong></td>
+      <td>One bouquet at a time (<code class="language-plaintext highlighter-rouge">CurrentBouquetId</code>). RegistrationStatus: <code class="language-plaintext highlighter-rouge">PendingAssignment → Active → Inactive / UnderMaintenance / Decommissioned</code>. ConnectionStatus (Online/Offline/Unstable) tracked separately via heartbeat.</td>
+    </tr>
+    <tr>
+      <td><strong>Order</strong></td>
+      <td>Multi-line. Bouquets reserved for 15 min on creation. All lines must belong to the same vendor.</td>
+    </tr>
+    <tr>
+      <td><strong>Cart</strong></td>
+      <td>Vendor-scoped: all items must belong to the same vendor. Adding a different vendor returns 409 <code class="language-plaintext highlighter-rouge">vendor-mismatch</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>User</strong></td>
+      <td>Role determines which of <code class="language-plaintext highlighter-rouge">CustomerId</code> / <code class="language-plaintext highlighter-rouge">VendorId</code> is set.</td>
+    </tr>
+  </tbody>
+</table>
+
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  </body>
+</html>
