@@ -200,7 +200,7 @@
     .content {
       max-width: 820px;
       margin: 0 auto;
-      padding: 48px 40px 80px;
+      padding: 48px 40px 32px;
     }
 
     /* ── PROSE ── */
@@ -491,6 +491,52 @@
       max-width: none !important;
     }
 
+    /* ── PAGE NAV ── */
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 40px 60px;
+    }
+
+    .page-nav-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s, background .15s;
+      min-width: 0;
+      max-width: 46%;
+    }
+    .page-nav-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+      text-decoration: none;
+      color: var(--text);
+    }
+    .page-nav-btn.next { text-align: right; margin-left: auto; }
+    .page-nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .page-nav-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* ── MOBILE ── */
     @media (max-width: 768px) {
       :root { --sidebar-w: 260px; }
@@ -507,6 +553,8 @@
       .main { margin-left: 0; }
       .content { padding: 32px 20px 60px; }
       .content h1 { font-size: 1.6rem; }
+      .page-nav { padding: 0 20px 40px; }
+      .page-nav-btn { max-width: 48%; }
     }
   </style>
 </head>
@@ -867,6 +915,69 @@
   }
   hamburger.addEventListener('click', toggleSidebar);
   overlay.addEventListener('click', toggleSidebar);
+
+  // ── 7. Global page navigation (Next / Back) ──
+  const NAV_PAGES = [
+    { path: '/flowershop-iot-platform-docs/',                                                                   title: 'Home' },
+    { path: '/flowershop-iot-platform-docs/architecture/',                                                      title: 'Architecture Overview' },
+    { path: '/flowershop-iot-platform-docs/architecture/c4-context',                                            title: 'C4 Context' },
+    { path: '/flowershop-iot-platform-docs/architecture/c4-containers',                                         title: 'C4 Containers' },
+    { path: '/flowershop-iot-platform-docs/architecture/c4-components',                                         title: 'C4 Components' },
+    { path: '/flowershop-iot-platform-docs/architecture/domain-model',                                          title: 'Domain Model' },
+    { path: '/flowershop-iot-platform-docs/architecture/cross-cutting',                                         title: 'Cross-cutting' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-auth',                                            title: 'Authentication Flows' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-customer',                                        title: 'Customer Flows' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-vendor',                                          title: 'Vendor Flows' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-admin',                                           title: 'Admin Flows' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-iot',                                             title: 'IoT Flows' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-payments',                                        title: 'Payment Flows' },
+    { path: '/flowershop-iot-platform-docs/architecture/flows-realtime',                                        title: 'Real-time Flows' },
+    { path: '/flowershop-iot-platform-docs/API-CONTRACTS',                                                      title: 'Mobile API Contracts' },
+    { path: '/flowershop-iot-platform-docs/contracts/outbound',                                                 title: 'Outbound Contracts' },
+    { path: '/flowershop-iot-platform-docs/deployment/',                                                        title: 'Deployment Overview' },
+    { path: '/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC',                                         title: 'Deployment Spec' },
+    { path: '/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD',                                   title: 'Registration & CI/CD' },
+    { path: '/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS',                                    title: 'Secrets & Env Vars' },
+    { path: '/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK',                                      title: 'Runbook' },
+    { path: '/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS',                                 title: 'Smoke Tests' },
+    { path: '/flowershop-iot-platform-docs/deployment/OBSERVABILITY',                                           title: 'Observability' },
+    { path: '/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY',                                   title: 'Rollback & Recovery' },
+    { path: '/flowershop-iot-platform-docs/EPIC-FEATURES-GUIDE',                                                title: 'Epic Features Guide' },
+    { path: '/flowershop-iot-platform-docs/STRIPE-BLIK-INTEGRATION',                                            title: 'Stripe + BLIK' },
+    { path: '/flowershop-iot-platform-docs/COMPLETE_WORKFLOW',                                                   title: 'Complete Workflow' },
+    { path: '/flowershop-iot-platform-docs/firmware/Smart_Vase_Registration_Workflows_Minimal',                 title: 'Vase Registration Workflows' },
+  ];
+
+  (function () {
+    const norm = p => p.replace(/\/$/, '') || '/';
+    const cur  = norm(window.location.pathname);
+    const idx  = NAV_PAGES.findIndex(p => norm(p.path) === cur);
+    if (idx === -1) return;
+
+    const prev = idx > 0              ? NAV_PAGES[idx - 1] : null;
+    const next = idx < NAV_PAGES.length - 1 ? NAV_PAGES[idx + 1] : null;
+
+    const nav = document.createElement('div');
+    nav.className = 'page-nav';
+
+    if (prev) {
+      nav.innerHTML += `<a class="page-nav-btn back" href="${prev.path}">
+        <span class="page-nav-label">← Back</span>
+        <span class="page-nav-title">${prev.title}</span>
+      </a>`;
+    } else {
+      nav.innerHTML += `<span></span>`;
+    }
+
+    if (next) {
+      nav.innerHTML += `<a class="page-nav-btn next" href="${next.path}">
+        <span class="page-nav-label">Next →</span>
+        <span class="page-nav-title">${next.title}</span>
+      </a>`;
+    }
+
+    document.querySelector('.main').appendChild(nav);
+  })();
 </script>
 </body>
 </html>
