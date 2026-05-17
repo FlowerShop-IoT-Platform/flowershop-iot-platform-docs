@@ -1006,6 +1006,15 @@ aiven_uri_to_npgsql <span class="s2">"postgres://avnadmin:xxx@xxx.aivencloud.com
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
 <script>
+  // Jekyll renders ```mermaid as <pre><code class="language-mermaid">.
+  // Convert those to <div class="mermaid"> before Mermaid initialises.
+  document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    code.parentElement.replaceWith(div);
+  });
+
   mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
 
   // Sidebar accordion
