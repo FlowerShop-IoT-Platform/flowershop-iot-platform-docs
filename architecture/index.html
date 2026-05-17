@@ -466,18 +466,25 @@
 
     .diagram-modal-body {
       flex: 1;
-      overflow: hidden;
-      position: relative;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      min-height: 0;
       cursor: grab;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
-    .diagram-modal-body.grabbing { cursor: grabbing; }
+    .diagram-modal-body.grabbing { cursor: grabbing; user-select: none; }
 
     .diagram-modal-canvas {
-      position: absolute;
-      top: 0; left: 0;
-      transform-origin: 0 0;
-      user-select: none;
-      will-change: transform;
+      flex-shrink: 0;
+      line-height: 0;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
     .diagram-modal-canvas svg {
       display: block;
@@ -837,51 +844,50 @@
 
   mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
 
-  // ── 2. Diagram modal ──
+  // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
   const modal    = document.getElementById('diagramModal');
   const dmCanvas = document.getElementById('dmCanvas');
   const dmBody   = document.getElementById('dmBody');
   const dmTitle  = document.getElementById('modalTitle');
   const dmLabel  = document.getElementById('dmZoomLabel');
 
-  let scale = 1, tx = 0, ty = 0;
-  let natW = 800, natH = 600; // natural SVG dimensions — set in openModal
+  let natW = 800, natH = 600, curScale = 1;
 
-  function applyTransform() {
-    dmCanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-    dmLabel.textContent = Math.round(scale * 100) + '%';
+  function setSvgSize() {
+    const svg = dmCanvas.querySelector('svg');
+    if (!svg) return;
+    svg.setAttribute('width',  Math.round(natW * curScale));
+    svg.setAttribute('height', Math.round(natH * curScale));
+    dmLabel.textContent = Math.round(curScale * 100) + '%';
   }
 
   function fitToView() {
-    const bw = dmBody.clientWidth  || window.innerWidth;
-    const bh = dmBody.clientHeight || (window.innerHeight - 56);
-    const pad = 60;
-    scale = Math.min((bw - pad) / natW, (bh - pad) / natH, 2);
-    tx = (bw - natW * scale) / 2;
-    ty = (bh - natH * scale) / 2;
-    applyTransform();
+    const bw = dmBody.clientWidth  - 48;
+    const bh = dmBody.clientHeight - 48;
+    curScale = Math.min(bw / natW, bh / natH, 1.5);
+    setSvgSize();
+    // scroll to centre
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = (dmCanvas.offsetWidth  - dmBody.clientWidth)  / 2;
+      dmBody.scrollTop  = (dmCanvas.offsetHeight - dmBody.clientHeight) / 2;
+    });
   }
 
   function openModal(svgEl, title) {
     dmTitle.textContent = title || 'Diagram';
-    dmCanvas.innerHTML = '';
+    dmCanvas.innerHTML  = '';
 
-    // Read dimensions from the ORIGINAL in-DOM SVG — reliable before cloning
     const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
     natW = (vb && vb.width  > 0) ? vb.width  : (parseFloat(svgEl.getAttribute('width'))  || 1200);
     natH = (vb && vb.height > 0) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 800);
 
     const clone = svgEl.cloneNode(true);
-    clone.setAttribute('width',  natW);
-    clone.setAttribute('height', natH);
+    // remove any style that might constrain size
     clone.style.cssText = 'display:block;max-width:none;';
     dmCanvas.appendChild(clone);
 
-    scale = 1; tx = 0; ty = 0;
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
-
-    // dmBody needs one paint to have clientWidth/clientHeight
     requestAnimationFrame(fitToView);
   }
 
@@ -890,67 +896,49 @@
     document.body.style.overflow = '';
   }
 
-  function zoomToward(cx, cy, factor) {
-    const ns = Math.min(Math.max(scale * factor, 0.05), 12);
-    tx = cx - (cx - tx) * (ns / scale);
-    ty = cy - (cy - ty) * (ns / scale);
-    scale = ns;
-    applyTransform();
+  function changeZoom(factor) {
+    curScale = Math.min(Math.max(curScale * factor, 0.05), 10);
+    // remember scroll centre so zoom feels anchored
+    const cx = dmBody.scrollLeft + dmBody.clientWidth  / 2;
+    const cy = dmBody.scrollTop  + dmBody.clientHeight / 2;
+    const relX = cx / (natW * (curScale / factor));
+    const relY = cy / (natH * (curScale / factor));
+    setSvgSize();
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = relX * natW * curScale - dmBody.clientWidth  / 2;
+      dmBody.scrollTop  = relY * natH * curScale - dmBody.clientHeight / 2;
+    });
   }
 
   document.getElementById('dmClose').addEventListener('click', closeModal);
-  document.getElementById('dmZoomIn').addEventListener('click',  () => {
-    zoomToward(dmBody.clientWidth / 2, dmBody.clientHeight / 2, 1.4);
-  });
-  document.getElementById('dmZoomOut').addEventListener('click', () => {
-    zoomToward(dmBody.clientWidth / 2, dmBody.clientHeight / 2, 1 / 1.4);
-  });
-  document.getElementById('dmReset').addEventListener('click', fitToView);
+  document.getElementById('dmZoomIn').addEventListener('click',  () => changeZoom(1.4));
+  document.getElementById('dmZoomOut').addEventListener('click', () => changeZoom(1 / 1.4));
+  document.getElementById('dmReset').addEventListener('click',   fitToView);
 
-  // Wheel zoom toward cursor
+  // Ctrl/Cmd+wheel zoom (plain wheel = scroll handled by browser natively)
   dmBody.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    const r = dmBody.getBoundingClientRect();
-    zoomToward(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    changeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
   }, { passive: false });
 
-  // Drag / pan
-  let dragging = false, dragStartX, dragStartY, dragTx, dragTy;
+  // Drag-to-scroll / pan
+  let dragging = false, dragSX, dragSY, scrollLX, scrollLY;
   dmBody.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
-    dragging = true;
-    dragStartX = e.clientX; dragStartY = e.clientY;
-    dragTx = tx; dragTy = ty;
+    dragging = true; dragSX = e.clientX; dragSY = e.clientY;
+    scrollLX = dmBody.scrollLeft; scrollLY = dmBody.scrollTop;
     dmBody.classList.add('grabbing');
     e.preventDefault();
   });
   window.addEventListener('mousemove', e => {
     if (!dragging) return;
-    tx = dragTx + (e.clientX - dragStartX);
-    ty = dragTy + (e.clientY - dragStartY);
-    applyTransform();
+    dmBody.scrollLeft = scrollLX - (e.clientX - dragSX);
+    dmBody.scrollTop  = scrollLY - (e.clientY - dragSY);
   });
   window.addEventListener('mouseup', () => { dragging = false; dmBody.classList.remove('grabbing'); });
 
-  // Esc to close
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-  // Touch pinch-to-zoom
-  let lastDist = null, lastMid = null;
-  dmBody.addEventListener('touchstart', e => {
-    if (e.touches.length !== 2) return;
-    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    lastMid  = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
-  });
-  dmBody.addEventListener('touchmove', e => {
-    if (e.touches.length !== 2 || !lastDist) return;
-    e.preventDefault();
-    const r   = dmBody.getBoundingClientRect();
-    const d   = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    zoomToward(lastMid.x - r.left, lastMid.y - r.top, d / lastDist);
-    lastDist = d;
-  }, { passive: false });
-  dmBody.addEventListener('touchend', () => { lastDist = null; lastMid = null; });
 
   // ── 3. Wire expand buttons after Mermaid renders SVGs ──
   const mo = new MutationObserver(() => {
