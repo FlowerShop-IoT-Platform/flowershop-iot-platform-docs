@@ -388,6 +388,105 @@
     .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
     .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
 
+    /* ── DIAGRAM WRAPPER ── */
+    .mermaid-wrap {
+      position: relative;
+      margin: 1.25rem 0;
+    }
+    .mermaid-wrap .mermaid {
+      margin: 0;
+      cursor: zoom-in;
+      transition: box-shadow .2s;
+    }
+    .mermaid-wrap .mermaid:hover {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .mermaid-expand-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(15,17,23,.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: color .15s, border-color .15s, background .15s;
+      backdrop-filter: blur(6px);
+      font-family: var(--font);
+    }
+    .mermaid-expand-btn:hover { color: var(--text); border-color: var(--accent); background: rgba(15,17,23,.95); }
+
+    /* ── DIAGRAM MODAL ── */
+    .diagram-modal {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(4px);
+      flex-direction: column;
+    }
+    .diagram-modal.open { display: flex; }
+
+    .diagram-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .diagram-modal-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .dm-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background .15s, border-color .15s;
+      line-height: 1;
+    }
+    .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    .dm-btn.close-btn { color: #f87171; }
+    .dm-zoom-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .diagram-modal-body {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+    .diagram-modal-body.grabbing { cursor: grabbing; }
+
+    .diagram-modal-canvas {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform-origin: center center;
+      user-select: none;
+    }
+    .diagram-modal-canvas .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin: 0;
+      cursor: inherit;
+    }
+
     /* ── MOBILE ── */
     @media (max-width: 768px) {
       :root { --sidebar-w: 260px; }
@@ -1239,20 +1338,144 @@ Authorization: Bearer &lt;admin-token&gt;
   </main>
 </div>
 
+<!-- DIAGRAM MODAL -->
+<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
+  <div class="diagram-modal-toolbar">
+    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
+    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
+    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
+    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
+    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
+    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
+  </div>
+  <div class="diagram-modal-body" id="dmBody">
+    <div class="diagram-modal-canvas" id="dmCanvas"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
 <script>
-  // Jekyll renders ```mermaid as <pre><code class="language-mermaid">.
-  // Convert those to <div class="mermaid"> before Mermaid initialises.
+  // ── 1. Convert Jekyll ```mermaid code blocks to mermaid divs ──
   document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid-wrap';
     const div = document.createElement('div');
     div.className = 'mermaid';
     div.textContent = code.textContent;
-    code.parentElement.replaceWith(div);
+    const btn = document.createElement('button');
+    btn.className = 'mermaid-expand-btn';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand';
+    wrap.appendChild(div);
+    wrap.appendChild(btn);
+    code.parentElement.replaceWith(wrap);
   });
 
   mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
 
-  // Sidebar accordion
+  // ── 2. Diagram modal with zoom + pan ──
+  const modal    = document.getElementById('diagramModal');
+  const dmCanvas = document.getElementById('dmCanvas');
+  const dmBody   = document.getElementById('dmBody');
+  const dmTitle  = document.getElementById('modalTitle');
+  const dmLabel  = document.getElementById('dmZoomLabel');
+
+  let scale = 1, tx = 0, ty = 0;
+
+  function applyTransform() {
+    dmCanvas.style.transform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(${scale})`;
+    dmLabel.textContent = Math.round(scale * 100) + '%';
+  }
+
+  function openModal(svgEl, title) {
+    dmTitle.textContent = title || 'Diagram';
+    dmCanvas.innerHTML = '';
+    const clone = svgEl.cloneNode(true);
+    clone.removeAttribute('width');
+    clone.removeAttribute('height');
+    clone.style.maxWidth = 'none';
+    clone.style.width = 'auto';
+    clone.style.height = 'auto';
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid';
+    wrap.appendChild(clone);
+    dmCanvas.appendChild(wrap);
+    scale = 1; tx = 0; ty = 0;
+    applyTransform();
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('dmClose').addEventListener('click', closeModal);
+  document.getElementById('dmZoomIn').addEventListener('click', () => { scale = Math.min(scale + 0.25, 8); applyTransform(); });
+  document.getElementById('dmZoomOut').addEventListener('click', () => { scale = Math.max(scale - 0.25, 0.25); applyTransform(); });
+  document.getElementById('dmReset').addEventListener('click', () => { scale = 1; tx = 0; ty = 0; applyTransform(); });
+
+  // Mouse-wheel zoom
+  dmBody.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.15 : -0.15;
+    scale = Math.min(Math.max(scale + delta, 0.25), 8);
+    applyTransform();
+  }, { passive: false });
+
+  // Drag / pan
+  let dragging = false, dragStartX, dragStartY, dragTx, dragTy;
+  dmBody.addEventListener('mousedown', e => {
+    dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+    dragTx = tx; dragTy = ty;
+    dmBody.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    tx = dragTx + (e.clientX - dragStartX);
+    ty = dragTy + (e.clientY - dragStartY);
+    applyTransform();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; dmBody.classList.remove('grabbing'); });
+
+  // Keyboard close
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Touch pinch-to-zoom
+  let lastTouchDist = null;
+  dmBody.addEventListener('touchstart', e => { if (e.touches.length === 2) lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); });
+  dmBody.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && lastTouchDist) {
+      e.preventDefault();
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      scale = Math.min(Math.max(scale * (d / lastTouchDist), 0.25), 8);
+      lastTouchDist = d;
+      applyTransform();
+    }
+  }, { passive: false });
+  dmBody.addEventListener('touchend', () => { lastTouchDist = null; });
+
+  // Wire up expand buttons (after mermaid renders SVGs)
+  document.addEventListener('DOMContentLoaded', () => {});
+  // Use MutationObserver to catch mermaid SVGs after they render
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('.mermaid-wrap').forEach(wrap => {
+      if (wrap.dataset.wired) return;
+      wrap.dataset.wired = '1';
+      const btn = wrap.querySelector('.mermaid-expand-btn');
+      const mermaidDiv = wrap.querySelector('.mermaid');
+      if (!btn || !mermaidDiv) return;
+      const activate = () => {
+        const svg = mermaidDiv.querySelector('svg');
+        if (svg) openModal(svg, document.title);
+      };
+      btn.addEventListener('click', activate);
+      mermaidDiv.addEventListener('click', activate);
+    });
+  });
+  mo.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+  // ── 3. Sidebar accordion ──
   document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = document.getElementById(btn.dataset.target);
@@ -1262,13 +1485,12 @@ Authorization: Bearer &lt;admin-token&gt;
     });
   });
 
-  // Active link highlight
+  // ── 4. Active link highlight ──
   const currentPath = window.location.pathname;
   document.querySelectorAll('.sidebar-link').forEach(link => {
     const href = link.getAttribute('href');
     if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
       link.classList.add('active');
-      // ensure parent group is open
       const items = link.closest('.sidebar-items');
       if (items) {
         items.classList.add('open');
@@ -1278,7 +1500,7 @@ Authorization: Bearer &lt;admin-token&gt;
     }
   });
 
-  // Mobile hamburger
+  // ── 5. Mobile hamburger ──
   const hamburger = document.getElementById('hamburger');
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
