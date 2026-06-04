@@ -2423,6 +2423,122 @@ grant_type=refresh_token
 
 <hr />
 
+<h3 id="get-apiv1vendorsettingspricing-strategy">GET /api/v1/vendor/settings/pricing-strategy</h3>
+
+<p>Returns the vendor’s current freshness-based pricing strategy, or the platform default if none is configured.</p>
+
+<p><strong>Auth:</strong> Required (<code class="language-plaintext highlighter-rouge">VendorAccess</code>)</p>
+
+<p><strong>Response 200:</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"isDefault"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"autoAdjustPrice"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"tiers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"afterHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"cumulativeDiscountPercent"</span><span class="p">:</span><span class="w"> </span><span class="mf">20.0</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"After 24h in vase: -20% off original price"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"afterHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">48</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"cumulativeDiscountPercent"</span><span class="p">:</span><span class="w"> </span><span class="mf">40.0</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"After 48h in vase: -40% off original price"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"afterHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">72</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"cumulativeDiscountPercent"</span><span class="p">:</span><span class="w"> </span><span class="mf">70.0</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"After 72h in vase: -70% off original price"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Notes:</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">isDefault: true</code> means no custom strategy is stored — the platform Standard preset is being used.</li>
+  <li>Discount percentages are cumulative off the <code class="language-plaintext highlighter-rouge">BasePrice</code> set when the vendor last called <code class="language-plaintext highlighter-rouge">SetPrice</code> or <code class="language-plaintext highlighter-rouge">UpdatePrice</code> on the bouquet.</li>
+</ul>
+
+<p><strong>Response 403:</strong> No VendorId in token.</p>
+
+<hr />
+
+<h3 id="put-apiv1vendorsettingspricing-strategy">PUT /api/v1/vendor/settings/pricing-strategy</h3>
+
+<p>Sets a custom freshness pricing strategy for the vendor. Replaces any previously stored strategy.</p>
+
+<p><strong>Auth:</strong> Required (<code class="language-plaintext highlighter-rouge">VendorAccess</code>)</p>
+
+<p><strong>Request Body:</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"autoAdjustPrice"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"tiers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"afterHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nl">"cumulativeDiscountPercent"</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"afterHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">48</span><span class="p">,</span><span class="w"> </span><span class="nl">"cumulativeDiscountPercent"</span><span class="p">:</span><span class="w"> </span><span class="mi">35</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"afterHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">72</span><span class="p">,</span><span class="w"> </span><span class="nl">"cumulativeDiscountPercent"</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Required</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">autoAdjustPrice</code></td>
+      <td>bool</td>
+      <td>No</td>
+      <td>Default <code class="language-plaintext highlighter-rouge">true</code>. Set <code class="language-plaintext highlighter-rouge">false</code> to store tiers without activating auto-adjustment.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tiers</code></td>
+      <td>array</td>
+      <td>Yes</td>
+      <td>At least one tier. <code class="language-plaintext highlighter-rouge">null</code> or empty resets to platform default.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tiers[].afterHours</code></td>
+      <td>int</td>
+      <td>Yes</td>
+      <td>Hours since bouquet placement at which this tier activates. Must be &gt; 0 and strictly ascending.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tiers[].cumulativeDiscountPercent</code></td>
+      <td>decimal</td>
+      <td>Yes</td>
+      <td>Total discount off the original base price (not compounded). Must be in (0, 100]. Must be strictly ascending across tiers.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Response 204:</strong> Strategy saved.</p>
+
+<p><strong>Response 400:</strong> Validation error (e.g., hours not ascending, discount out of range).</p>
+
+<p><strong>Response 403:</strong> No VendorId in token.</p>
+
+<hr />
+
+<h3 id="delete-apiv1vendorsettingspricing-strategy">DELETE /api/v1/vendor/settings/pricing-strategy</h3>
+
+<p>Resets the vendor’s pricing strategy to the platform default (Standard 3-day schedule: −20%/−40%/−70% at 24h/48h/72h).</p>
+
+<p><strong>Auth:</strong> Required (<code class="language-plaintext highlighter-rouge">VendorAccess</code>)</p>
+
+<p><strong>Response 204:</strong> Strategy reset.</p>
+
+<p><strong>Response 403:</strong> No VendorId in token.</p>
+
+<hr />
+
 <h2 id="8-customer-profile-endpoints">8. Customer Profile Endpoints</h2>
 
 <h3 id="get-apiprofile">GET /api/profile</h3>

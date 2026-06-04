@@ -1176,6 +1176,92 @@ Returns all currently available bouquets for a specific vendor.
 
 ---
 
+### GET /api/v1/vendor/settings/pricing-strategy
+
+Returns the vendor's current freshness-based pricing strategy, or the platform default if none is configured.
+
+**Auth:** Required (`VendorAccess`)
+
+**Response 200:**
+
+```json
+{
+  "isDefault": false,
+  "autoAdjustPrice": true,
+  "tiers": [
+    {
+      "afterHours": 24,
+      "cumulativeDiscountPercent": 20.0,
+      "description": "After 24h in vase: -20% off original price"
+    },
+    {
+      "afterHours": 48,
+      "cumulativeDiscountPercent": 40.0,
+      "description": "After 48h in vase: -40% off original price"
+    },
+    {
+      "afterHours": 72,
+      "cumulativeDiscountPercent": 70.0,
+      "description": "After 72h in vase: -70% off original price"
+    }
+  ]
+}
+```
+
+**Notes:**
+- `isDefault: true` means no custom strategy is stored — the platform Standard preset is being used.
+- Discount percentages are cumulative off the `BasePrice` set when the vendor last called `SetPrice` or `UpdatePrice` on the bouquet.
+
+**Response 403:** No VendorId in token.
+
+---
+
+### PUT /api/v1/vendor/settings/pricing-strategy
+
+Sets a custom freshness pricing strategy for the vendor. Replaces any previously stored strategy.
+
+**Auth:** Required (`VendorAccess`)
+
+**Request Body:**
+
+```json
+{
+  "autoAdjustPrice": true,
+  "tiers": [
+    { "afterHours": 24, "cumulativeDiscountPercent": 15 },
+    { "afterHours": 48, "cumulativeDiscountPercent": 35 },
+    { "afterHours": 72, "cumulativeDiscountPercent": 60 }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `autoAdjustPrice` | bool | No | Default `true`. Set `false` to store tiers without activating auto-adjustment. |
+| `tiers` | array | Yes | At least one tier. `null` or empty resets to platform default. |
+| `tiers[].afterHours` | int | Yes | Hours since bouquet placement at which this tier activates. Must be > 0 and strictly ascending. |
+| `tiers[].cumulativeDiscountPercent` | decimal | Yes | Total discount off the original base price (not compounded). Must be in (0, 100]. Must be strictly ascending across tiers. |
+
+**Response 204:** Strategy saved.
+
+**Response 400:** Validation error (e.g., hours not ascending, discount out of range).
+
+**Response 403:** No VendorId in token.
+
+---
+
+### DELETE /api/v1/vendor/settings/pricing-strategy
+
+Resets the vendor's pricing strategy to the platform default (Standard 3-day schedule: −20%/−40%/−70% at 24h/48h/72h).
+
+**Auth:** Required (`VendorAccess`)
+
+**Response 204:** Strategy reset.
+
+**Response 403:** No VendorId in token.
+
+---
+
 ## 8. Customer Profile Endpoints
 
 ### GET /api/profile

@@ -88,11 +88,14 @@ EP-15 (IoT Integration) — independent, can run in parallel
 **Dependencies**: Option C EP-05 (vendor order API), EP-10 (analytics API fix)
 **Requirement refs**: REQ-VND-01 through REQ-VND-07, REQ-IOT-01, REQ-IOT-06
 
+> **PR #7 (merged 2026-06-04):** Added freshness-based dynamic pricing — `FreshnessPricingStrategy` value object, `Bouquet.BasePrice` + `AppliedFreshnessTierIndex`, `SetVendorFreshnessPricingStrategyCommand`, `GET/PUT/DELETE /api/v1/vendor/settings/pricing-strategy`, and `VaseHealthMonitoringService` price-adjustment integration. Backend is complete; portal UI is tracked in S-12-05 below.
+
 ### Stories
 - S-12-01: Order list and detail pages with status advancement (REQ-VND-01, REQ-VND-02)
 - S-12-02: Fix VendorId session bug and mock-vase upload bug (REQ-VND-05, REQ-VND-06, REQ-IOT-01)
 - S-12-03: Analytics/revenue dashboard page (REQ-VND-04)
 - S-12-04: Opening hours and vendor profile edit (REQ-VND-03, REQ-VND-07)
+- S-12-05: Freshness pricing strategy settings UI (PR #7 backend; portal UI pending)
 
 ### Tasks
 | ID | Story | Title |
@@ -104,6 +107,8 @@ EP-15 (IoT Integration) — independent, can run in parallel
 | T-12-005 | S-12-03 | Create Analytics/Index.cshtml.cs calling GET /api/analytics/vendor; render revenue/orders chart with Chart.js |
 | T-12-006 | S-12-04 | Create Settings/OpeningHours.cshtml.cs with weekly schedule editor; add ApiClient.UpdateOpeningHoursAsync |
 | T-12-007 | S-12-04 | Create Settings/Profile.cshtml.cs for vendor name/contact/description edit; add ApiClient.UpdateVendorProfileAsync |
+| T-12-008 | S-12-05 | Add ApiClient.GetPricingStrategyAsync / SetPricingStrategyAsync / ResetPricingStrategyAsync to VendorPortal ApiClient (calls GET/PUT/DELETE /api/v1/vendor/settings/pricing-strategy) |
+| T-12-009 | S-12-05 | Create Settings/PricingStrategy.cshtml.cs: load current strategy (preset selector + custom tier table); POST to PUT endpoint; Reset button calls DELETE endpoint |
 
 ---
 
