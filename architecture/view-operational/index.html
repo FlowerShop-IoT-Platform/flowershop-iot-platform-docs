@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture Overview — FlowerShop IoT Platform</title>
+  <title>Operational View — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -674,237 +674,222 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+      <h1 id="operational-view">Operational View</h1>
 
-<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+<p>Describes how the system is operated, monitored, and maintained once deployed. Covers health checking, error handling, configuration management, and known operational gaps.</p>
 
-<h2 id="key-business-concepts">Key Business Concepts</h2>
+<h2 id="system-health-checks">System Health Checks</h2>
+
+<p>Each Docker service exposes a health check. The ASP.NET Core API also provides a <code class="language-plaintext highlighter-rouge">/health</code> endpoint used by container orchestration.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+  subgraph HealthChecks["Health Check Endpoints"]
+    HC["GET /health\n(ASP.NET Core built-in)"]
+    PGH["pg_isready -U postgres\n(postgres-dev)"]
+    RH["redis-cli ping\n(redis-dev)"]
+    MQH["mosquitto_sub -t $$SYS/broker/uptime\n(mqtt-dev)"]
+    KCH["curl /health/ready\n(keycloak-dev)"]
+  end
+
+  ORCH["Container Orchestrator\n(Docker Compose / Kubernetes)"] --&gt;|polls| HC
+  ORCH --&gt; PGH
+  ORCH --&gt; RH
+  ORCH --&gt; MQH
+  ORCH --&gt; KCH
+</code></pre>
+
+<h2 id="request-error-handling-pipeline">Request Error Handling Pipeline</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+  REQ["Incoming HTTP Request"] --&gt; GEX["GlobalExceptionMiddleware\n(catches all unhandled exceptions)"]
+  GEX --&gt;|unhandled exception| PD["ProblemDetails response\n500 Internal Server Error"]
+  GEX --&gt; AUTH["Authentication\n(401 Unauthorized if JWT invalid/missing)"]
+  AUTH --&gt; TENANT["TenantResolutionMiddleware\n(403 if claims missing for protected routes)"]
+  TENANT --&gt; BLACKLIST["TokenBlacklistMiddleware\n(401 if JTI revoked in Redis)"]
+  BLACKLIST --&gt; AUTHZ["Authorization Policies\n(403 if role/policy mismatch)"]
+  AUTHZ --&gt; RATE["RateLimiter\n(429 Too Many Requests)"]
+  RATE --&gt; IDEMP["IdempotencyMiddleware\n(replays cached response if key exists)"]
+  IDEMP --&gt; CTRL["Controller → MediatR Handler"]
+  CTRL --&gt;|Result.Error| MAP["Error string → HTTP status mapping\n(400 / 404 / 409 / 422 etc.)"]
+  MAP --&gt; RESP["HTTP Response"]
+</code></pre>
+
+<h2 id="logging">Logging</h2>
+
+<p>The API uses ASP.NET Core’s built-in structured logging with <code class="language-plaintext highlighter-rouge">RequestIdMiddleware</code> injecting <code class="language-plaintext highlighter-rouge">X-Request-ID</code> on every request, enabling log correlation across services.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Concept</th>
-      <th>Description</th>
+      <th>Log Level</th>
+      <th>Logged By</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Vendor</strong></td>
-      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
+      <td><code class="language-plaintext highlighter-rouge">Information</code></td>
+      <td>Request start/end (<code class="language-plaintext highlighter-rouge">LoggingBehaviour</code>), domain event dispatch</td>
     </tr>
     <tr>
-      <td><strong>Smart Vase</strong></td>
-      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
+      <td><code class="language-plaintext highlighter-rouge">Warning</code></td>
+      <td>Validation failures, cache misses, token blacklist hits</td>
     </tr>
     <tr>
-      <td><strong>Bouquet</strong></td>
-      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
-    </tr>
-    <tr>
-      <td><strong>Customer</strong></td>
-      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
-    </tr>
-    <tr>
-      <td><strong>Platform Admin</strong></td>
-      <td>Manages vendors, vases, and platform analytics</td>
+      <td><code class="language-plaintext highlighter-rouge">Error</code></td>
+      <td>Unhandled exceptions (<code class="language-plaintext highlighter-rouge">GlobalExceptionMiddleware</code>), Keycloak admin API failures</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="technology-stack">Technology Stack</h2>
+<p>Log files are written to <code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/logs/</code> (mapped via Docker volume <code class="language-plaintext highlighter-rouge">api_dev_logs</code>).</p>
 
-<table>
-  <thead>
-    <tr>
-      <th>Layer</th>
-      <th>Technology</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Framework</td>
-      <td>.NET 8 / ASP.NET Core</td>
-    </tr>
-    <tr>
-      <td>ORM</td>
-      <td>Entity Framework Core 8 + PostgreSQL 15</td>
-    </tr>
-    <tr>
-      <td>Auth</td>
-      <td>Keycloak 23.0 (OIDC, JWT)</td>
-    </tr>
-    <tr>
-      <td>CQRS</td>
-      <td>MediatR</td>
-    </tr>
-    <tr>
-      <td>Validation</td>
-      <td>FluentValidation (pipeline behaviour)</td>
-    </tr>
-    <tr>
-      <td>Cache</td>
-      <td>Redis 7 (RedisCacheService)</td>
-    </tr>
-    <tr>
-      <td>Messaging</td>
-      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
-    </tr>
-    <tr>
-      <td>Real-time</td>
-      <td>SignalR (BouquetHub)</td>
-    </tr>
-    <tr>
-      <td>IoT</td>
-      <td>MQTT (Mosquitto)</td>
-    </tr>
-    <tr>
-      <td>Payments</td>
-      <td>Stripe</td>
-    </tr>
-    <tr>
-      <td>SMS</td>
-      <td>Twilio</td>
-    </tr>
-    <tr>
-      <td>Portals</td>
-      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
-    </tr>
-  </tbody>
-</table>
+<h2 id="operational-runbook--common-procedures">Operational Runbook — Common Procedures</h2>
 
-<h2 id="architecture-layers">Architecture Layers</h2>
+<h3 id="starting-the-platform-dev">Starting the platform (dev)</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
-│  API Layer (Controllers, Middleware)    │
-├─────────────────────────────────────────┤
-│  Application Layer (CQRS via MediatR)  │
-├─────────────────────────────────────────┤
-│  Domain Layer (Aggregates, Events)     │
-├─────────────────────────────────────────┤
-│  Infrastructure (EF Core, Keycloak…)   │
-└─────────────────────────────────────────┘
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Start infrastructure</span>
+docker-compose <span class="nt">-f</span> docker/docker-compose.dev.yml up <span class="nt">-d</span>
+
+<span class="c"># Start the API (hot reload)</span>
+<span class="nb">cd </span>src/backend/FlowerShop.API
+dotnet watch run
+
+<span class="c"># Start portals (separate terminals)</span>
+<span class="nb">cd </span>src/portals/FlowerShop.AdminPortal  <span class="o">&amp;&amp;</span> dotnet run   <span class="c"># :5001</span>
+<span class="nb">cd </span>src/portals/FlowerShop.VendorPortal <span class="o">&amp;&amp;</span> dotnet run   <span class="c"># :5002</span>
+<span class="nb">cd </span>src/portals/FlowerShop.CustomerApp  <span class="o">&amp;&amp;</span> dotnet run   <span class="c"># :5003</span>
 </code></pre></div></div>
 
-<h2 id="documentation-pages">Documentation Pages</h2>
+<h3 id="running-database-migrations">Running database migrations</h3>
 
-<h3 id="rozanski--woods-architecture-viewpoints">Rozanski &amp; Woods Architecture Viewpoints</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>src/backend/FlowerShop.Infrastructure
+dotnet ef migrations add &lt;MigrationName&gt; <span class="nt">--startup-project</span> ../FlowerShop.API
 
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-functional/">Functional View</a></td>
-      <td>Functional elements, responsibilities, interfaces, and actor interactions</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-information/">Information View</a></td>
-      <td>Data structure, aggregate ownership, data lifecycles, store responsibilities</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-concurrency/">Concurrency View</a></td>
-      <td>Processes, background services, race conditions, coordination mechanisms</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-development/">Development View</a></td>
-      <td>Source organisation, module boundaries, CQRS conventions, test strategy</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-deployment/">Deployment View</a></td>
-      <td>Docker topology, port map, startup dependencies, environment variables</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-operational/">Operational View</a></td>
-      <td>Health checks, error handling, runbook, monitoring signals, known gaps</td>
-    </tr>
-  </tbody>
-</table>
+<span class="nb">cd</span> ../FlowerShop.API
+dotnet ef database update
+</code></pre></div></div>
 
-<h3 id="c4-model">C4 Model</h3>
+<h3 id="running-tests">Running tests</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dotnet <span class="nb">test</span>    <span class="c"># runs all 126 tests across 3 test projects</span>
+</code></pre></div></div>
+
+<h3 id="checking-swagger">Checking Swagger</h3>
+
+<p>Navigate to <code class="language-plaintext highlighter-rouge">http://localhost:8080/swagger</code> — all 23 controllers and their endpoints are documented.</p>
+
+<h2 id="known-operational-gaps-active-stubs">Known Operational Gaps (active stubs)</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>Contents</th>
+      <th>Gap</th>
+      <th>Impact</th>
+      <th>Planned Fix</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-context/">C4 Context</a></td>
-      <td>System-level view: users and external systems</td>
+      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code></td>
+      <td>Domain events are silently dropped; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is active instead</td>
+      <td>EP-09 S-09-06</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-containers/">C4 Containers</a></td>
-      <td>All runtime containers and their communication</td>
+      <td><code class="language-plaintext highlighter-rouge">AnalyticsController</code> calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code> in 4 actions</td>
+      <td>All analytics data is wrong (random GUID instead of tenant’s VendorId)</td>
+      <td>EP-10 T-10-001</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-components/">C4 Components</a></td>
-      <td>API layer internals: controllers → handlers → domain</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> reads <code class="language-plaintext highlighter-rouge">VendorId</code> from session instead of JWT claim</td>
+      <td>Vendor isolation broken for portal users</td>
+      <td>EP-12 T-12-003</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/domain-model/">Domain Model</a></td>
-      <td>ER diagram of all 14 aggregates</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> POSTs photos to hardcoded <code class="language-plaintext highlighter-rouge">http://localhost:8080/api/mock-vase/...</code></td>
+      <td>Photo upload fails in any non-localhost environment</td>
+      <td>EP-12 T-12-004</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">INotificationServiceClient</code> is a stub</td>
+      <td>FCM push notifications not delivered to mobile devices</td>
+      <td>EP-06</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IStripeService</code> is a stub</td>
+      <td>Payment not wired in <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code></td>
+      <td>EP-04</td>
+    </tr>
+    <tr>
+      <td>Cart + OrderLine DB tables do not exist</td>
+      <td>Cart and multi-line order endpoints return DB errors until migration is run</td>
+      <td>Run <code class="language-plaintext highlighter-rouge">AddCartAndOrderLines</code> migration</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CachingGeocodingService</code> uses <code class="language-plaintext highlighter-rouge">IMemoryCache</code></td>
+      <td>Geocoding cache is process-local; lost on restart; not shared across instances</td>
+      <td>Intentional for now; revisit in EP-09</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="flow-diagrams">Flow Diagrams</h3>
+<h2 id="monitoring-signals">Monitoring Signals</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>Contents</th>
+      <th>Signal</th>
+      <th>Source</th>
+      <th>Meaning</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-auth/">Auth Flows</a></td>
-      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
+      <td><code class="language-plaintext highlighter-rouge">/health</code> → unhealthy</td>
+      <td>API process</td>
+      <td>Immediate attention — DB or Redis unreachable</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-customer/">Customer Flows</a></td>
-      <td>Browse, QR scan, cart, order, payment, delivery</td>
+      <td><code class="language-plaintext highlighter-rouge">outbox_messages</code> rows with <code class="language-plaintext highlighter-rouge">processed_at IS NULL</code> accumulating</td>
+      <td>PostgreSQL</td>
+      <td><code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code> not running or event bus failing</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-vendor/">Vendor Flows</a></td>
-      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
+      <td><code class="language-plaintext highlighter-rouge">SmartVase.ConnectionStatus = Offline</code> spike</td>
+      <td>PostgreSQL</td>
+      <td>MQTT broker issue or network partition affecting vases</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-admin/">Admin Flows</a></td>
-      <td>Vendor approval, suspension, analytics</td>
+      <td>Redis memory usage growing</td>
+      <td>Redis</td>
+      <td>Token blacklist or idempotency key TTL misconfigured</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-iot/">IoT Flows</a></td>
-      <td>Vase registration, MQTT, heartbeat, sensor data</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-payments/">Payment Flows</a></td>
-      <td>Stripe checkout, webhook, outbox, confirmation</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-realtime/">Real-time Flows</a></td>
-      <td>SignalR hub groups, outbox dispatch</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/cross-cutting/">Cross-cutting</a></td>
-      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
+      <td>Keycloak admin API errors in logs</td>
+      <td>API logs</td>
+      <td>Keycloak service unreachable; vendor onboarding will fail</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="api-reference">API Reference</h2>
+<h2 id="security-operations">Security Operations</h2>
 
-<p>Full REST and SignalR contract: <a href="/flowershop-iot-platform-docs/API-CONTRACTS/">API-CONTRACTS.md</a></p>
+<pre><code class="language-mermaid">flowchart LR
+  subgraph TokenLifecycle["JWT Token Lifecycle"]
+    ISSUE["Keycloak issues JWT\n(sub, role, vendor_id, vendor_type, customer_id)"]
+    USE["API validates JWT\nTenantResolutionMiddleware reads claims"]
+    REVOKE["POST /auth/revoke\nJTI added to Redis blacklist"]
+    CHECK["TokenBlacklistMiddleware\nchecks Redis on every request"]
+  end
 
-<h2 id="planned-work">Planned Work</h2>
+  ISSUE --&gt; USE --&gt; REVOKE --&gt; CHECK --&gt; USE
+</code></pre>
 
-<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
+<ul>
+  <li><strong>Token revocation</strong> is synchronous and Redis-backed — revoked tokens are blocked on the next request.</li>
+  <li><strong>Multi-tenancy isolation</strong> is enforced at the MediatR layer via <code class="language-plaintext highlighter-rouge">TenantValidationBehavior</code> — handlers cannot accidentally access another tenant’s data.</li>
+  <li><strong>Rate limiting</strong> is applied globally via ASP.NET Core’s built-in <code class="language-plaintext highlighter-rouge">RateLimiter</code> middleware.</li>
+  <li><strong>Idempotency</strong> prevents duplicate orders even under concurrent client retries.</li>
+</ul>
 
     </div>
   </main>

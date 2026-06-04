@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture Overview — FlowerShop IoT Platform</title>
+  <title>Functional View — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -674,237 +674,147 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+      <h1 id="functional-view">Functional View</h1>
 
-<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+<p>Describes the system’s functional elements, their responsibilities, interfaces, and primary interactions. Based on the Rozanski &amp; Woods functional viewpoint.</p>
 
-<h2 id="key-business-concepts">Key Business Concepts</h2>
+<h2 id="functional-element-map">Functional Element Map</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Concept</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Vendor</strong></td>
-      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
-    </tr>
-    <tr>
-      <td><strong>Smart Vase</strong></td>
-      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
-    </tr>
-    <tr>
-      <td><strong>Bouquet</strong></td>
-      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
-    </tr>
-    <tr>
-      <td><strong>Customer</strong></td>
-      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
-    </tr>
-    <tr>
-      <td><strong>Platform Admin</strong></td>
-      <td>Manages vendors, vases, and platform analytics</td>
-    </tr>
-  </tbody>
-</table>
+<pre><code class="language-mermaid">flowchart TD
+  subgraph Actors
+    C["Customer\n(mobile / web)"]
+    V["Vendor\n(shop / florist)"]
+    A["Platform Admin"]
+    D["SmartVase Device\n(IoT)"]
+  end
 
-<h2 id="technology-stack">Technology Stack</h2>
+  subgraph API["REST API — Functional Responsibilities"]
+    AUTH["Authentication &amp;\nTenant Resolution\n──────────────\nIssue dev-tokens\nValidate JWT\nExtract tenant claims"]
+    DISC["Bouquet Discovery\n──────────────\nGeo-spatial search\nQR-code lookup\nFreshness scoring"]
+    CART["Cart Management\n──────────────\nVendor-scoped cart\nAdd / remove items\nVendor-mismatch guard"]
+    ORD["Order Management\n──────────────\nCreate order\nReserve bouquets (15 min)\nPayment confirmation\nMulti-line support"]
+    PAY["Payment Processing\n──────────────\nStripe checkout\nWebhook handling\nRefunds"]
+    VEND["Vendor Management\n──────────────\nOnboarding (shop / florist)\nBouquet CRUD\nEmployee CRUD\nOrder fulfillment"]
+    VASE["Smart Vase Management\n──────────────\nRegistration &amp; activation\nLocation tracking\nBouquet assignment"]
+    IOT["IoT Communication\n──────────────\nMQTT subscribe/publish\nHeartbeat processing\nSensor data ingestion\nFreshness recalculation"]
+    RT["Real-time Dispatch\n──────────────\nSignalR hub groups\nBouquet updates\nOrder status events\nView-count streaming"]
+    NOTIF["Notifications\n──────────────\nFCM push dispatch\nIn-app notifications\nSubscription triggers"]
+    ANA["Analytics\n──────────────\nVendor sales metrics\nBouquet performance\nPlatform KPIs"]
+    CUST["Customer Profile\n──────────────\nFavourites\nSubscriptions\nSaved addresses\nDevice registration"]
+    ADMIN["Platform Administration\n──────────────\nVendor approval/suspension\nVase administration\nCustomer management"]
+  end
 
-<table>
-  <thead>
-    <tr>
-      <th>Layer</th>
-      <th>Technology</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Framework</td>
-      <td>.NET 8 / ASP.NET Core</td>
-    </tr>
-    <tr>
-      <td>ORM</td>
-      <td>Entity Framework Core 8 + PostgreSQL 15</td>
-    </tr>
-    <tr>
-      <td>Auth</td>
-      <td>Keycloak 23.0 (OIDC, JWT)</td>
-    </tr>
-    <tr>
-      <td>CQRS</td>
-      <td>MediatR</td>
-    </tr>
-    <tr>
-      <td>Validation</td>
-      <td>FluentValidation (pipeline behaviour)</td>
-    </tr>
-    <tr>
-      <td>Cache</td>
-      <td>Redis 7 (RedisCacheService)</td>
-    </tr>
-    <tr>
-      <td>Messaging</td>
-      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
-    </tr>
-    <tr>
-      <td>Real-time</td>
-      <td>SignalR (BouquetHub)</td>
-    </tr>
-    <tr>
-      <td>IoT</td>
-      <td>MQTT (Mosquitto)</td>
-    </tr>
-    <tr>
-      <td>Payments</td>
-      <td>Stripe</td>
-    </tr>
-    <tr>
-      <td>SMS</td>
-      <td>Twilio</td>
-    </tr>
-    <tr>
-      <td>Portals</td>
-      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
-    </tr>
-  </tbody>
-</table>
+  C --&gt; AUTH
+  C --&gt; DISC
+  C --&gt; CART
+  C --&gt; ORD
+  C --&gt; PAY
+  C --&gt; CUST
+  V --&gt; AUTH
+  V --&gt; VEND
+  V --&gt; VASE
+  V --&gt; ANA
+  A --&gt; AUTH
+  A --&gt; ADMIN
+  A --&gt; ANA
+  D --&gt; IOT
 
-<h2 id="architecture-layers">Architecture Layers</h2>
+  IOT --&gt; RT
+  ORD --&gt; RT
+  ORD --&gt; NOTIF
+  VEND --&gt; RT
+  PAY --&gt; ORD
+  CART --&gt; ORD
+  DISC --&gt; CART
+</code></pre>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
-│  API Layer (Controllers, Middleware)    │
-├─────────────────────────────────────────┤
-│  Application Layer (CQRS via MediatR)  │
-├─────────────────────────────────────────┤
-│  Domain Layer (Aggregates, Events)     │
-├─────────────────────────────────────────┤
-│  Infrastructure (EF Core, Keycloak…)   │
-└─────────────────────────────────────────┘
-</code></pre></div></div>
-
-<h2 id="documentation-pages">Documentation Pages</h2>
-
-<h3 id="rozanski--woods-architecture-viewpoints">Rozanski &amp; Woods Architecture Viewpoints</h3>
+<h2 id="functional-elements--responsibilities">Functional Elements — Responsibilities</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>Contents</th>
+      <th>Element</th>
+      <th>Responsibility</th>
+      <th>Key Interfaces</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-functional/">Functional View</a></td>
-      <td>Functional elements, responsibilities, interfaces, and actor interactions</td>
+      <td><strong>Authentication &amp; Tenant Resolution</strong></td>
+      <td>Issue JWT dev-tokens; validate Keycloak OIDC tokens; extract <code class="language-plaintext highlighter-rouge">vendor_id</code>, <code class="language-plaintext highlighter-rouge">vendor_type</code>, <code class="language-plaintext highlighter-rouge">customer_id</code> from claims; set <code class="language-plaintext highlighter-rouge">ITenantContextService</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /auth/dev-token</code>, Keycloak OIDC, <code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code></td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-information/">Information View</a></td>
-      <td>Data structure, aggregate ownership, data lifecycles, store responsibilities</td>
+      <td><strong>Bouquet Discovery</strong></td>
+      <td>Geo-spatial bouquet search by radius; QR-code short-code lookup; freshness-score-based ranking</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /bouquets</code>, <code class="language-plaintext highlighter-rouge">GET /bouquets/nearby</code>, <code class="language-plaintext highlighter-rouge">GET /bouquets/qr/{code}</code></td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-concurrency/">Concurrency View</a></td>
-      <td>Processes, background services, race conditions, coordination mechanisms</td>
+      <td><strong>Cart Management</strong></td>
+      <td>Maintain vendor-scoped cart per customer; enforce single-vendor constraint; persist across devices</td>
+      <td><code class="language-plaintext highlighter-rouge">POST /cart/items</code>, <code class="language-plaintext highlighter-rouge">DELETE /cart/items/{id}</code>, <code class="language-plaintext highlighter-rouge">GET /cart</code></td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-development/">Development View</a></td>
-      <td>Source organisation, module boundaries, CQRS conventions, test strategy</td>
+      <td><strong>Order Management</strong></td>
+      <td>Create multi-line orders from cart; reserve bouquets for 15 min; progress order through status machine</td>
+      <td><code class="language-plaintext highlighter-rouge">POST /orders</code>, <code class="language-plaintext highlighter-rouge">GET /orders/{id}</code>, <code class="language-plaintext highlighter-rouge">POST /orders/{id}/confirm-payment</code></td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-deployment/">Deployment View</a></td>
-      <td>Docker topology, port map, startup dependencies, environment variables</td>
+      <td><strong>Payment Processing</strong></td>
+      <td>Initiate Stripe checkout session; handle webhooks; confirm or refund payments</td>
+      <td>Stripe SDK, <code class="language-plaintext highlighter-rouge">POST /orders/{id}/confirm-payment</code>, <code class="language-plaintext highlighter-rouge">POST /webhooks/stripe</code></td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-operational/">Operational View</a></td>
-      <td>Health checks, error handling, runbook, monitoring signals, known gaps</td>
+      <td><strong>Vendor Management</strong></td>
+      <td>Onboard Traditional Shop or Freelance Florist; manage bouquet catalogue; fulfil orders</td>
+      <td><code class="language-plaintext highlighter-rouge">POST /vendors</code>, bouquet CRUD, employee CRUD, order fulfillment endpoints</td>
+    </tr>
+    <tr>
+      <td><strong>Smart Vase Management</strong></td>
+      <td>Register, activate, and locate vases; assign bouquets; track connection status</td>
+      <td><code class="language-plaintext highlighter-rouge">POST /smart-vases/register-by-technician</code>, <code class="language-plaintext highlighter-rouge">POST /smart-vases/{id}/activate</code></td>
+    </tr>
+    <tr>
+      <td><strong>IoT Communication</strong></td>
+      <td>Subscribe to MQTT topics; process heartbeats and sensor data; update vase connection status; recalculate bouquet freshness</td>
+      <td>MQTT <code class="language-plaintext highlighter-rouge">vases/{id}/heartbeat</code>, <code class="language-plaintext highlighter-rouge">vases/{id}/sensor</code>, <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code></td>
+    </tr>
+    <tr>
+      <td><strong>Real-time Dispatch</strong></td>
+      <td>Broadcast bouquet updates, order status changes, and view counts to connected clients via SignalR</td>
+      <td><code class="language-plaintext highlighter-rouge">BouquetHub</code>, WebSocket groups <code class="language-plaintext highlighter-rouge">radius:*</code>, <code class="language-plaintext highlighter-rouge">order:*</code>, <code class="language-plaintext highlighter-rouge">vendor:*</code></td>
+    </tr>
+    <tr>
+      <td><strong>Notifications</strong></td>
+      <td>Send FCM push notifications and in-app notifications triggered by order events and subscriptions</td>
+      <td><code class="language-plaintext highlighter-rouge">INotificationServiceClient</code>, <code class="language-plaintext highlighter-rouge">DeviceRegistration</code> aggregate</td>
+    </tr>
+    <tr>
+      <td><strong>Analytics</strong></td>
+      <td>Aggregate vendor sales, bouquet performance, and platform-wide KPIs</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /analytics/*</code>, analytics query handlers</td>
+    </tr>
+    <tr>
+      <td><strong>Customer Profile</strong></td>
+      <td>Manage favourites, subscriptions, saved addresses, and device tokens</td>
+      <td><code class="language-plaintext highlighter-rouge">POST /favourites</code>, <code class="language-plaintext highlighter-rouge">POST /subscriptions</code>, <code class="language-plaintext highlighter-rouge">GET /customers/me</code></td>
+    </tr>
+    <tr>
+      <td><strong>Platform Administration</strong></td>
+      <td>Approve or suspend vendors; manage vases and customers platform-wide</td>
+      <td>Admin Portal, <code class="language-plaintext highlighter-rouge">PATCH /vendors/{id}/status</code></td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="c4-model">C4 Model</h3>
+<h2 id="key-functional-constraints">Key Functional Constraints</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-context/">C4 Context</a></td>
-      <td>System-level view: users and external systems</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-containers/">C4 Containers</a></td>
-      <td>All runtime containers and their communication</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-components/">C4 Components</a></td>
-      <td>API layer internals: controllers → handlers → domain</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/domain-model/">Domain Model</a></td>
-      <td>ER diagram of all 14 aggregates</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="flow-diagrams">Flow Diagrams</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-auth/">Auth Flows</a></td>
-      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-customer/">Customer Flows</a></td>
-      <td>Browse, QR scan, cart, order, payment, delivery</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-vendor/">Vendor Flows</a></td>
-      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-admin/">Admin Flows</a></td>
-      <td>Vendor approval, suspension, analytics</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-iot/">IoT Flows</a></td>
-      <td>Vase registration, MQTT, heartbeat, sensor data</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-payments/">Payment Flows</a></td>
-      <td>Stripe checkout, webhook, outbox, confirmation</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-realtime/">Real-time Flows</a></td>
-      <td>SignalR hub groups, outbox dispatch</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/cross-cutting/">Cross-cutting</a></td>
-      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="api-reference">API Reference</h2>
-
-<p>Full REST and SignalR contract: <a href="/flowershop-iot-platform-docs/API-CONTRACTS/">API-CONTRACTS.md</a></p>
-
-<h2 id="planned-work">Planned Work</h2>
-
-<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
+<ul>
+  <li><strong>Multi-tenancy</strong>: every data operation is scoped by <code class="language-plaintext highlighter-rouge">VendorId + VendorType</code>; handlers call <code class="language-plaintext highlighter-rouge">ITenantContextService.GetTenantContext()</code> before any DB access.</li>
+  <li><strong>Cart vendor-lock</strong>: adding a bouquet from a different vendor than the current cart returns <code class="language-plaintext highlighter-rouge">409 vendor-mismatch</code>.</li>
+  <li><strong>Bouquet reservation window</strong>: 15 minutes from order creation; expired reservations release bouquets back to <code class="language-plaintext highlighter-rouge">Available</code>.</li>
+  <li><strong>Single-vase bouquet</strong>: a <code class="language-plaintext highlighter-rouge">SmartVase</code> holds at most one <code class="language-plaintext highlighter-rouge">Bouquet</code> at a time (<code class="language-plaintext highlighter-rouge">CurrentBouquetId</code>).</li>
+</ul>
 
     </div>
   </main>

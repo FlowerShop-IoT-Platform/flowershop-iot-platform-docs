@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture Overview — FlowerShop IoT Platform</title>
+  <title>Information View — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -674,237 +674,188 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+      <h1 id="information-view">Information View</h1>
 
-<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+<p>Describes how the system stores, manages, and flows information. Covers data structure, ownership, lifecycle, and the key transformations data undergoes.</p>
 
-<h2 id="key-business-concepts">Key Business Concepts</h2>
+<h2 id="aggregate-ownership--tenancy">Aggregate Ownership &amp; Tenancy</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+  subgraph PlatformScope["Platform-scoped (no VendorId)"]
+    User["User\n(UserId, Role, CustomerId?, VendorId?)"]
+    Customer["Customer\n(CustomerId, Name, ContactInfo, Address)"]
+    Admin["Platform Admin context"]
+  end
+
+  subgraph VendorScope["Vendor-scoped (VendorId + VendorType)"]
+    Vendor["Vendor\n(FlowerShop | FreelanceFlorist)"]
+    Employee["Employee"]
+    Bouquet["Bouquet\n(BouquetId, VaseId, Status, FreshnessScore)"]
+    SmartVase["SmartVase\n(VaseId, Location, ConnectionStatus)"]
+  end
+
+  subgraph CustomerScope["Customer-scoped (CustomerId)"]
+    Cart["Cart + CartItems\n(vendor-scoped constraint)"]
+    Order["Order + OrderLines\n(multi-line, VendorId at header)"]
+    Favourite["Favourite"]
+    Subscription["Subscription"]
+    Notification["Notification"]
+    DeviceReg["DeviceRegistration"]
+    SavedAddr["SavedAddress"]
+    Feedback["BouquetFeedback"]
+  end
+
+  User --&gt; Customer
+  User --&gt; Vendor
+  Vendor --&gt; Employee
+  Vendor --&gt; SmartVase
+  Vendor --&gt; Bouquet
+  SmartVase --&gt; Bouquet
+  Customer --&gt; Cart
+  Customer --&gt; Order
+  Customer --&gt; Favourite
+  Customer --&gt; Subscription
+  Customer --&gt; Notification
+  Customer --&gt; DeviceReg
+  Customer --&gt; SavedAddr
+  Order --&gt; Feedback
+</code></pre>
+
+<h2 id="data-lifecycle--bouquet">Data Lifecycle — Bouquet</h2>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+  [*] --&gt; Available : Vendor creates bouquet\n&amp; assigns to vase
+  Available --&gt; Reserved : Customer adds to cart\n+ order created (15 min lock)
+  Reserved --&gt; Available : Reservation expires\nor order cancelled
+  Reserved --&gt; Sold : Payment confirmed
+  Available --&gt; Expired : Admin / vendor marks expired\nor TTL exceeded
+  Sold --&gt; [*]
+  Expired --&gt; [*]
+</code></pre>
+
+<h2 id="data-lifecycle--order">Data Lifecycle — Order</h2>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+  [*] --&gt; PendingPayment : POST /orders\nBouquets reserved
+  PendingPayment --&gt; PaymentProcessing : POST /orders/{id}/confirm-payment
+  PaymentProcessing --&gt; Confirmed : Stripe webhook success
+  PaymentProcessing --&gt; PaymentFailed : Stripe webhook failure
+  PaymentFailed --&gt; PendingPayment : Customer retries
+  Confirmed --&gt; ReadyForPickup : Vendor marks ready
+  Confirmed --&gt; OutForDelivery : Vendor dispatches
+  ReadyForPickup --&gt; Completed : Customer collects
+  OutForDelivery --&gt; Completed : Delivery confirmed
+  Confirmed --&gt; Cancelled : Admin / vendor cancels
+  PendingPayment --&gt; Cancelled : Reservation expires
+  Completed --&gt; [*]
+  Cancelled --&gt; [*]
+</code></pre>
+
+<h2 id="core-data-flows">Core Data Flows</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+  subgraph Write["Write Path (Command)"]
+    CH["Command Handler\n(MediatR)"]
+    AG["Aggregate\n(domain logic)"]
+    OB["outbox_messages\n(PostgreSQL)"]
+    EV["Domain Event"]
+    CH --&gt; AG --&gt; EV
+    AG --&gt; OB
+  end
+
+  subgraph Read["Read Path (Query)"]
+    QH["Query Handler\n(MediatR)"]
+    RC["Redis Cache\n(CachingBehaviour)"]
+    PG["PostgreSQL\n(read replica)"]
+    QH --&gt;|check| RC
+    RC --&gt;|miss| PG
+    PG --&gt; RC
+  end
+
+  subgraph Dispatch["Async Dispatch"]
+    OBD["OutboxDispatcherService\n(every 5s)"]
+    BUS["InMemoryEventBus"]
+    SIG["BouquetHub\n(SignalR)"]
+    OBD --&gt;|poll outbox| BUS --&gt; SIG
+  end
+
+  Write --&gt; Dispatch
+</code></pre>
+
+<h2 id="information-store-responsibilities">Information Store Responsibilities</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Concept</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Vendor</strong></td>
-      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
-    </tr>
-    <tr>
-      <td><strong>Smart Vase</strong></td>
-      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
-    </tr>
-    <tr>
-      <td><strong>Bouquet</strong></td>
-      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
-    </tr>
-    <tr>
-      <td><strong>Customer</strong></td>
-      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
-    </tr>
-    <tr>
-      <td><strong>Platform Admin</strong></td>
-      <td>Manages vendors, vases, and platform analytics</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="technology-stack">Technology Stack</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Layer</th>
+      <th>Store</th>
       <th>Technology</th>
+      <th>What it holds</th>
+      <th>Retention / TTL</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Framework</td>
-      <td>.NET 8 / ASP.NET Core</td>
+      <td><strong>Primary DB</strong></td>
+      <td>PostgreSQL 15</td>
+      <td>All aggregates: Vendor, Bouquet, SmartVase, Order, Cart, Customer, etc.</td>
+      <td>Permanent (soft deletes where applicable)</td>
     </tr>
     <tr>
-      <td>ORM</td>
-      <td>Entity Framework Core 8 + PostgreSQL 15</td>
+      <td><strong>Query Cache</strong></td>
+      <td>Redis 7</td>
+      <td>Serialised query results keyed by <code class="language-plaintext highlighter-rouge">{type}:{version}:{params}</code></td>
+      <td>Per-query TTL; invalidated by version-key increment on writes</td>
     </tr>
     <tr>
-      <td>Auth</td>
-      <td>Keycloak 23.0 (OIDC, JWT)</td>
+      <td><strong>Token Blacklist</strong></td>
+      <td>Redis 7</td>
+      <td>Revoked JWT <code class="language-plaintext highlighter-rouge">jti</code> values</td>
+      <td>Until JWT expiry</td>
     </tr>
     <tr>
-      <td>CQRS</td>
-      <td>MediatR</td>
+      <td><strong>Idempotency Keys</strong></td>
+      <td>Redis 7</td>
+      <td><code class="language-plaintext highlighter-rouge">idempotency:{key}</code> → <code class="language-plaintext highlighter-rouge">{status, body}</code></td>
+      <td>24 hours</td>
     </tr>
     <tr>
-      <td>Validation</td>
-      <td>FluentValidation (pipeline behaviour)</td>
+      <td><strong>Outbox</strong></td>
+      <td>PostgreSQL (table <code class="language-plaintext highlighter-rouge">outbox_messages</code>)</td>
+      <td>Serialised domain events awaiting dispatch</td>
+      <td>Until <code class="language-plaintext highlighter-rouge">processed_at</code> set; GC after 7 days</td>
     </tr>
     <tr>
-      <td>Cache</td>
-      <td>Redis 7 (RedisCacheService)</td>
-    </tr>
-    <tr>
-      <td>Messaging</td>
-      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
-    </tr>
-    <tr>
-      <td>Real-time</td>
-      <td>SignalR (BouquetHub)</td>
-    </tr>
-    <tr>
-      <td>IoT</td>
-      <td>MQTT (Mosquitto)</td>
-    </tr>
-    <tr>
-      <td>Payments</td>
-      <td>Stripe</td>
-    </tr>
-    <tr>
-      <td>SMS</td>
-      <td>Twilio</td>
-    </tr>
-    <tr>
-      <td>Portals</td>
-      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
+      <td><strong>Geocoding Cache</strong></td>
+      <td>IMemoryCache (in-process)</td>
+      <td>Nominatim OSM reverse-geocode results</td>
+      <td>Short TTL, process-local only</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="architecture-layers">Architecture Layers</h2>
+<h2 id="strongly-typed-id-cross-reference">Strongly-Typed ID Cross-Reference</h2>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
-│  API Layer (Controllers, Middleware)    │
-├─────────────────────────────────────────┤
-│  Application Layer (CQRS via MediatR)  │
-├─────────────────────────────────────────┤
-│  Domain Layer (Aggregates, Events)     │
-├─────────────────────────────────────────┤
-│  Infrastructure (EF Core, Keycloak…)   │
-└─────────────────────────────────────────┘
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+  VendorId["VendorId (Guid)"] --&gt;|scopes| SmartVase2["SmartVase"]
+  VendorId --&gt;|scopes| Bouquet2["Bouquet"]
+  VendorId --&gt;|scopes| Employee2["Employee"]
+  VendorId --&gt;|header of| Order2["Order"]
+  VendorId --&gt;|header of| Cart2["Cart"]
 
-<h2 id="documentation-pages">Documentation Pages</h2>
+  BouquetId["BouquetId (Guid)"] --&gt; OrderLine2["OrderLine"]
+  BouquetId --&gt; Favourite2["Favourite"]
+  BouquetId --&gt; CartItem2["CartItem"]
+  BouquetId --&gt; Feedback2["BouquetFeedback"]
 
-<h3 id="rozanski--woods-architecture-viewpoints">Rozanski &amp; Woods Architecture Viewpoints</h3>
+  CustomerId["CustomerId (Guid)"] --&gt; Order3["Order"]
+  CustomerId --&gt; Cart3["Cart"]
+  CustomerId --&gt; Favourite3["Favourite"]
+  CustomerId --&gt; Subscription2["Subscription"]
+  CustomerId --&gt; Notification2["Notification"]
 
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-functional/">Functional View</a></td>
-      <td>Functional elements, responsibilities, interfaces, and actor interactions</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-information/">Information View</a></td>
-      <td>Data structure, aggregate ownership, data lifecycles, store responsibilities</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-concurrency/">Concurrency View</a></td>
-      <td>Processes, background services, race conditions, coordination mechanisms</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-development/">Development View</a></td>
-      <td>Source organisation, module boundaries, CQRS conventions, test strategy</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-deployment/">Deployment View</a></td>
-      <td>Docker topology, port map, startup dependencies, environment variables</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-operational/">Operational View</a></td>
-      <td>Health checks, error handling, runbook, monitoring signals, known gaps</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="c4-model">C4 Model</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-context/">C4 Context</a></td>
-      <td>System-level view: users and external systems</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-containers/">C4 Containers</a></td>
-      <td>All runtime containers and their communication</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-components/">C4 Components</a></td>
-      <td>API layer internals: controllers → handlers → domain</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/domain-model/">Domain Model</a></td>
-      <td>ER diagram of all 14 aggregates</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="flow-diagrams">Flow Diagrams</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-auth/">Auth Flows</a></td>
-      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-customer/">Customer Flows</a></td>
-      <td>Browse, QR scan, cart, order, payment, delivery</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-vendor/">Vendor Flows</a></td>
-      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-admin/">Admin Flows</a></td>
-      <td>Vendor approval, suspension, analytics</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-iot/">IoT Flows</a></td>
-      <td>Vase registration, MQTT, heartbeat, sensor data</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-payments/">Payment Flows</a></td>
-      <td>Stripe checkout, webhook, outbox, confirmation</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-realtime/">Real-time Flows</a></td>
-      <td>SignalR hub groups, outbox dispatch</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/cross-cutting/">Cross-cutting</a></td>
-      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="api-reference">API Reference</h2>
-
-<p>Full REST and SignalR contract: <a href="/flowershop-iot-platform-docs/API-CONTRACTS/">API-CONTRACTS.md</a></p>
-
-<h2 id="planned-work">Planned Work</h2>
-
-<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
+  VaseId["VaseId (Guid)"] --&gt; Bouquet3["Bouquet (AssignedVaseId)"]
+  VaseId --&gt; CartItem3["CartItem (VaseId)"]
+</code></pre>
 
     </div>
   </main>

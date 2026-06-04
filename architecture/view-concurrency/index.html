@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture Overview — FlowerShop IoT Platform</title>
+  <title>Concurrency View — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -674,237 +674,163 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+      <h1 id="concurrency-view">Concurrency View</h1>
 
-<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+<p>Describes the concurrent and parallel execution units in the system: processes, threads, background services, async I/O, and the coordination mechanisms used to prevent race conditions.</p>
 
-<h2 id="key-business-concepts">Key Business Concepts</h2>
+<h2 id="process--thread-model">Process &amp; Thread Model</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Concept</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Vendor</strong></td>
-      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
-    </tr>
-    <tr>
-      <td><strong>Smart Vase</strong></td>
-      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
-    </tr>
-    <tr>
-      <td><strong>Bouquet</strong></td>
-      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
-    </tr>
-    <tr>
-      <td><strong>Customer</strong></td>
-      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
-    </tr>
-    <tr>
-      <td><strong>Platform Admin</strong></td>
-      <td>Manages vendors, vases, and platform analytics</td>
-    </tr>
-  </tbody>
-</table>
+<pre><code class="language-mermaid">flowchart TD
+  subgraph APIProcess["ASP.NET Core API Process (Kestrel)"]
+    TP["Kestrel Thread Pool\n(handles HTTP + WebSocket requests)"]
+    MQ["MediatR Pipeline\n(per-request async chain)"]
+    SIG["SignalR Hub\n(BouquetHub — in-process)"]
 
-<h2 id="technology-stack">Technology Stack</h2>
+    subgraph BGServices["Background Services (IHostedService)"]
+      OBD["OutboxDispatcherService\nPolls DB every 5s"]
+      VHM["VaseHealthMonitoringService\nPolls DB every 60s for stale heartbeats"]
+      MQS["MqttDeviceStartupService\nSubscribes to MQTT topics on startup"]
+    end
+  end
 
-<table>
-  <thead>
-    <tr>
-      <th>Layer</th>
-      <th>Technology</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Framework</td>
-      <td>.NET 8 / ASP.NET Core</td>
-    </tr>
-    <tr>
-      <td>ORM</td>
-      <td>Entity Framework Core 8 + PostgreSQL 15</td>
-    </tr>
-    <tr>
-      <td>Auth</td>
-      <td>Keycloak 23.0 (OIDC, JWT)</td>
-    </tr>
-    <tr>
-      <td>CQRS</td>
-      <td>MediatR</td>
-    </tr>
-    <tr>
-      <td>Validation</td>
-      <td>FluentValidation (pipeline behaviour)</td>
-    </tr>
-    <tr>
-      <td>Cache</td>
-      <td>Redis 7 (RedisCacheService)</td>
-    </tr>
-    <tr>
-      <td>Messaging</td>
-      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
-    </tr>
-    <tr>
-      <td>Real-time</td>
-      <td>SignalR (BouquetHub)</td>
-    </tr>
-    <tr>
-      <td>IoT</td>
-      <td>MQTT (Mosquitto)</td>
-    </tr>
-    <tr>
-      <td>Payments</td>
-      <td>Stripe</td>
-    </tr>
-    <tr>
-      <td>SMS</td>
-      <td>Twilio</td>
-    </tr>
-    <tr>
-      <td>Portals</td>
-      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
-    </tr>
-  </tbody>
-</table>
+  TP --&gt; MQ
+  TP --&gt; SIG
+  MQ --&gt; BGServices
+</code></pre>
 
-<h2 id="architecture-layers">Architecture Layers</h2>
+<h2 id="concurrency-hotspots">Concurrency Hotspots</h2>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
-│  API Layer (Controllers, Middleware)    │
-├─────────────────────────────────────────┤
-│  Application Layer (CQRS via MediatR)  │
-├─────────────────────────────────────────┤
-│  Domain Layer (Aggregates, Events)     │
-├─────────────────────────────────────────┤
-│  Infrastructure (EF Core, Keycloak…)   │
-└─────────────────────────────────────────┘
-</code></pre></div></div>
+<h3 id="1-bouquet-reservation-race">1. Bouquet Reservation Race</h3>
 
-<h2 id="documentation-pages">Documentation Pages</h2>
+<p>Multiple customers may attempt to purchase the same bouquet simultaneously. The reservation is enforced via a <strong>pessimistic DB-level check</strong> inside the <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code>: bouquet status is read and updated in a single transaction, and the EF Core concurrency token prevents double-reservation.</p>
 
-<h3 id="rozanski--woods-architecture-viewpoints">Rozanski &amp; Woods Architecture Viewpoints</h3>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant C1 as Customer A
+  participant C2 as Customer B
+  participant H as CreateOrderCommandHandler
+  participant DB as PostgreSQL (transaction)
+
+  par Concurrent requests
+    C1-&gt;&gt;H: CreateOrderCommand(bouquetId)
+    C2-&gt;&gt;H: CreateOrderCommand(bouquetId)
+  end
+
+  H-&gt;&gt;DB: BEGIN TX\nSELECT ... FOR UPDATE (bouquet row)
+  Note over DB: Only one TX holds the lock
+  DB--&gt;&gt;H: bouquet.Status = Available → set Reserved
+  H-&gt;&gt;DB: COMMIT (Order created, BouquetReservedUntil = now+15min)
+
+  DB--&gt;&gt;H: Second TX: bouquet.Status = Reserved → reject
+  H--&gt;&gt;C2: 409 Conflict (bouquet-unavailable)
+  H--&gt;&gt;C1: 201 Created
+</code></pre>
+
+<h3 id="2-cart-vendor-mismatch-guard">2. Cart Vendor-Mismatch Guard</h3>
+
+<p>Cart is read-modify-write; the vendor-scope check is done inside the <code class="language-plaintext highlighter-rouge">Cart</code> aggregate method <code class="language-plaintext highlighter-rouge">AddItem()</code>, which is protected by the database transaction in the command handler. No distributed lock is needed since a customer has exactly one cart row (keyed by <code class="language-plaintext highlighter-rouge">CustomerId</code>).</p>
+
+<h3 id="3-outbox-dispatcher--at-least-once-delivery">3. Outbox Dispatcher — At-Least-Once Delivery</h3>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant OBD as OutboxDispatcherService
+  participant DB as PostgreSQL
+  participant BUS as InMemoryEventBus
+
+  loop Every 5s
+    OBD-&gt;&gt;DB: SELECT top 20 WHERE processed_at IS NULL ORDER BY created_at
+    DB--&gt;&gt;OBD: [OutboxMessage]
+    OBD-&gt;&gt;BUS: PublishAsync(event)
+    Note over OBD,BUS: If crash here, message replays on next poll (at-least-once)
+    OBD-&gt;&gt;DB: UPDATE SET processed_at = now()
+  end
+</code></pre>
+
+<blockquote>
+  <p><strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub — events are silently dropped when RabbitMQ bus is active. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation in current use.</p>
+</blockquote>
+
+<h3 id="4-vase-health-monitor">4. Vase Health Monitor</h3>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant VHM as VaseHealthMonitoringService
+  participant DB as PostgreSQL
+  participant BUS as InMemoryEventBus
+
+  loop Every 60s
+    VHM-&gt;&gt;DB: SELECT SmartVases WHERE LastHeartbeat &lt; now()-1hr AND Status != Offline
+    DB--&gt;&gt;VHM: [stale vases]
+    VHM-&gt;&gt;DB: UPDATE ConnectionStatus = Offline
+    VHM-&gt;&gt;BUS: Publish VaseWentOfflineEvent
+  end
+</code></pre>
+
+<h3 id="5-idempotency--duplicate-request-deduplication">5. Idempotency — Duplicate Request Deduplication</h3>
+
+<p>Redis <code class="language-plaintext highlighter-rouge">SET NX</code> (via <code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code>) serialises concurrent duplicate requests at the middleware layer before they reach MediatR, preventing duplicate order creation even if the client retries concurrently.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+  participant C1 as Client (retry 1)
+  participant C2 as Client (retry 2)
+  participant MW as IdempotencyMiddleware
+  participant Redis
+
+  par
+    C1-&gt;&gt;MW: POST /orders  Idempotency-Key: abc
+    C2-&gt;&gt;MW: POST /orders  Idempotency-Key: abc
+  end
+  MW-&gt;&gt;Redis: SET idempotency:abc NX EX 86400
+  Note over Redis: Only one SET wins
+  Redis--&gt;&gt;MW: OK (first) / nil (second)
+  MW--&gt;&gt;C2: 201 (replayed from cache — no second order)
+</code></pre>
+
+<h2 id="coordination-mechanisms-summary">Coordination Mechanisms Summary</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>Contents</th>
+      <th>Mechanism</th>
+      <th>Scope</th>
+      <th>Used For</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-functional/">Functional View</a></td>
-      <td>Functional elements, responsibilities, interfaces, and actor interactions</td>
+      <td><strong>PostgreSQL row-level lock</strong> (<code class="language-plaintext highlighter-rouge">FOR UPDATE</code>)</td>
+      <td>Per-aggregate</td>
+      <td>Bouquet reservation, order creation</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-information/">Information View</a></td>
-      <td>Data structure, aggregate ownership, data lifecycles, store responsibilities</td>
+      <td><strong>EF Core concurrency token</strong></td>
+      <td>Per-entity</td>
+      <td>Optimistic concurrency on critical entities</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-concurrency/">Concurrency View</a></td>
-      <td>Processes, background services, race conditions, coordination mechanisms</td>
+      <td><strong>Redis <code class="language-plaintext highlighter-rouge">SET NX</code></strong></td>
+      <td>Per idempotency key</td>
+      <td>Duplicate HTTP request deduplication</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-development/">Development View</a></td>
-      <td>Source organisation, module boundaries, CQRS conventions, test strategy</td>
+      <td><strong>Outbox pattern</strong></td>
+      <td>Cross-service</td>
+      <td>Exactly-once domain event emission guarantee</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-deployment/">Deployment View</a></td>
-      <td>Docker topology, port map, startup dependencies, environment variables</td>
+      <td><strong>Single background thread per service</strong></td>
+      <td>Per <code class="language-plaintext highlighter-rouge">IHostedService</code></td>
+      <td>Outbox poll, vase health poll (no inter-thread sharing)</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-operational/">Operational View</a></td>
-      <td>Health checks, error handling, runbook, monitoring signals, known gaps</td>
+      <td><strong>SignalR hub groups</strong></td>
+      <td>Per WebSocket session</td>
+      <td>Scoped real-time broadcast (no shared mutable state)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="c4-model">C4 Model</h3>
+<h2 id="cache-invalidation-concurrency">Cache Invalidation Concurrency</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-context/">C4 Context</a></td>
-      <td>System-level view: users and external systems</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-containers/">C4 Containers</a></td>
-      <td>All runtime containers and their communication</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-components/">C4 Components</a></td>
-      <td>API layer internals: controllers → handlers → domain</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/domain-model/">Domain Model</a></td>
-      <td>ER diagram of all 14 aggregates</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="flow-diagrams">Flow Diagrams</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-auth/">Auth Flows</a></td>
-      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-customer/">Customer Flows</a></td>
-      <td>Browse, QR scan, cart, order, payment, delivery</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-vendor/">Vendor Flows</a></td>
-      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-admin/">Admin Flows</a></td>
-      <td>Vendor approval, suspension, analytics</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-iot/">IoT Flows</a></td>
-      <td>Vase registration, MQTT, heartbeat, sensor data</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-payments/">Payment Flows</a></td>
-      <td>Stripe checkout, webhook, outbox, confirmation</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-realtime/">Real-time Flows</a></td>
-      <td>SignalR hub groups, outbox dispatch</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/cross-cutting/">Cross-cutting</a></td>
-      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="api-reference">API Reference</h2>
-
-<p>Full REST and SignalR contract: <a href="/flowershop-iot-platform-docs/API-CONTRACTS/">API-CONTRACTS.md</a></p>
-
-<h2 id="planned-work">Planned Work</h2>
-
-<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
+<p>Cache entries use a <strong>version key</strong> strategy: each write command increments a Redis counter <code class="language-plaintext highlighter-rouge">{entity-type}:version</code>; readers embed the version in the cache key. If a write races with a read, the version mismatch causes a cache miss on the next read cycle — there is no window for stale reads beyond one cache-TTL period.</p>
 
     </div>
   </main>

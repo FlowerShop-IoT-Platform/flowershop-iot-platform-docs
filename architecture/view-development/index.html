@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture Overview — FlowerShop IoT Platform</title>
+  <title>Development View — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -674,237 +674,208 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+      <h1 id="development-view">Development View</h1>
 
-<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+<p>Describes the system’s source code organisation, module boundaries, dependency rules, and the conventions used by developers working on the codebase.</p>
 
-<h2 id="key-business-concepts">Key Business Concepts</h2>
+<h2 id="module--project-structure">Module / Project Structure</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Concept</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Vendor</strong></td>
-      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
-    </tr>
-    <tr>
-      <td><strong>Smart Vase</strong></td>
-      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
-    </tr>
-    <tr>
-      <td><strong>Bouquet</strong></td>
-      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
-    </tr>
-    <tr>
-      <td><strong>Customer</strong></td>
-      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
-    </tr>
-    <tr>
-      <td><strong>Platform Admin</strong></td>
-      <td>Manages vendors, vases, and platform analytics</td>
-    </tr>
-  </tbody>
-</table>
+<pre><code class="language-mermaid">flowchart TD
+  subgraph Backend["src/backend/"]
+    API["FlowerShop.API\n─────────────\nControllers (23)\nMiddleware pipeline\nProgram.cs / DI root\nDTO request/response types"]
+    APP["FlowerShop.Application\n─────────────\nCommands + Handlers\nQueries + Handlers\nDomain Services\nDTOs (application)\nFluentValidation validators\nMediatR behaviours\nEvent handlers"]
+    DOM["FlowerShop.Domain\n─────────────\nAggregates (14)\nValue Objects\nDomain Events\nRepository interfaces\nIDs (strongly-typed)\nResult&lt;T&gt;"]
+    INF["FlowerShop.Infrastructure\n─────────────\nEF Core DbContext\nEntity configurations\nRepositories\nKeycloak client\nMQTT services\nSignalR hub\nRedis cache\nEvent bus\nDI extensions"]
+  end
 
-<h2 id="technology-stack">Technology Stack</h2>
+  subgraph Portals["src/portals/"]
+    ADM["FlowerShop.AdminPortal\n(Razor Pages :5001)"]
+    VND["FlowerShop.VendorPortal\n(Razor Pages :5002)"]
+    CUS["FlowerShop.CustomerApp\n(ASP.NET MVC :5003)"]
+  end
 
-<table>
-  <thead>
-    <tr>
-      <th>Layer</th>
-      <th>Technology</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Framework</td>
-      <td>.NET 8 / ASP.NET Core</td>
-    </tr>
-    <tr>
-      <td>ORM</td>
-      <td>Entity Framework Core 8 + PostgreSQL 15</td>
-    </tr>
-    <tr>
-      <td>Auth</td>
-      <td>Keycloak 23.0 (OIDC, JWT)</td>
-    </tr>
-    <tr>
-      <td>CQRS</td>
-      <td>MediatR</td>
-    </tr>
-    <tr>
-      <td>Validation</td>
-      <td>FluentValidation (pipeline behaviour)</td>
-    </tr>
-    <tr>
-      <td>Cache</td>
-      <td>Redis 7 (RedisCacheService)</td>
-    </tr>
-    <tr>
-      <td>Messaging</td>
-      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
-    </tr>
-    <tr>
-      <td>Real-time</td>
-      <td>SignalR (BouquetHub)</td>
-    </tr>
-    <tr>
-      <td>IoT</td>
-      <td>MQTT (Mosquitto)</td>
-    </tr>
-    <tr>
-      <td>Payments</td>
-      <td>Stripe</td>
-    </tr>
-    <tr>
-      <td>SMS</td>
-      <td>Twilio</td>
-    </tr>
-    <tr>
-      <td>Portals</td>
-      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
-    </tr>
-  </tbody>
-</table>
+  subgraph Tests["tests/"]
+    UT["FlowerShop.Tests.Unit"]
+    IT["FlowerShop.Tests.Integration"]
+    DT["FlowerShop.Domain.Tests"]
+  end
 
-<h2 id="architecture-layers">Architecture Layers</h2>
+  API --&gt; APP
+  API --&gt; DOM
+  APP --&gt; DOM
+  INF --&gt; APP
+  INF --&gt; DOM
+  ADM --&gt; API
+  VND --&gt; API
+  CUS --&gt; API
+</code></pre>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
-│  API Layer (Controllers, Middleware)    │
-├─────────────────────────────────────────┤
-│  Application Layer (CQRS via MediatR)  │
-├─────────────────────────────────────────┤
-│  Domain Layer (Aggregates, Events)     │
-├─────────────────────────────────────────┤
-│  Infrastructure (EF Core, Keycloak…)   │
-└─────────────────────────────────────────┘
+<blockquote>
+  <p><strong>Dependency rule</strong>: arrows flow inward only. <code class="language-plaintext highlighter-rouge">Domain</code> has zero external dependencies. <code class="language-plaintext highlighter-rouge">Application</code> depends only on <code class="language-plaintext highlighter-rouge">Domain</code>. <code class="language-plaintext highlighter-rouge">Infrastructure</code> and <code class="language-plaintext highlighter-rouge">API</code> depend on <code class="language-plaintext highlighter-rouge">Application</code> + <code class="language-plaintext highlighter-rouge">Domain</code>. Portals call the REST API over HTTP — they do not reference backend projects directly.</p>
+</blockquote>
+
+<h2 id="cqrs--file-conventions">CQRS — File Conventions</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FlowerShop.Application/
+  Commands/
+    &lt;Domain&gt;/
+      Create&lt;Entity&gt;Command.cs        ← record + IRequest&lt;Result&lt;Guid&gt;&gt;
+      Create&lt;Entity&gt;CommandHandler.cs ← IRequestHandler&lt;&gt;
+      Update&lt;Entity&gt;Command.cs
+      Update&lt;Entity&gt;CommandHandler.cs
+  Queries/
+    &lt;Domain&gt;/
+      Get&lt;Entity&gt;Query.cs             ← record + IRequest&lt;Result&lt;EntityDto&gt;&gt;
+      Get&lt;Entity&gt;QueryHandler.cs
+  Validators/
+    &lt;Domain&gt;/
+      Create&lt;Entity&gt;CommandValidator.cs  ← AbstractValidator&lt;&gt;
+  DTOs/
+    &lt;EntityDto&gt;.cs
+  Events/
+    &lt;DomainEvent&gt;Handler.cs            ← INotificationHandler&lt;&gt;
 </code></pre></div></div>
 
-<h2 id="documentation-pages">Documentation Pages</h2>
+<h2 id="mediatr-pipeline-behaviours-execution-order">MediatR Pipeline Behaviours (execution order)</h2>
 
-<h3 id="rozanski--woods-architecture-viewpoints">Rozanski &amp; Woods Architecture Viewpoints</h3>
+<pre><code class="language-mermaid">flowchart LR
+  REQ["IRequest sent\nvia ISender.Send()"]
+  --&gt; LB["LoggingBehaviour\n(log request + response time)"]
+  --&gt; VB["ValidationBehaviour\n(FluentValidation; returns\nValidationError on failure)"]
+  --&gt; TVB["TenantValidationBehavior\n(enforces tenant context\nfor ITenantScopedRequest)"]
+  --&gt; IKB["IdempotencyKeyBehaviour\n(checks Redis before handler)"]
+  --&gt; CB["CachingBehaviour\n(for ICacheableQuery — read from Redis)"]
+  --&gt; HAND["Command / Query Handler"]
+</code></pre>
 
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-functional/">Functional View</a></td>
-      <td>Functional elements, responsibilities, interfaces, and actor interactions</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-information/">Information View</a></td>
-      <td>Data structure, aggregate ownership, data lifecycles, store responsibilities</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-concurrency/">Concurrency View</a></td>
-      <td>Processes, background services, race conditions, coordination mechanisms</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-development/">Development View</a></td>
-      <td>Source organisation, module boundaries, CQRS conventions, test strategy</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-deployment/">Deployment View</a></td>
-      <td>Docker topology, port map, startup dependencies, environment variables</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-operational/">Operational View</a></td>
-      <td>Health checks, error handling, runbook, monitoring signals, known gaps</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="c4-model">C4 Model</h3>
+<h2 id="domain-layer-conventions">Domain Layer Conventions</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>Contents</th>
+      <th>Convention</th>
+      <th>Rule</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-context/">C4 Context</a></td>
-      <td>System-level view: users and external systems</td>
+      <td><strong>Aggregate root</strong></td>
+      <td>Inherits <code class="language-plaintext highlighter-rouge">AggregateRoot&lt;TId&gt;</code> — only root is reachable from outside</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-containers/">C4 Containers</a></td>
-      <td>All runtime containers and their communication</td>
+      <td><strong>Value objects</strong></td>
+      <td>Inherit <code class="language-plaintext highlighter-rouge">ValueObject</code>; immutable; equality by value</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-components/">C4 Components</a></td>
-      <td>API layer internals: controllers → handlers → domain</td>
+      <td><strong>Strongly-typed IDs</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorId</code>, <code class="language-plaintext highlighter-rouge">BouquetId</code>, <code class="language-plaintext highlighter-rouge">CustomerId</code>, <code class="language-plaintext highlighter-rouge">OrderId</code>, <code class="language-plaintext highlighter-rouge">VaseId</code>, <code class="language-plaintext highlighter-rouge">UserId</code> — wrap <code class="language-plaintext highlighter-rouge">Guid</code>; prevent cross-aggregate ID confusion</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/domain-model/">Domain Model</a></td>
-      <td>ER diagram of all 14 aggregates</td>
+      <td>**Result<T>**</T></td>
+      <td>Domain methods return <code class="language-plaintext highlighter-rouge">Result&lt;T&gt;</code> — never throw for business-rule violations</td>
+    </tr>
+    <tr>
+      <td><strong>Domain events</strong></td>
+      <td>Raised via <code class="language-plaintext highlighter-rouge">AggregateRoot.AddDomainEvent()</code>; dispatched through outbox</td>
+    </tr>
+    <tr>
+      <td><strong>No infrastructure</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">Domain</code> project has zero NuGet dependencies on EF Core, Redis, etc.</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="flow-diagrams">Flow Diagrams</h3>
+<h2 id="infrastructure--ef-core-conventions">Infrastructure — EF Core Conventions</h2>
+
+<p>Each aggregate has a dedicated <code class="language-plaintext highlighter-rouge">IEntityTypeConfiguration&lt;T&gt;</code> class under:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FlowerShop.Infrastructure/Persistence/Configurations/&lt;Entity&gt;Configuration.cs
+</code></pre></div></div>
+
+<ul>
+  <li>Value objects are mapped with <code class="language-plaintext highlighter-rouge">OwnsOne</code> / <code class="language-plaintext highlighter-rouge">OwnsMany</code></li>
+  <li>Strongly-typed IDs are converted via <code class="language-plaintext highlighter-rouge">HasConversion&lt;Guid&gt;</code></li>
+  <li>No navigation properties on aggregates (cross-aggregate references use IDs only)</li>
+</ul>
+
+<h2 id="key-configuration-files">Key Configuration Files</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>Contents</th>
+      <th>File</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-auth/">Auth Flows</a></td>
-      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Program.cs</code></td>
+      <td>DI root, middleware pipeline registration</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-customer/">Customer Flows</a></td>
-      <td>Browse, QR scan, cart, order, payment, delivery</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Extensions/ServiceCollectionExtensions.cs</code></td>
+      <td>All infrastructure DI registrations incl. stubs</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-vendor/">Vendor Flows</a></td>
-      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Persistence/FlowerShopDbContext.cs</code></td>
+      <td>EF Core DbContext, <code class="language-plaintext highlighter-rouge">outbox_messages</code> table</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-admin/">Admin Flows</a></td>
-      <td>Vendor approval, suspension, analytics</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/appsettings.json</code></td>
+      <td>App configuration (override via env vars in Docker)</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-iot/">IoT Flows</a></td>
-      <td>Vase registration, MQTT, heartbeat, sensor data</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-payments/">Payment Flows</a></td>
-      <td>Stripe checkout, webhook, outbox, confirmation</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-realtime/">Real-time Flows</a></td>
-      <td>SignalR hub groups, outbox dispatch</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/cross-cutting/">Cross-cutting</a></td>
-      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
+      <td><code class="language-plaintext highlighter-rouge">docker/docker-compose.dev.yml</code></td>
+      <td>Local dev infrastructure</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="api-reference">API Reference</h2>
+<h2 id="test-strategy">Test Strategy</h2>
 
-<p>Full REST and SignalR contract: <a href="/flowershop-iot-platform-docs/API-CONTRACTS/">API-CONTRACTS.md</a></p>
+<table>
+  <thead>
+    <tr>
+      <th>Project</th>
+      <th>What it tests</th>
+      <th>Approach</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Domain.Tests</code></td>
+      <td>Aggregate invariants, value-object equality, domain state machines</td>
+      <td>xUnit, no infrastructure</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Tests.Unit</code></td>
+      <td>Command/query handlers, MediatR behaviours, validators</td>
+      <td>xUnit, mocked repositories</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Tests.Integration</code></td>
+      <td>EF Core repositories, full MediatR pipeline, controller endpoints</td>
+      <td>xUnit, real PostgreSQL via TestContainers</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="planned-work">Planned Work</h2>
+<blockquote>
+  <p><strong>Current status</strong>: 126/126 tests passing.</p>
+</blockquote>
 
-<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
+<h2 id="migration-workflow">Migration Workflow</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># From Infrastructure project</span>
+dotnet ef migrations add &lt;Name&gt; <span class="nt">--startup-project</span> ../FlowerShop.API
+
+<span class="c"># From API project</span>
+dotnet ef database update
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>Known gap</strong>: <code class="language-plaintext highlighter-rouge">Cart</code>, <code class="language-plaintext highlighter-rouge">CartItem</code>, <code class="language-plaintext highlighter-rouge">OrderLine</code> (multi-line schema), <code class="language-plaintext highlighter-rouge">Subscription</code>, <code class="language-plaintext highlighter-rouge">Favourite</code>, <code class="language-plaintext highlighter-rouge">Notification</code>, <code class="language-plaintext highlighter-rouge">DeviceRegistration</code>, <code class="language-plaintext highlighter-rouge">SavedAddress</code> tables require <code class="language-plaintext highlighter-rouge">AddCartAndOrderLines</code> migration — not yet run.</p>
+</blockquote>
 
     </div>
   </main>

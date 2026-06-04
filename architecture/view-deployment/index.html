@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Architecture Overview — FlowerShop IoT Platform</title>
+  <title>Deployment View — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -674,237 +674,273 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform--architecture">FlowerShop IoT Platform — Architecture</h1>
+      <h1 id="deployment-view">Deployment View</h1>
 
-<p>The FlowerShop IoT Platform is a <strong>multi-tenant SaaS platform</strong> connecting flower vendors with customers through IoT-enabled smart vases that display QR codes linking to bouquet information.</p>
+<p>Describes the hardware and software environments in which the system runs, how software is mapped to infrastructure, and how components communicate across deployment nodes.</p>
 
-<h2 id="key-business-concepts">Key Business Concepts</h2>
+<h2 id="development-environment--docker-compose">Development Environment — Docker Compose</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+  subgraph HostMachine["Developer Workstation (Windows 11)"]
+    subgraph DockerNetwork["Docker Bridge Network: flowershop-dev (172.21.0.0/16)"]
+      PG["postgres-dev\nPostgreSQL 15-alpine\n:5432\nDB: flowershop_iot_dev\n     flowershop_iot_read_dev\n     keycloak"]
+      REDIS["redis-dev\nRedis 7-alpine\n:6379\nAppendonly persistence"]
+      MQ["mqtt-dev\neclipse-mosquitto 2.0\n:1883 (MQTT)\n:9001 (WebSocket)"]
+      RMQ["rabbitmq-dev\nRabbitMQ 3-management\n:5672 (AMQP)\n:15672 (Mgmt UI)"]
+      KC["keycloak-dev\nKeycloak 23.0\n:8090→8080\nRealm: flowershop\nDB: postgres-dev/keycloak"]
+      API["api-dev\n.NET 8 / ASP.NET Core\n:8080\n(dotnet watch — hot reload)"]
+    end
+
+    subgraph Portals["Portal Processes (dotnet run — separate terminals)"]
+      ADM["AdminPortal :5001\nRazor Pages"]
+      VND["VendorPortal :5002\nRazor Pages"]
+      CUS["CustomerApp :5003\nASP.NET MVC"]
+    end
+
+    subgraph Tools["Optional tooling (--profile tools)"]
+      PGA["pgAdmin :5050"]
+      RCC["redis-commander :8081"]
+    end
+  end
+
+  API --&gt;|TCP :5432| PG
+  API --&gt;|TCP :6379| REDIS
+  API --&gt;|MQTT :1883| MQ
+  MQ --&gt;|MQTT| API
+  API --&gt;|AMQP :5672| RMQ
+  API --&gt;|HTTP :8080| KC
+  ADM --&gt;|HTTP :8080| API
+  VND --&gt;|HTTP :8080| API
+  CUS --&gt;|HTTP :8080| API
+  PGA --&gt;|:5432| PG
+  RCC --&gt;|:6379| REDIS
+</code></pre>
+
+<h2 id="container-startup-dependencies">Container Startup Dependencies</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+  PG["postgres-dev\n(healthcheck: pg_isready)"]
+  REDIS["redis-dev\n(healthcheck: redis-cli ping)"]
+  MQ["mqtt-dev\n(healthcheck: mosquitto_sub)"]
+  KC["keycloak-dev\n(depends: postgres-dev healthy)"]
+  API["api-dev\n(depends: postgres, redis, mqtt, keycloak healthy)"]
+
+  PG --&gt; KC
+  PG --&gt; API
+  REDIS --&gt; API
+  MQ --&gt; API
+  KC --&gt; API
+</code></pre>
+
+<h2 id="port-map">Port Map</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Concept</th>
-      <th>Description</th>
+      <th>Service</th>
+      <th>Host Port</th>
+      <th>Container Port</th>
+      <th>Protocol</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Vendor</strong></td>
-      <td>Traditional Flower Shop (physical store) or Freelance Florist (home-based)</td>
+      <td>REST API + Swagger</td>
+      <td>8080</td>
+      <td>8080</td>
+      <td>HTTP</td>
     </tr>
     <tr>
-      <td><strong>Smart Vase</strong></td>
-      <td>IoT device displaying QR codes; reports sensor data via MQTT</td>
+      <td>Admin Portal</td>
+      <td>5001</td>
+      <td>5001</td>
+      <td>HTTP</td>
     </tr>
     <tr>
-      <td><strong>Bouquet</strong></td>
-      <td>Flower arrangement placed in a smart vase, purchasable by customers</td>
+      <td>Vendor Portal</td>
+      <td>5002</td>
+      <td>5002</td>
+      <td>HTTP</td>
     </tr>
     <tr>
-      <td><strong>Customer</strong></td>
-      <td>Browses nearby bouquets via map, purchases through mobile app or web</td>
+      <td>Customer Web App</td>
+      <td>5003</td>
+      <td>5003</td>
+      <td>HTTP</td>
     </tr>
     <tr>
-      <td><strong>Platform Admin</strong></td>
-      <td>Manages vendors, vases, and platform analytics</td>
+      <td>Keycloak Admin Console</td>
+      <td>8090</td>
+      <td>8080</td>
+      <td>HTTP</td>
+    </tr>
+    <tr>
+      <td>PostgreSQL</td>
+      <td>5432</td>
+      <td>5432</td>
+      <td>TCP</td>
+    </tr>
+    <tr>
+      <td>Redis</td>
+      <td>6379</td>
+      <td>6379</td>
+      <td>TCP</td>
+    </tr>
+    <tr>
+      <td>MQTT (raw)</td>
+      <td>1883</td>
+      <td>1883</td>
+      <td>MQTT</td>
+    </tr>
+    <tr>
+      <td>MQTT (WebSocket)</td>
+      <td>9001</td>
+      <td>9001</td>
+      <td>WS</td>
+    </tr>
+    <tr>
+      <td>RabbitMQ AMQP</td>
+      <td>5672</td>
+      <td>5672</td>
+      <td>AMQP</td>
+    </tr>
+    <tr>
+      <td>RabbitMQ Management</td>
+      <td>15672</td>
+      <td>15672</td>
+      <td>HTTP</td>
+    </tr>
+    <tr>
+      <td>pgAdmin</td>
+      <td>5050</td>
+      <td>80</td>
+      <td>HTTP</td>
+    </tr>
+    <tr>
+      <td>Redis Commander</td>
+      <td>8081</td>
+      <td>8081</td>
+      <td>HTTP</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="technology-stack">Technology Stack</h2>
+<h2 id="logical-deployment-tiers">Logical Deployment Tiers</h2>
+
+<pre><code class="language-mermaid">flowchart TB
+  subgraph Tier1["Tier 1 — Client"]
+    MOB["Mobile App\n(React Native / Flutter)"]
+    WEB["Customer Web Browser\n(:5003)"]
+    VADM["Vendor Browser\n(:5002)"]
+    AADM["Admin Browser\n(:5001)"]
+    VASE["SmartVase Firmware\n(MQTT over TCP)"]
+  end
+
+  subgraph Tier2["Tier 2 — Application"]
+    API2["REST API\n(.NET 8 / Kestrel :8080)\n+ SignalR Hub (in-process)"]
+    ADM2["Admin Portal\n(Razor Pages :5001)"]
+    VND2["Vendor Portal\n(Razor Pages :5002)"]
+    CUS2["Customer App\n(MVC :5003)"]
+  end
+
+  subgraph Tier3["Tier 3 — Infrastructure"]
+    PG2["PostgreSQL 15\n(primary + read replica)"]
+    RD2["Redis 7\n(cache + blacklist + idempotency)"]
+    KC2["Keycloak 23\n(OIDC / JWT)"]
+    MQ2["Mosquitto MQTT\n(IoT broker)"]
+    RMQ2["RabbitMQ\n(event bus — pending EP-09)"]
+  end
+
+  subgraph Tier4["Tier 4 — External SaaS"]
+    STR["Stripe\n(payments)"]
+    FCM["Firebase FCM\n(push notifications)"]
+    TWI["Twilio\n(SMS)"]
+    NOM["Nominatim OSM\n(geocoding)"]
+  end
+
+  Tier1 --&gt; Tier2
+  Tier2 --&gt; Tier3
+  Tier2 --&gt; Tier4
+  VASE --&gt; MQ2
+</code></pre>
+
+<h2 id="environment-variables-key-settings">Environment Variables (key settings)</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Layer</th>
-      <th>Technology</th>
+      <th>Variable</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Framework</td>
-      <td>.NET 8 / ASP.NET Core</td>
+      <td><code class="language-plaintext highlighter-rouge">ASPNETCORE_ENVIRONMENT</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Development</code> / <code class="language-plaintext highlighter-rouge">Production</code></td>
     </tr>
     <tr>
-      <td>ORM</td>
-      <td>Entity Framework Core 8 + PostgreSQL 15</td>
+      <td><code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak</code></td>
+      <td><code class="language-plaintext highlighter-rouge">false</code> → dev-token mode (no Keycloak required)</td>
     </tr>
     <tr>
-      <td>Auth</td>
-      <td>Keycloak 23.0 (OIDC, JWT)</td>
+      <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__DefaultConnection</code></td>
+      <td>PostgreSQL primary</td>
     </tr>
     <tr>
-      <td>CQRS</td>
-      <td>MediatR</td>
+      <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__ReadConnection</code></td>
+      <td>PostgreSQL read replica</td>
     </tr>
     <tr>
-      <td>Validation</td>
-      <td>FluentValidation (pipeline behaviour)</td>
+      <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__Redis</code></td>
+      <td>Redis (<code class="language-plaintext highlighter-rouge">host:port</code>); if absent → <code class="language-plaintext highlighter-rouge">AddDistributedMemoryCache()</code> fallback</td>
     </tr>
     <tr>
-      <td>Cache</td>
-      <td>Redis 7 (RedisCacheService)</td>
+      <td><code class="language-plaintext highlighter-rouge">MQTT__BrokerHost</code> / <code class="language-plaintext highlighter-rouge">MQTT__BrokerPort</code></td>
+      <td>Mosquitto endpoint</td>
     </tr>
     <tr>
-      <td>Messaging</td>
-      <td>InMemoryEventBus (RabbitMQ wired, pending EP-09)</td>
+      <td><code class="language-plaintext highlighter-rouge">Authentication__Keycloak__Authority</code></td>
+      <td>Keycloak realm URL</td>
     </tr>
     <tr>
-      <td>Real-time</td>
-      <td>SignalR (BouquetHub)</td>
-    </tr>
-    <tr>
-      <td>IoT</td>
-      <td>MQTT (Mosquitto)</td>
-    </tr>
-    <tr>
-      <td>Payments</td>
-      <td>Stripe</td>
-    </tr>
-    <tr>
-      <td>SMS</td>
-      <td>Twilio</td>
-    </tr>
-    <tr>
-      <td>Portals</td>
-      <td>Razor Pages (Admin, Vendor) + MVC (Customer Web App)</td>
+      <td><code class="language-plaintext highlighter-rouge">JWT__SecretKey</code></td>
+      <td>Dev-only JWT signing key</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="architecture-layers">Architecture Layers</h2>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌─────────────────────────────────────────┐
-│  API Layer (Controllers, Middleware)    │
-├─────────────────────────────────────────┤
-│  Application Layer (CQRS via MediatR)  │
-├─────────────────────────────────────────┤
-│  Domain Layer (Aggregates, Events)     │
-├─────────────────────────────────────────┤
-│  Infrastructure (EF Core, Keycloak…)   │
-└─────────────────────────────────────────┘
-</code></pre></div></div>
-
-<h2 id="documentation-pages">Documentation Pages</h2>
-
-<h3 id="rozanski--woods-architecture-viewpoints">Rozanski &amp; Woods Architecture Viewpoints</h3>
+<h2 id="volumes-persistent-data">Volumes (persistent data)</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
+      <th>Volume</th>
       <th>Contents</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-functional/">Functional View</a></td>
-      <td>Functional elements, responsibilities, interfaces, and actor interactions</td>
+      <td><code class="language-plaintext highlighter-rouge">postgres_dev_data</code></td>
+      <td>PostgreSQL data directory</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-information/">Information View</a></td>
-      <td>Data structure, aggregate ownership, data lifecycles, store responsibilities</td>
+      <td><code class="language-plaintext highlighter-rouge">redis_dev_data</code></td>
+      <td>Redis AOF log</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-concurrency/">Concurrency View</a></td>
-      <td>Processes, background services, race conditions, coordination mechanisms</td>
+      <td><code class="language-plaintext highlighter-rouge">mosquitto_dev_data</code></td>
+      <td>MQTT persistence</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-development/">Development View</a></td>
-      <td>Source organisation, module boundaries, CQRS conventions, test strategy</td>
+      <td><code class="language-plaintext highlighter-rouge">rabbitmq_dev_data</code></td>
+      <td>RabbitMQ mnesia database</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-deployment/">Deployment View</a></td>
-      <td>Docker topology, port map, startup dependencies, environment variables</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/view-operational/">Operational View</a></td>
-      <td>Health checks, error handling, runbook, monitoring signals, known gaps</td>
+      <td><code class="language-plaintext highlighter-rouge">api_dev_logs</code></td>
+      <td>ASP.NET Core log files</td>
     </tr>
   </tbody>
 </table>
-
-<h3 id="c4-model">C4 Model</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-context/">C4 Context</a></td>
-      <td>System-level view: users and external systems</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-containers/">C4 Containers</a></td>
-      <td>All runtime containers and their communication</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/c4-components/">C4 Components</a></td>
-      <td>API layer internals: controllers → handlers → domain</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/domain-model/">Domain Model</a></td>
-      <td>ER diagram of all 14 aggregates</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="flow-diagrams">Flow Diagrams</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-auth/">Auth Flows</a></td>
-      <td>Keycloak OIDC, dev-token, tenant resolution, token blacklist</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-customer/">Customer Flows</a></td>
-      <td>Browse, QR scan, cart, order, payment, delivery</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-vendor/">Vendor Flows</a></td>
-      <td>Onboarding, bouquet lifecycle, order fulfillment</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-admin/">Admin Flows</a></td>
-      <td>Vendor approval, suspension, analytics</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-iot/">IoT Flows</a></td>
-      <td>Vase registration, MQTT, heartbeat, sensor data</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-payments/">Payment Flows</a></td>
-      <td>Stripe checkout, webhook, outbox, confirmation</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/flows-realtime/">Real-time Flows</a></td>
-      <td>SignalR hub groups, outbox dispatch</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/architecture/cross-cutting/">Cross-cutting</a></td>
-      <td>Middleware pipeline, caching, multi-tenancy, idempotency</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="api-reference">API Reference</h2>
-
-<p>Full REST and SignalR contract: <a href="/flowershop-iot-platform-docs/API-CONTRACTS/">API-CONTRACTS.md</a></p>
-
-<h2 id="planned-work">Planned Work</h2>
-
-<p>Upcoming epics and gap analysis: <a href="../tasks/">docs/tasks/</a></p>
 
     </div>
   </main>
