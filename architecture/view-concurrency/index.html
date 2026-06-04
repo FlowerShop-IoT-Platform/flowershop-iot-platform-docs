@@ -686,6 +686,8 @@
 
 <h2 id="process--thread-model">Process &amp; Thread Model</h2>
 
+<p>The entire platform runs in a single ASP.NET Core process hosted by Kestrel. HTTP and WebSocket connections share the Kestrel thread pool; each request flows asynchronously through the MediatR pipeline. Three <code class="language-plaintext highlighter-rouge">IHostedService</code> background services run on the same process concurrently: the outbox dispatcher (domain event delivery), the vase health monitor (IoT liveness), and the MQTT startup subscriber (IoT message ingestion). No inter-process communication is needed within the API boundary.</p>
+
 <pre><code class="language-mermaid">flowchart TD
   subgraph APIProcess["ASP.NET Core API Process (Kestrel)"]
     TP["Kestrel Thread Pool\n(handles HTTP + WebSocket requests)"]
@@ -704,9 +706,53 @@
   MQ --&gt; BGServices
 </code></pre>
 
+<h3 id="sub-domain-mapping--process-model">Sub-domain Mapping — Process Model</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Execution Unit</th>
+      <th>Business Sub-domain</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Kestrel thread pool (HTTP)</td>
+      <td>All sub-domains</td>
+      <td>Handles every inbound REST request — vendor management, customer purchasing, analytics, admin</td>
+    </tr>
+    <tr>
+      <td>Kestrel thread pool (WebSocket)</td>
+      <td><strong>IoT / Real-time</strong></td>
+      <td>Maintains persistent SignalR connections for live bouquet freshness and order status updates</td>
+    </tr>
+    <tr>
+      <td>MediatR pipeline</td>
+      <td>All sub-domains</td>
+      <td>Routes commands and queries through cross-cutting behaviours (logging, validation, tenant check, idempotency, cache)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code></td>
+      <td><strong>IoT / Real-time + Customer Purchasing</strong></td>
+      <td>Delivers domain events (order confirmed, bouquet updated) from the DB outbox to the in-process event bus every 5 s</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VaseHealthMonitoringService</code></td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td>Marks vases <code class="language-plaintext highlighter-rouge">Offline</code> when no heartbeat has been received for 1 hour; publishes <code class="language-plaintext highlighter-rouge">VaseWentOfflineEvent</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MqttDeviceStartupService</code></td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td>Subscribes to MQTT topics (<code class="language-plaintext highlighter-rouge">vases/+/heartbeat</code>, <code class="language-plaintext highlighter-rouge">vases/+/sensor</code>) on API startup; feeds telemetry into the system</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="concurrency-hotspots">Concurrency Hotspots</h2>
 
-<h3 id="1-bouquet-reservation-race">1. Bouquet Reservation Race</h3>
+<h3 id="1-bouquet-reservation-race--customer-purchasing--vase--bouquet-lifecycle">1. Bouquet Reservation Race — <strong>Customer Purchasing / Vase &amp; Bouquet Lifecycle</strong></h3>
 
 <p>Multiple customers may attempt to purchase the same bouquet simultaneously. The reservation is enforced via a <strong>pessimistic DB-level check</strong> inside the <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code>: bouquet status is read and updated in a single transaction, and the EF Core concurrency token prevents double-reservation.</p>
 
@@ -731,11 +777,11 @@
   H--&gt;&gt;C1: 201 Created
 </code></pre>
 
-<h3 id="2-cart-vendor-mismatch-guard">2. Cart Vendor-Mismatch Guard</h3>
+<h3 id="2-cart-vendor-mismatch-guard--customer-purchasing">2. Cart Vendor-Mismatch Guard — <strong>Customer Purchasing</strong></h3>
 
 <p>Cart is read-modify-write; the vendor-scope check is done inside the <code class="language-plaintext highlighter-rouge">Cart</code> aggregate method <code class="language-plaintext highlighter-rouge">AddItem()</code>, which is protected by the database transaction in the command handler. No distributed lock is needed since a customer has exactly one cart row (keyed by <code class="language-plaintext highlighter-rouge">CustomerId</code>).</p>
 
-<h3 id="3-outbox-dispatcher--at-least-once-delivery">3. Outbox Dispatcher — At-Least-Once Delivery</h3>
+<h3 id="3-outbox-dispatcher--at-least-once-delivery--all-sub-domains-event-backbone">3. Outbox Dispatcher — At-Least-Once Delivery — <strong>All Sub-domains (event backbone)</strong></h3>
 
 <pre><code class="language-mermaid">sequenceDiagram
   participant OBD as OutboxDispatcherService
@@ -755,7 +801,7 @@
   <p><strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub — events are silently dropped when RabbitMQ bus is active. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation in current use.</p>
 </blockquote>
 
-<h3 id="4-vase-health-monitor">4. Vase Health Monitor</h3>
+<h3 id="4-vase-health-monitor--iot--mqtt">4. Vase Health Monitor — <strong>IoT / MQTT</strong></h3>
 
 <pre><code class="language-mermaid">sequenceDiagram
   participant VHM as VaseHealthMonitoringService
@@ -770,7 +816,7 @@
   end
 </code></pre>
 
-<h3 id="5-idempotency--duplicate-request-deduplication">5. Idempotency — Duplicate Request Deduplication</h3>
+<h3 id="5-idempotency--duplicate-request-deduplication--customer-purchasing--payments">5. Idempotency — Duplicate Request Deduplication — <strong>Customer Purchasing / Payments</strong></h3>
 
 <p>Redis <code class="language-plaintext highlighter-rouge">SET NX</code> (via <code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code>) serialises concurrent duplicate requests at the middleware layer before they reach MediatR, preventing duplicate order creation even if the client retries concurrently.</p>
 

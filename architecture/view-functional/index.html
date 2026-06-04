@@ -686,6 +686,8 @@
 
 <h2 id="functional-element-map">Functional Element Map</h2>
 
+<p>The platform groups its capabilities into thirteen functional elements, each with a single clear responsibility. This diagram maps the four actor types — Customer, Vendor, Platform Admin, and SmartVase Device — to the elements they interact with directly. Reading the lower half of the diagram shows the internal wiring: IoT Communication feeds Real-time Dispatch, Order Management triggers both Real-time Dispatch and Notifications, and the Cart → Order → Payment chain forms the customer purchasing spine.</p>
+
 <pre><code class="language-mermaid">flowchart TD
   subgraph Actors
     C["Customer\n(mobile / web)"]
@@ -733,6 +735,85 @@
   CART --&gt; ORD
   DISC --&gt; CART
 </code></pre>
+
+<h3 id="sub-domain-mapping">Sub-domain Mapping</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Functional Element</th>
+      <th>Business Sub-domain</th>
+      <th>Why it belongs there</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Authentication &amp; Tenant Resolution</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Validates Keycloak JWT tokens and binds every subsequent operation to a <code class="language-plaintext highlighter-rouge">VendorId</code>, <code class="language-plaintext highlighter-rouge">CustomerId</code>, or platform-admin context</td>
+    </tr>
+    <tr>
+      <td>Bouquet Discovery</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Serves geo-spatial and QR-code-based bouquet search directly to the mobile/web customer</td>
+    </tr>
+    <tr>
+      <td>Cart Management</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Maintains the vendor-scoped shopping cart that bridges discovery to checkout</td>
+    </tr>
+    <tr>
+      <td>Order Management</td>
+      <td><strong>Customer Purchasing / Vendor Order Fulfilment</strong></td>
+      <td>Sits at the intersection — customers create orders, vendors fulfil them</td>
+    </tr>
+    <tr>
+      <td>Payment Processing</td>
+      <td><strong>Payments</strong></td>
+      <td>Owns all Stripe checkout sessions, webhook confirmation, and refund flows</td>
+    </tr>
+    <tr>
+      <td>Vendor Management</td>
+      <td><strong>Vendor Management</strong></td>
+      <td>Covers vendor onboarding (shop or florist), bouquet catalogue CRUD, employee management</td>
+    </tr>
+    <tr>
+      <td>Smart Vase Management</td>
+      <td><strong>Vase &amp; Bouquet Lifecycle</strong></td>
+      <td>Handles registration, activation, location tracking, and bouquet assignment for IoT devices</td>
+    </tr>
+    <tr>
+      <td>IoT Communication</td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td>Ingests MQTT heartbeats and sensor data; recalculates freshness scores based on device telemetry</td>
+    </tr>
+    <tr>
+      <td>Real-time Dispatch</td>
+      <td><strong>IoT / MQTT + Customer Purchasing</strong></td>
+      <td>Broadcasts bouquet updates (freshness, availability) and order status events via SignalR</td>
+    </tr>
+    <tr>
+      <td>Notifications</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Pushes FCM notifications to mobile devices on order and subscription events</td>
+    </tr>
+    <tr>
+      <td>Analytics</td>
+      <td><strong>Vendor Management + Platform Administration</strong></td>
+      <td>Aggregates sales and performance data scoped to a vendor or the whole platform</td>
+    </tr>
+    <tr>
+      <td>Customer Profile</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Persists favourites, subscriptions, saved addresses, and push-token registrations</td>
+    </tr>
+    <tr>
+      <td>Platform Administration</td>
+      <td><strong>Platform Administration</strong></td>
+      <td>Provides platform-wide vendor approval/suspension and vase/customer oversight</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="functional-elements--responsibilities">Functional Elements — Responsibilities</h2>
 

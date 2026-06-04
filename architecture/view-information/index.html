@@ -686,6 +686,8 @@
 
 <h2 id="aggregate-ownership--tenancy">Aggregate Ownership &amp; Tenancy</h2>
 
+<p>Every aggregate in the system belongs to exactly one ownership scope, which determines how it is isolated and queried. Platform-scoped aggregates (User, Customer) carry no vendor affiliation. Vendor-scoped aggregates carry both <code class="language-plaintext highlighter-rouge">VendorId</code> and <code class="language-plaintext highlighter-rouge">VendorType</code> — this pair is the multi-tenancy boundary that prevents one vendor from accessing another’s data. Customer-scoped aggregates belong to a specific customer and encompass all purchasing, preference, and notification data.</p>
+
 <pre><code class="language-mermaid">flowchart TD
   subgraph PlatformScope["Platform-scoped (no VendorId)"]
     User["User\n(UserId, Role, CustomerId?, VendorId?)"]
@@ -727,6 +729,80 @@
   Order --&gt; Feedback
 </code></pre>
 
+<h3 id="sub-domain-mapping">Sub-domain Mapping</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aggregate / Scope</th>
+      <th>Business Sub-domain</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">User</code> (platform-scoped)</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Polymorphic root linking to either a <code class="language-plaintext highlighter-rouge">Customer</code> or a <code class="language-plaintext highlighter-rouge">Vendor</code>; carries <code class="language-plaintext highlighter-rouge">Role</code>, <code class="language-plaintext highlighter-rouge">VendorId?</code>, <code class="language-plaintext highlighter-rouge">CustomerId?</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Vendor</code> (<code class="language-plaintext highlighter-rouge">FlowerShop</code> / <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code>)</td>
+      <td><strong>Vendor Management</strong></td>
+      <td>The multi-tenancy anchor; all vendor-scoped data is isolated by <code class="language-plaintext highlighter-rouge">VendorId + VendorType</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Employee</code></td>
+      <td><strong>Vendor Management</strong></td>
+      <td>Belongs to a vendor; used for role-based access within the vendor portal</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SmartVase</code></td>
+      <td><strong>Vase &amp; Bouquet Lifecycle / IoT</strong></td>
+      <td>Vendor-owned IoT device; tracks location, connection status, and the currently assigned bouquet</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Bouquet</code></td>
+      <td><strong>Vase &amp; Bouquet Lifecycle</strong></td>
+      <td>Vendor-scoped product; transitions through <code class="language-plaintext highlighter-rouge">Available → Reserved → Sold / Expired</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Customer</code> (platform-scoped)</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Holds contact and address data; created when a <code class="language-plaintext highlighter-rouge">User</code> with <code class="language-plaintext highlighter-rouge">Role = User</code> is onboarded</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Cart</code> + <code class="language-plaintext highlighter-rouge">CartItem</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Vendor-scoped (single-vendor constraint); DB-backed and device-persistent</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Order</code> + <code class="language-plaintext highlighter-rouge">OrderLine</code></td>
+      <td><strong>Customer Purchasing / Payments</strong></td>
+      <td>Multi-line order with <code class="language-plaintext highlighter-rouge">VendorId</code> at the header; drives the payment and fulfilment state machine</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Favourite</code> / <code class="language-plaintext highlighter-rouge">Subscription</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Preference data enabling notifications and personalised discovery</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Notification</code> / <code class="language-plaintext highlighter-rouge">DeviceRegistration</code></td>
+      <td><strong>Customer Purchasing / IoT</strong></td>
+      <td>Push delivery infrastructure linking a customer’s device token to in-app and FCM notifications</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SavedAddress</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Convenience data for repeat checkout flows</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetFeedback</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Post-purchase rating attached to an <code class="language-plaintext highlighter-rouge">Order</code>, scoped to a <code class="language-plaintext highlighter-rouge">Bouquet</code></td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="data-lifecycle--bouquet">Data Lifecycle — Bouquet</h2>
 
 <pre><code class="language-mermaid">stateDiagram-v2
@@ -738,6 +814,45 @@
   Sold --&gt; [*]
   Expired --&gt; [*]
 </code></pre>
+
+<h3 id="sub-domain-mapping--bouquet-lifecycle">Sub-domain Mapping — Bouquet Lifecycle</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>State</th>
+      <th>Business Sub-domain</th>
+      <th>Trigger</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Available</code></td>
+      <td><strong>Vase &amp; Bouquet Lifecycle</strong></td>
+      <td>Vendor creates a bouquet and assigns it to a vase</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Reserved</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Customer adds bouquet to cart and order is created (15-minute lock)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Available</code> (from Reserved)</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Reservation expires or order is cancelled — bouquet returns to market</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Sold</code></td>
+      <td><strong>Payments</strong></td>
+      <td>Stripe webhook confirms payment; ownership transferred</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Expired</code></td>
+      <td><strong>Vase &amp; Bouquet Lifecycle</strong></td>
+      <td>Admin/vendor marks bouquet expired, or TTL exceeded</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="data-lifecycle--order">Data Lifecycle — Order</h2>
 
@@ -756,6 +871,55 @@
   Completed --&gt; [*]
   Cancelled --&gt; [*]
 </code></pre>
+
+<h3 id="sub-domain-mapping--order-lifecycle">Sub-domain Mapping — Order Lifecycle</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>State</th>
+      <th>Business Sub-domain</th>
+      <th>Trigger</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PendingPayment</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /orders</code> — bouquets reserved, awaiting payment</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PaymentProcessing</code></td>
+      <td><strong>Payments</strong></td>
+      <td>Customer initiates Stripe checkout</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Confirmed</code></td>
+      <td><strong>Payments</strong></td>
+      <td>Stripe webhook success — payment settled</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PaymentFailed</code></td>
+      <td><strong>Payments</strong></td>
+      <td>Stripe webhook failure — customer can retry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ReadyForPickup</code> / <code class="language-plaintext highlighter-rouge">OutForDelivery</code></td>
+      <td><strong>Vendor Order Fulfilment</strong></td>
+      <td>Vendor updates order status via Vendor Portal</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Completed</code></td>
+      <td><strong>Vendor Order Fulfilment</strong></td>
+      <td>Customer collects or delivery confirmed</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Cancelled</code></td>
+      <td><strong>Customer Purchasing / Vendor Order Fulfilment</strong></td>
+      <td>Admin, vendor, or reservation timeout</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="core-data-flows">Core Data Flows</h2>
 
@@ -787,6 +951,35 @@
 
   Write --&gt; Dispatch
 </code></pre>
+
+<h3 id="sub-domain-mapping--data-flows">Sub-domain Mapping — Data Flows</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Path</th>
+      <th>Business Sub-domain</th>
+      <th>What moves</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Write path</strong> (Command → Aggregate → Outbox)</td>
+      <td>All sub-domains</td>
+      <td>Business state mutations — bouquet creation, order placement, vase assignment</td>
+    </tr>
+    <tr>
+      <td><strong>Read path</strong> (Query → Redis → PostgreSQL)</td>
+      <td><strong>Customer Purchasing / Vendor Management</strong></td>
+      <td>Bouquet search results, order history, vendor dashboards — served from cache on hot paths</td>
+    </tr>
+    <tr>
+      <td><strong>Async dispatch</strong> (Outbox → EventBus → SignalR)</td>
+      <td><strong>IoT / Real-time + Customer Purchasing</strong></td>
+      <td>Freshness updates and order status events broadcast to connected clients</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="information-store-responsibilities">Information Store Responsibilities</h2>
 

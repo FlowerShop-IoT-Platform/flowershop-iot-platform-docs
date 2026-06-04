@@ -686,7 +686,7 @@
 
 <h2 id="system-health-checks">System Health Checks</h2>
 
-<p>Each Docker service exposes a health check. The ASP.NET Core API also provides a <code class="language-plaintext highlighter-rouge">/health</code> endpoint used by container orchestration.</p>
+<p>Container orchestration (Docker Compose in dev, Kubernetes in production) continuously polls each service’s dedicated health check. The API’s <code class="language-plaintext highlighter-rouge">/health</code> endpoint is the top-level signal for the application layer. Each infrastructure service exposes its own probe — PostgreSQL via <code class="language-plaintext highlighter-rouge">pg_isready</code>, Redis via <code class="language-plaintext highlighter-rouge">redis-cli ping</code>, MQTT via <code class="language-plaintext highlighter-rouge">mosquitto_sub</code>, and Keycloak via its <code class="language-plaintext highlighter-rouge">/health/ready</code> endpoint. All five must report healthy for the platform to be considered fully operational; a failure in any one of them will block dependent service startup.</p>
 
 <pre><code class="language-mermaid">flowchart TD
   subgraph HealthChecks["Health Check Endpoints"]
@@ -704,6 +704,45 @@
   ORCH --&gt; KCH
 </code></pre>
 
+<h3 id="sub-domain-mapping--health-checks">Sub-domain Mapping — Health Checks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Health Check</th>
+      <th>Business Sub-domain</th>
+      <th>What breaks if it fails</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">GET /health</code> (API)</td>
+      <td>All sub-domains</td>
+      <td>Entire API unavailable — no bouquet discovery, orders, or vendor management</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pg_isready</code> (PostgreSQL)</td>
+      <td>All sub-domains</td>
+      <td>No persistence; all commands and queries fail immediately</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">redis-cli ping</code> (Redis)</td>
+      <td><strong>Identity &amp; Tenancy, Customer Purchasing, Payments</strong></td>
+      <td>Token blacklist, idempotency, and query cache all unavailable; duplicate orders possible</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mosquitto_sub</code> (MQTT)</td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td>Vase telemetry (heartbeats, sensor data) not ingested; freshness scores stale</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/health/ready</code> (Keycloak)</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Vendor and customer login fails; dev-token mode unaffected</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="request-error-handling-pipeline">Request Error Handling Pipeline</h2>
 
 <pre><code class="language-mermaid">flowchart TD
@@ -719,6 +758,60 @@
   CTRL --&gt;|Result.Error| MAP["Error string → HTTP status mapping\n(400 / 404 / 409 / 422 etc.)"]
   MAP --&gt; RESP["HTTP Response"]
 </code></pre>
+
+<h3 id="sub-domain-mapping--error-pipeline">Sub-domain Mapping — Error Pipeline</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Middleware layer</th>
+      <th>Business Sub-domain</th>
+      <th>Error it handles</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">GlobalExceptionMiddleware</code></td>
+      <td>All sub-domains</td>
+      <td>Uncaught exceptions — wraps as <code class="language-plaintext highlighter-rouge">500 ProblemDetails</code></td>
+    </tr>
+    <tr>
+      <td>Authentication (401)</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Missing or invalid Keycloak/dev JWT token</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code> (403)</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>JWT present but lacks required <code class="language-plaintext highlighter-rouge">vendor_id</code> / <code class="language-plaintext highlighter-rouge">customer_id</code> claims</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">TokenBlacklistMiddleware</code> (401)</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Revoked JWT <code class="language-plaintext highlighter-rouge">jti</code> — logged-out session attempting reuse</td>
+    </tr>
+    <tr>
+      <td>Authorization Policies (403)</td>
+      <td>All sub-domains</td>
+      <td>Role/policy mismatch (e.g., Customer accessing a Vendor endpoint)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RateLimiter</code> (429)</td>
+      <td>All sub-domains</td>
+      <td>Abuse protection; applies globally across all routes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code> (replays)</td>
+      <td><strong>Customer Purchasing / Payments</strong></td>
+      <td>Duplicate <code class="language-plaintext highlighter-rouge">POST /orders</code> or payment confirmation with same idempotency key</td>
+    </tr>
+    <tr>
+      <td>Controller error mapping</td>
+      <td>All sub-domains</td>
+      <td><code class="language-plaintext highlighter-rouge">Result.Error</code> string prefixes (<code class="language-plaintext highlighter-rouge">bouquet-unavailable</code>, <code class="language-plaintext highlighter-rouge">vendor-mismatch</code>, …) mapped to 400 / 404 / 409</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="logging">Logging</h2>
 
@@ -783,6 +876,45 @@ dotnet ef database update
 <h3 id="checking-swagger">Checking Swagger</h3>
 
 <p>Navigate to <code class="language-plaintext highlighter-rouge">http://localhost:8080/swagger</code> — all 23 controllers and their endpoints are documented.</p>
+
+<h3 id="sub-domain-mapping--monitoring-signals">Sub-domain Mapping — Monitoring Signals</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Signal</th>
+      <th>Business Sub-domain</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/health</code> → unhealthy</td>
+      <td>All sub-domains</td>
+      <td>DB or Redis unreachable — immediate action required</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">outbox_messages</code> accumulating</td>
+      <td>All sub-domains</td>
+      <td><code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code> stalled or <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> failing — domain events not delivered</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SmartVase.ConnectionStatus = Offline</code> spike</td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td>MQTT broker issue or network partition affecting vases; freshness scoring degraded</td>
+    </tr>
+    <tr>
+      <td>Redis memory growing</td>
+      <td><strong>Identity &amp; Tenancy, Customer Purchasing</strong></td>
+      <td>Token blacklist or idempotency key TTL misconfigured; check key expiry policies</td>
+    </tr>
+    <tr>
+      <td>Keycloak admin API errors</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Keycloak unreachable; vendor onboarding (<code class="language-plaintext highlighter-rouge">VendorOnboardingService</code>) will fail silently</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="known-operational-gaps-active-stubs">Known Operational Gaps (active stubs)</h2>
 
@@ -873,6 +1005,50 @@ dotnet ef database update
       <td>Keycloak admin API errors in logs</td>
       <td>API logs</td>
       <td>Keycloak service unreachable; vendor onboarding will fail</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="sub-domain-mapping--operational-gaps">Sub-domain Mapping — Operational Gaps</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Gap</th>
+      <th>Business Sub-domain</th>
+      <th>Impact</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus</code> stub</td>
+      <td>All sub-domains (async events)</td>
+      <td>Domain events dropped in production; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the active fallback</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AnalyticsController</code> calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code></td>
+      <td><strong>Vendor Management / Platform Administration</strong></td>
+      <td>All analytics responses return data for a random, non-existent vendor</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> reads VendorId from session</td>
+      <td><strong>Vendor Management</strong></td>
+      <td>Vendor isolation broken in the portal — any session can access any vendor’s data</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">INotificationServiceClient</code> stub</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>FCM push notifications not delivered to any mobile device</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IStripeService</code> stub</td>
+      <td><strong>Payments</strong></td>
+      <td>Orders complete without actual payment processing</td>
+    </tr>
+    <tr>
+      <td>Cart + OrderLine tables missing</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Cart and multi-line order endpoints return DB errors until migration is run</td>
     </tr>
   </tbody>
 </table>

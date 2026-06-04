@@ -686,6 +686,8 @@
 
 <h2 id="development-environment--docker-compose">Development Environment — Docker Compose</h2>
 
+<p>During local development the entire infrastructure stack runs inside a single Docker bridge network (<code class="language-plaintext highlighter-rouge">flowershop-dev</code>). The API container connects to PostgreSQL, Redis, Mosquitto MQTT, RabbitMQ, and Keycloak within that network. The three portal processes run outside Docker (plain <code class="language-plaintext highlighter-rouge">dotnet run</code>) and reach the API on the exposed host port 8080. pgAdmin and Redis Commander are optional tooling containers activated with <code class="language-plaintext highlighter-rouge">--profile tools</code> and are never started by default.</p>
+
 <pre><code class="language-mermaid">flowchart TD
   subgraph HostMachine["Developer Workstation (Windows 11)"]
     subgraph DockerNetwork["Docker Bridge Network: flowershop-dev (172.21.0.0/16)"]
@@ -722,6 +724,65 @@
   RCC --&gt;|:6379| REDIS
 </code></pre>
 
+<h3 id="sub-domain-mapping--docker-compose-containers">Sub-domain Mapping — Docker Compose Containers</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Container</th>
+      <th>Business Sub-domain</th>
+      <th>Role in the platform</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">api-dev</code> (.NET 8 / ASP.NET Core :8080)</td>
+      <td>All sub-domains</td>
+      <td>The single deployable backend unit: REST API, SignalR hub, MediatR pipeline, background services</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">postgres-dev</code> (PostgreSQL 15 :5432)</td>
+      <td>All sub-domains</td>
+      <td>Persistent store for all aggregates, the outbox table, and the Keycloak realm database</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">redis-dev</code> (Redis 7 :6379)</td>
+      <td><strong>Identity &amp; Tenancy, Customer Purchasing, Payments</strong></td>
+      <td>Token blacklist, idempotency keys, query result cache</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mqtt-dev</code> (Mosquitto :1883/:9001)</td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td>Message broker for SmartVase telemetry (heartbeats, sensor readings)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rabbitmq-dev</code> (RabbitMQ :5672)</td>
+      <td><strong>All sub-domains (async events — pending EP-09)</strong></td>
+      <td>Future cross-service event bus; currently a stub — <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is active</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">keycloak-dev</code> (Keycloak 23 :8090)</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>OIDC identity provider issuing JWTs with <code class="language-plaintext highlighter-rouge">vendor_id</code>, <code class="language-plaintext highlighter-rouge">vendor_type</code>, <code class="language-plaintext highlighter-rouge">customer_id</code> claims</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AdminPortal</code> (Razor Pages :5001)</td>
+      <td><strong>Platform Administration</strong></td>
+      <td>Vendor and vase management UI; calls <code class="language-plaintext highlighter-rouge">api-dev</code> over HTTP</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> (Razor Pages :5002)</td>
+      <td><strong>Vendor Management / Vendor Order Fulfilment</strong></td>
+      <td>Bouquet catalogue and order fulfilment UI; calls <code class="language-plaintext highlighter-rouge">api-dev</code> over HTTP</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CustomerApp</code> (ASP.NET MVC :5003)</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Bouquet browsing, cart, and checkout UI; calls <code class="language-plaintext highlighter-rouge">api-dev</code> over HTTP</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="container-startup-dependencies">Container Startup Dependencies</h2>
 
 <pre><code class="language-mermaid">flowchart LR
@@ -737,6 +798,45 @@
   MQ --&gt; API
   KC --&gt; API
 </code></pre>
+
+<h3 id="sub-domain-mapping--startup-dependency-chain">Sub-domain Mapping — Startup Dependency Chain</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Dependency</th>
+      <th>Business Sub-domain</th>
+      <th>Why it must be healthy first</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">postgres-dev</code> → <code class="language-plaintext highlighter-rouge">keycloak-dev</code></td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Keycloak stores its realm, users, and client configuration in PostgreSQL</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">postgres-dev</code> → <code class="language-plaintext highlighter-rouge">api-dev</code></td>
+      <td>All sub-domains</td>
+      <td>API cannot start without a reachable database — all aggregates and the outbox table live here</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">redis-dev</code> → <code class="language-plaintext highlighter-rouge">api-dev</code></td>
+      <td><strong>Identity &amp; Tenancy, Customer Purchasing</strong></td>
+      <td>Token blacklist and idempotency middleware initialise at startup</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mqtt-dev</code> → <code class="language-plaintext highlighter-rouge">api-dev</code></td>
+      <td><strong>IoT / MQTT</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">MqttDeviceStartupService</code> subscribes to vase topics on startup; broker must be available</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">keycloak-dev</code> → <code class="language-plaintext highlighter-rouge">api-dev</code></td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>JWT validation fetches Keycloak OIDC discovery document on first request</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="port-map">Port Map</h2>
 
@@ -833,6 +933,8 @@
 
 <h2 id="logical-deployment-tiers">Logical Deployment Tiers</h2>
 
+<p>The production topology separates clients, application servers, infrastructure services, and external SaaS into four tiers. The SmartVase firmware is a Tier 1 client that communicates directly with the Mosquitto broker in Tier 3 over MQTT — it never touches the REST API. All web clients (mobile app, web portals) communicate exclusively with Tier 2 application servers. External SaaS providers (Stripe, Firebase, Nominatim, Twilio) are consumed from Tier 2 only.</p>
+
 <pre><code class="language-mermaid">flowchart TB
   subgraph Tier1["Tier 1 — Client"]
     MOB["Mobile App\n(React Native / Flutter)"]
@@ -869,6 +971,95 @@
   Tier2 --&gt; Tier4
   VASE --&gt; MQ2
 </code></pre>
+
+<h3 id="sub-domain-mapping--deployment-tiers">Sub-domain Mapping — Deployment Tiers</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tier</th>
+      <th>Component</th>
+      <th>Business Sub-domain</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Tier 1 — Client</strong></td>
+      <td>Mobile App / Customer Web Browser</td>
+      <td><strong>Customer Purchasing</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 1 — Client</strong></td>
+      <td>Vendor Browser (<code class="language-plaintext highlighter-rouge">:5002</code>)</td>
+      <td><strong>Vendor Management / Vendor Order Fulfilment</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 1 — Client</strong></td>
+      <td>Admin Browser (<code class="language-plaintext highlighter-rouge">:5001</code>)</td>
+      <td><strong>Platform Administration</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 1 — Client</strong></td>
+      <td>SmartVase Firmware (MQTT)</td>
+      <td><strong>IoT / MQTT</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 2 — Application</strong></td>
+      <td>REST API + SignalR (<code class="language-plaintext highlighter-rouge">:8080</code>)</td>
+      <td>All sub-domains</td>
+    </tr>
+    <tr>
+      <td><strong>Tier 2 — Application</strong></td>
+      <td>Admin / Vendor / Customer Portals</td>
+      <td><strong>Platform Administration, Vendor Management, Customer Purchasing</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 3 — Infrastructure</strong></td>
+      <td>PostgreSQL</td>
+      <td>All sub-domains (persistence)</td>
+    </tr>
+    <tr>
+      <td><strong>Tier 3 — Infrastructure</strong></td>
+      <td>Redis</td>
+      <td><strong>Identity &amp; Tenancy, Customer Purchasing, Payments</strong> (cache / blacklist / idempotency)</td>
+    </tr>
+    <tr>
+      <td><strong>Tier 3 — Infrastructure</strong></td>
+      <td>Keycloak</td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 3 — Infrastructure</strong></td>
+      <td>Mosquitto MQTT</td>
+      <td><strong>IoT / MQTT</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 3 — Infrastructure</strong></td>
+      <td>RabbitMQ</td>
+      <td>All sub-domains (async events — pending EP-09)</td>
+    </tr>
+    <tr>
+      <td><strong>Tier 4 — External SaaS</strong></td>
+      <td>Stripe</td>
+      <td><strong>Payments</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Tier 4 — External SaaS</strong></td>
+      <td>Firebase FCM</td>
+      <td><strong>Customer Purchasing</strong> (push notifications)</td>
+    </tr>
+    <tr>
+      <td><strong>Tier 4 — External SaaS</strong></td>
+      <td>Twilio</td>
+      <td><strong>Customer Purchasing</strong> (SMS)</td>
+    </tr>
+    <tr>
+      <td><strong>Tier 4 — External SaaS</strong></td>
+      <td>Nominatim OSM</td>
+      <td><strong>Customer Purchasing</strong> (geo-coding for bouquet search)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="environment-variables-key-settings">Environment Variables (key settings)</h2>
 

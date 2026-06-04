@@ -686,6 +686,8 @@
 
 <h2 id="module--project-structure">Module / Project Structure</h2>
 
+<p>The backend is split into four .NET projects that follow Clean Architecture. Dependency arrows always point inward — <code class="language-plaintext highlighter-rouge">API</code> and <code class="language-plaintext highlighter-rouge">Infrastructure</code> depend on <code class="language-plaintext highlighter-rouge">Application</code>, which depends only on <code class="language-plaintext highlighter-rouge">Domain</code>. The <code class="language-plaintext highlighter-rouge">Domain</code> project has zero external NuGet dependencies: it contains only pure C# business logic, aggregates, and value objects. The three portal projects (<code class="language-plaintext highlighter-rouge">AdminPortal</code>, <code class="language-plaintext highlighter-rouge">VendorPortal</code>, <code class="language-plaintext highlighter-rouge">CustomerApp</code>) are fully separate ASP.NET applications that communicate with the backend exclusively via the REST API over HTTP — they hold no direct project references to any backend assembly.</p>
+
 <pre><code class="language-mermaid">flowchart TD
   subgraph Backend["src/backend/"]
     API["FlowerShop.API\n─────────────\nControllers (23)\nMiddleware pipeline\nProgram.cs / DI root\nDTO request/response types"]
@@ -716,9 +718,112 @@
   CUS --&gt; API
 </code></pre>
 
+<h3 id="sub-domain-mapping--projects">Sub-domain Mapping — Projects</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Project</th>
+      <th>Business Sub-domain(s)</th>
+      <th>What lives there</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Domain</code></td>
+      <td>All sub-domains</td>
+      <td>Pure business logic: aggregates (<code class="language-plaintext highlighter-rouge">Bouquet</code>, <code class="language-plaintext highlighter-rouge">SmartVase</code>, <code class="language-plaintext highlighter-rouge">Order</code>, <code class="language-plaintext highlighter-rouge">Vendor</code>, <code class="language-plaintext highlighter-rouge">Customer</code>, …), value objects (<code class="language-plaintext highlighter-rouge">Money</code>, <code class="language-plaintext highlighter-rouge">Location</code>, <code class="language-plaintext highlighter-rouge">FreshnessScore</code>), domain events, strongly-typed IDs</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Application</code></td>
+      <td>All sub-domains</td>
+      <td>Use-case layer: commands/queries per sub-domain (Vendor, Bouquet, Order, Cart, Customer, IoT, Analytics, Notification), MediatR pipeline behaviours</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure</code></td>
+      <td><strong>Identity &amp; Tenancy, IoT/MQTT, Payments, Vendor Management</strong></td>
+      <td>EF Core repositories, Keycloak client, MQTT services, Redis cache, Stripe stub, FCM stub, SignalR hub, RabbitMQ/InMemory event bus</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code></td>
+      <td>All sub-domains</td>
+      <td>Controllers (23), middleware pipeline, DI root — thin HTTP adapter over Application layer</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.AdminPortal</code> (:5001)</td>
+      <td><strong>Platform Administration</strong></td>
+      <td>Razor Pages UI for vendor approval/suspension, vase registration, platform analytics</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.VendorPortal</code> (:5002)</td>
+      <td><strong>Vendor Management / Vendor Order Fulfilment</strong></td>
+      <td>Razor Pages UI for bouquet catalogue, vase management, order fulfilment</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.CustomerApp</code> (:5003)</td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>ASP.NET MVC UI for bouquet browsing, cart, checkout, Leaflet map</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Tests.Unit</code></td>
+      <td>All sub-domains</td>
+      <td>Handler and behaviour unit tests (mocked repositories)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Tests.Integration</code></td>
+      <td>All sub-domains</td>
+      <td>Full pipeline tests against real PostgreSQL (TestContainers)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShop.Domain.Tests</code></td>
+      <td>All sub-domains</td>
+      <td>Aggregate invariant and state-machine tests (no infrastructure)</td>
+    </tr>
+  </tbody>
+</table>
+
 <blockquote>
   <p><strong>Dependency rule</strong>: arrows flow inward only. <code class="language-plaintext highlighter-rouge">Domain</code> has zero external dependencies. <code class="language-plaintext highlighter-rouge">Application</code> depends only on <code class="language-plaintext highlighter-rouge">Domain</code>. <code class="language-plaintext highlighter-rouge">Infrastructure</code> and <code class="language-plaintext highlighter-rouge">API</code> depend on <code class="language-plaintext highlighter-rouge">Application</code> + <code class="language-plaintext highlighter-rouge">Domain</code>. Portals call the REST API over HTTP — they do not reference backend projects directly.</p>
 </blockquote>
+
+<h3 id="sub-domain-mapping--mediatr-pipeline">Sub-domain Mapping — MediatR Pipeline</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Behaviour</th>
+      <th>Business Sub-domain</th>
+      <th>What it enforces</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">LoggingBehaviour</code></td>
+      <td>All sub-domains</td>
+      <td>Traces every command/query with request ID, duration, and result</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ValidationBehaviour</code></td>
+      <td>All sub-domains</td>
+      <td>Runs FluentValidation rules — rejects malformed bouquet prices, missing vendor IDs, invalid coordinates</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">TenantValidationBehavior</code></td>
+      <td><strong>Identity &amp; Tenancy</strong></td>
+      <td>Ensures <code class="language-plaintext highlighter-rouge">ITenantScopedRequest</code> commands carry a valid tenant context before the handler runs</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IdempotencyKeyBehaviour</code></td>
+      <td><strong>Customer Purchasing / Payments</strong></td>
+      <td>Deduplicates order and payment commands using Redis <code class="language-plaintext highlighter-rouge">SET NX</code> before the handler executes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CachingBehaviour</code></td>
+      <td><strong>Customer Purchasing / Vendor Management</strong></td>
+      <td>Serves <code class="language-plaintext highlighter-rouge">ICacheableQuery</code> results (bouquet search, vendor dashboards) from Redis; invalidated by version-key increment</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="cqrs--file-conventions">CQRS — File Conventions</h2>
 
