@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>docs/deployment/ — Index — FlowerShop IoT Platform</title>
+  <title>Deployment Guide — FlowerShop IoT Platform — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -680,141 +680,284 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="docsdeployment--index"><code class="language-plaintext highlighter-rouge">docs/deployment/</code> — Index</h1>
+      <h1 id="deployment-guide--flowershop-iot-platform">Deployment Guide — FlowerShop IoT Platform</h1>
 
-<p>All deployment documentation for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. Read in roughly this order.</p>
-
-<h2 id="before-first-deploy">Before first deploy</h2>
+<h2 id="live-environment">Live Environment</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-      <th>Read when</th>
+      <th>Resource</th>
+      <th>Value</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC/">DEPLOYMENT-SPEC.md</a></td>
-      <td>Why components live where; topology rationale; code changes required before deploy</td>
-      <td>First — establishes the mental model</td>
+      <td>API URL</td>
+      <td>https://flower-shop-backend-core.fly.dev</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD/">REGISTRATION-AND-CICD.md</a></td>
-      <td>Account setup (Fly, Render, Aiven, Cloudflare, OVH, etc.), path-triggered CI/CD, bootstrap commands</td>
-      <td>Before touching any SaaS console</td>
+      <td>Fly app name</td>
+      <td><code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code></td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS/">SECRETS-AND-ENV-VARS.md</a></td>
-      <td>Master table of every secret/env var, where it lives, who consumes it, rotation procedure</td>
-      <td>While registering accounts — populate as you go</td>
+      <td>Fly Postgres app</td>
+      <td><code class="language-plaintext highlighter-rouge">flower-shop-postgres</code></td>
+    </tr>
+    <tr>
+      <td>Region</td>
+      <td><code class="language-plaintext highlighter-rouge">iad</code> (Virginia) — target <code class="language-plaintext highlighter-rouge">fra</code> (Frankfurt) on next machine resize</td>
+    </tr>
+    <tr>
+      <td>Deployed from</td>
+      <td><code class="language-plaintext highlighter-rouge">main</code> branch via GitHub integration</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="during-first-deploy">During first deploy</h2>
+<hr />
+
+<h2 id="infrastructure">Infrastructure</h2>
+
+<h3 id="flyio-app">Fly.io App</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
+      <th>Setting</th>
+      <th>Value</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK/">DEPLOYMENT-RUNBOOK.md</a></td>
-      <td><strong>Ordered</strong> stage-by-stage runbook with health-check gates. This is the doc you follow live on deploy day.</td>
+      <td>VM size</td>
+      <td>shared-1x-cpu @ 1 GB RAM (256 MB until next redeploy — see note)</td>
     </tr>
     <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a></td>
-      <td>Scripted end-to-end validation. Run after the runbook says “done”.</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="day-two-operations">Day-two operations</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Doc</th>
-      <th>What it’s for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY/">OBSERVABILITY.md</a></td>
-      <td>Where logs, health endpoints, and metrics live. First thing to read when something is wrong.</td>
-    </tr>
-    <tr>
-      <td><a href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY/">ROLLBACK-AND-RECOVERY.md</a></td>
-      <td>Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="diagrams">Diagrams</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>View</th>
-      <th>Render</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1</td>
-      <td>Hosting topology (who lives where)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/01-hosting-topology.svg">01-hosting-topology.svg</a></td>
-    </tr>
-    <tr>
+      <td>Machines</td>
       <td>2</td>
-      <td>Customer purchase flow (OIDC → cart → Stripe)</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/02-customer-purchase-flow.svg">02-customer-purchase-flow.svg</a></td>
     </tr>
     <tr>
-      <td>3</td>
-      <td>IoT ingest → freshness push to browsers</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/03-iot-ingest-flow.svg">03-iot-ingest-flow.svg</a></td>
+      <td>Auto-stop</td>
+      <td>Yes (scales to zero when idle, wakes on first request)</td>
     </tr>
     <tr>
-      <td>4</td>
-      <td>Network boundaries + DNS</td>
-      <td><a href="/flowershop-iot-platform-docs/deployment/04-network-and-dns.svg">04-network-and-dns.svg</a></td>
+      <td>HTTPS</td>
+      <td>Enforced (<code class="language-plaintext highlighter-rouge">force_https = true</code>)</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="one-sentence-role-reference">One-sentence role reference</h2>
+<blockquote>
+  <p><strong>Note:</strong> The machines were provisioned before the <code class="language-plaintext highlighter-rouge">fly.toml</code> memory fix (PR #8) was merged. They will pick up <code class="language-plaintext highlighter-rouge">memory = '1gb'</code> on the next triggered redeploy.</p>
+</blockquote>
 
-<ul>
-  <li><strong>Fly.io</strong> hosts the always-on VMs: API, Keycloak, CustomerApp.</li>
-  <li><strong>Render</strong> hosts the cold-start-OK Razor portals: AdminPortal, VendorPortal.</li>
-  <li><strong>Aiven</strong> hosts PostgreSQL (two DBs: <code class="language-plaintext highlighter-rouge">flowershop_iot</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>).</li>
-  <li><strong>Upstash</strong> provides Redis (cache; real impl pending EP-09).</li>
-  <li><strong>CloudAMQP</strong> provides RabbitMQ (event bus; real impl pending EP-09).</li>
-  <li><strong>HiveMQ Cloud</strong> provides MQTT broker (vase telemetry).</li>
-  <li><strong>Cloudflare R2</strong> stores bouquet photos (post-EP-15).</li>
-  <li><strong>Cloudflare DNS</strong> is authoritative for <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>.</li>
-  <li><strong>OVHcloud</strong> is the domain registrar only.</li>
-  <li><strong>Stripe</strong> processes payments; webhook lands on <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl/api/stripe/webhook</code>.</li>
-  <li><strong>GitHub Actions</strong> runs path-triggered deploys; <strong>GHCR</strong> stores portal images.</li>
-  <li><strong>cron-job.org</strong> keeps Render portals warm and pings health endpoints.</li>
-</ul>
+<h3 id="postgresql">PostgreSQL</h3>
 
-<h2 id="quick-links-for-operators">Quick links for operators</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fly app</td>
+      <td><code class="language-plaintext highlighter-rouge">flower-shop-postgres</code></td>
+    </tr>
+    <tr>
+      <td>Region</td>
+      <td><code class="language-plaintext highlighter-rouge">fra</code> (Frankfurt)</td>
+    </tr>
+    <tr>
+      <td>Engine</td>
+      <td>PostgreSQL 17 (Fly unmanaged)</td>
+    </tr>
+    <tr>
+      <td>Internal hostname</td>
+      <td><code class="language-plaintext highlighter-rouge">flower-shop-postgres.internal</code></td>
+    </tr>
+    <tr>
+      <td>Internal port</td>
+      <td><code class="language-plaintext highlighter-rouge">5432</code></td>
+    </tr>
+    <tr>
+      <td>Database</td>
+      <td><code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code></td>
+    </tr>
+    <tr>
+      <td>Username</td>
+      <td><code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>Deploy API manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-api.yml</code></li>
-  <li>Deploy portal manually: <code class="language-plaintext highlighter-rouge">gh workflow run deploy-admin-portal.yml</code> / <code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></li>
-  <li>Tail API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code></li>
-  <li>Rollback API: <code class="language-plaintext highlighter-rouge">fly releases rollback --app flowershop-api</code></li>
-  <li>Smoke test all: <code class="language-plaintext highlighter-rouge">./scripts/smoke.sh</code> (see <a href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS/">POST-DEPLOY-SMOKE-TESTS.md</a>)</li>
-</ul>
+<blockquote>
+  <p>The password is stored as a Fly secret (<code class="language-plaintext highlighter-rouge">DATABASE_URL</code>) on the app. Do not commit it.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="inspecting-the-production-database">Inspecting the Production Database</h2>
+
+<p>The database is only reachable from within the Fly private network. Use <code class="language-plaintext highlighter-rouge">flyctl proxy</code> to open a local tunnel.</p>
+
+<p><strong>Step 1 — open the tunnel</strong> (keep this terminal open):</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flyctl</span><span class="w"> </span><span class="nx">proxy</span><span class="w"> </span><span class="nx">5433:5432</span><span class="w"> </span><span class="nt">-a</span><span class="w"> </span><span class="nx">flower-shop-postgres</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Step 2 — connect with pgAdmin or any Postgres client:</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Host</td>
+      <td><code class="language-plaintext highlighter-rouge">host.docker.internal</code> (from inside Docker) / <code class="language-plaintext highlighter-rouge">localhost</code> (from native client)</td>
+    </tr>
+    <tr>
+      <td>Port</td>
+      <td><code class="language-plaintext highlighter-rouge">5433</code></td>
+    </tr>
+    <tr>
+      <td>Database</td>
+      <td><code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code></td>
+    </tr>
+    <tr>
+      <td>Username</td>
+      <td><code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code></td>
+    </tr>
+    <tr>
+      <td>Password</td>
+      <td>see Fly secret <code class="language-plaintext highlighter-rouge">DATABASE_URL</code> or ask a team member</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>pgAdmin</strong> (local dev, via Docker):</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">docker-compose</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="nx">docker/docker-compose.dev.yml</span><span class="w"> </span><span class="nt">--profile</span><span class="w"> </span><span class="nx">tools</span><span class="w"> </span><span class="nx">up</span><span class="w"> </span><span class="nx">pgadmin-dev</span><span class="w"> </span><span class="nt">-d</span><span class="w">
+</span><span class="c"># then open http://localhost:5050  (admin@flowershop.dev / admin123)</span><span class="w">
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="secrets">Secrets</h2>
+
+<p>Managed via <code class="language-plaintext highlighter-rouge">flyctl secrets</code> — never committed to the repo.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Secret</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">DATABASE_URL</code></td>
+      <td>Full Postgres connection URL (set automatically by <code class="language-plaintext highlighter-rouge">postgres attach</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__DefaultConnection</code></td>
+      <td>Npgsql connection string for EF Core</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__ReadConnection</code></td>
+      <td>Read replica (same as primary for now)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">JWT__SecretKey</code></td>
+      <td>JWT signing key — randomly generated 64-char hex string</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak</code></td>
+      <td><code class="language-plaintext highlighter-rouge">false</code> — Keycloak stubbed out, dev-token auth active</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>To view which secrets are set (values are never shown):</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flyctl</span><span class="w"> </span><span class="nx">secrets</span><span class="w"> </span><span class="nx">list</span><span class="w"> </span><span class="nt">--app</span><span class="w"> </span><span class="nx">flower-shop-backend-core</span><span class="w">
+</span></code></pre></div></div>
+
+<p>To update a secret (triggers automatic redeploy):</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flyctl</span><span class="w"> </span><span class="nx">secrets</span><span class="w"> </span><span class="nx">set</span><span class="w"> </span><span class="nx">KEY</span><span class="o">=</span><span class="s2">"value"</span><span class="w"> </span><span class="nt">--app</span><span class="w"> </span><span class="n">flower-shop-backend-core</span><span class="w">
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="deploying">Deploying</h2>
+
+<p>Deployments are triggered automatically on every push to <code class="language-plaintext highlighter-rouge">main</code> via the GitHub integration.</p>
+
+<p>To deploy manually:</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flyctl</span><span class="w"> </span><span class="nx">deploy</span><span class="w"> </span><span class="nt">--app</span><span class="w"> </span><span class="nx">flower-shop-backend-core</span><span class="w">
+</span></code></pre></div></div>
+
+<p>To check deployment status:</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flyctl</span><span class="w"> </span><span class="nx">status</span><span class="w"> </span><span class="nt">--app</span><span class="w"> </span><span class="nx">flower-shop-backend-core</span><span class="w">
+</span></code></pre></div></div>
+
+<p>To tail live logs:</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flyctl</span><span class="w"> </span><span class="nx">logs</span><span class="w"> </span><span class="nt">--app</span><span class="w"> </span><span class="nx">flower-shop-backend-core</span><span class="w">
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="services-not-yet-deployed">Services Not Yet Deployed</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>Status</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MQTT broker</td>
+      <td>Not deployed</td>
+      <td>App retries in background, non-fatal</td>
+    </tr>
+    <tr>
+      <td>Redis</td>
+      <td>Not deployed</td>
+      <td>Falls back to in-memory cache</td>
+    </tr>
+    <tr>
+      <td>RabbitMQ</td>
+      <td>Not deployed</td>
+      <td>Using <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code></td>
+    </tr>
+    <tr>
+      <td>Keycloak</td>
+      <td>Not deployed</td>
+      <td><code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak=false</code> — dev-token auth active</td>
+    </tr>
+    <tr>
+      <td>Admin Portal</td>
+      <td>Not deployed</td>
+      <td>Separate app needed (EP-11)</td>
+    </tr>
+    <tr>
+      <td>Vendor Portal</td>
+      <td>Not deployed</td>
+      <td>Separate app needed (EP-12)</td>
+    </tr>
+    <tr>
+      <td>Customer App</td>
+      <td>Not deployed</td>
+      <td>Separate app needed (EP-13)</td>
+    </tr>
+  </tbody>
+</table>
 
     </div>
   </main>
