@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Requirements Gap Analysis — Option B — FlowerShop IoT Platform</title>
+  <title>Stripe Payment Integration — Resilience Review — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -680,173 +680,225 @@
   <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="requirements-gap-analysis--option-b">Requirements Gap Analysis — Option B</h1>
-<h2 id="admin-portal-vendor-portal-customer-web-app-analytics-api-iot-integration">Admin Portal, Vendor Portal, Customer Web App, Analytics API, IoT Integration</h2>
+      <h1 id="stripe-payment-integration--resilience-review">Stripe Payment Integration — Resilience Review</h1>
 
 <blockquote>
-  <p>Companion to REQ-GAPS.md (Option C — Mobile API).
-Scope: Razor Pages portals, ASP.NET MVC customer web app, analytics backend, IoT/mock-vase cleanup.
-Priority legend: P0=critical blocker, P1=high value, P2=nice to have.</p>
+  <p><strong>Date</strong>: 2026-06-10
+<strong>Scope</strong>: Payment processing flow (order creation → PaymentIntent → confirmation → cancellation/refund)
+<strong>Reference</strong>: <a href="https://newsletter.systemdesign.one/p/design-a-payment-system">Design a Payment System — systemdesign.one</a>
+<strong>Goal</strong>: Make the payment flow as resilient as possible. This is the most critical part of the platform — a single error can cause money to vanish from a customer’s account.</p>
 </blockquote>
 
 <hr />
 
-<h2 id="area-1-analytics-api--tenant-context--handler-stubs">Area 1: Analytics API — Tenant Context &amp; Handler Stubs</h2>
+<h2 id="files-reviewed">Files reviewed</h2>
 
-<h3 id="req-ana-01-bug-fix-vendoridnew-in-analyticscontroller--p0">REQ-ANA-01 [BUG] Fix VendorId.New() in AnalyticsController — P0</h3>
-<p><code class="language-plaintext highlighter-rouge">AnalyticsController</code> calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code> in four actions (<code class="language-plaintext highlighter-rouge">GetVendorAnalytics</code>, <code class="language-plaintext highlighter-rouge">GetVaseAnalytics</code>, <code class="language-plaintext highlighter-rouge">GetRealtimeAnalytics</code>, <code class="language-plaintext highlighter-rouge">ExportAnalytics</code>) instead of reading the authenticated vendor from <code class="language-plaintext highlighter-rouge">ITenantContextService</code>. Every call returns data for a random vendor ID. Must inject <code class="language-plaintext highlighter-rouge">ITenantContextService</code> and use <code class="language-plaintext highlighter-rouge">Current.VendorId</code>.</p>
-
-<h3 id="req-ana-02-missing-implement-getvendoranalyticsqueryhandler--p1">REQ-ANA-02 [MISSING] Implement GetVendorAnalyticsQueryHandler — P1</h3>
-<p><code class="language-plaintext highlighter-rouge">GetVendorAnalyticsQuery</code> exists but no handler class is registered. The <code class="language-plaintext highlighter-rouge">VendorAnalyticsDto</code> returned by <code class="language-plaintext highlighter-rouge">GET /api/analytics/vendor</code> is never populated. Handler must aggregate: total revenue, order count, average order value, top bouquets, daily trend series — all scoped to the authenticated vendor and the requested period.</p>
-
-<h3 id="req-ana-03-missing-implement-getvaseanalyticsqueryhandler--p1">REQ-ANA-03 [MISSING] Implement GetVaseAnalyticsQueryHandler — P1</h3>
-<p><code class="language-plaintext highlighter-rouge">GetVaseAnalyticsQuery</code> exists but no handler. Must return per-vase metrics: uptime %, scan count, orders attributed, freshness average — for the authenticated vendor, optionally filtered by a single VaseId.</p>
-
-<h3 id="req-ana-04-missing-implement-getrealtimeanalyticsqueryhandler--p1">REQ-ANA-04 [MISSING] Implement GetRealtimeAnalyticsQueryHandler — P1</h3>
-<p><code class="language-plaintext highlighter-rouge">GetRealtimeAnalyticsQuery</code> exists but no handler. Real-time dashboard data: active vases count, bouquets currently available, open orders, live freshness scores. Should read from cache (Redis) when available to avoid DB hammering.</p>
-
-<h3 id="req-ana-05-missing-implement-getplatforminsightsqueryhandler--p1">REQ-ANA-05 [MISSING] Implement GetPlatformInsightsQueryHandler — P1</h3>
-<p><code class="language-plaintext highlighter-rouge">GetPlatformInsightsQuery</code> exists but no handler. PlatformAdmin-only endpoint returning: total vendors, total customers, GMV (last 30/90 days), top-performing vendors, geographic heatmap data.</p>
-
-<h3 id="req-ana-06-missing-implement-getbenchmarkanalyticsqueryhandler--p2">REQ-ANA-06 [MISSING] Implement GetBenchmarkAnalyticsQueryHandler — P2</h3>
-<p><code class="language-plaintext highlighter-rouge">GetBenchmarkAnalyticsQuery</code> passes <code class="language-plaintext highlighter-rouge">null</code> as VendorId and no handler exists. Anonymous peer-comparison benchmarks: revenue percentile, average freshness score vs. peers of same VendorType and city.</p>
-
-<h3 id="req-ana-07-missing-implement-exportanalyticsqueryhandler--p2">REQ-ANA-07 [MISSING] Implement ExportAnalyticsQueryHandler — P2</h3>
-<p><code class="language-plaintext highlighter-rouge">ExportAnalyticsQuery</code> exists but no handler. Must generate CSV (or XLSX) from the vendor’s order/revenue data for the requested period. Requires a streaming file response; do not buffer entire result in memory.</p>
-
-<hr />
-
-<h2 id="area-2-admin-portal--customer-management">Area 2: Admin Portal — Customer Management</h2>
-
-<h3 id="req-adm-01-missing-customer-list-page--p1">REQ-ADM-01 [MISSING] Customer list page — P1</h3>
-<p>No <code class="language-plaintext highlighter-rouge">/Customers</code> section exists in AdminPortal. Platform admins need to list customers (paginated), search by email, and view registration date, order count, and status. Requires <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/customers</code> endpoint (add to backend) and a corresponding <code class="language-plaintext highlighter-rouge">ApiClient</code> method.</p>
-
-<h3 id="req-adm-02-missing-customer-detail-and-suspendreactivate--p1">REQ-ADM-02 [MISSING] Customer detail and suspend/reactivate — P1</h3>
-<p>No page to view a customer’s profile or soft-suspend their account. Requires a <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/customers/{id}</code> and <code class="language-plaintext highlighter-rouge">POST /api/v1/admin/customers/{id}/suspend</code> / <code class="language-plaintext highlighter-rouge">reactivate</code> backend endpoints, plus AdminPortal pages for the detail view and action buttons.</p>
-
-<h3 id="req-adm-03-missing-platform-analytics-dashboard--p1">REQ-ADM-03 [MISSING] Platform analytics dashboard — P1</h3>
-<p><code class="language-plaintext highlighter-rouge">AdminPortal/Pages/Index.cshtml.cs</code> shows only three counters (TotalVendors, TotalVases, PendingInstallations). A proper platform analytics section is missing: GMV summary, active customers, order volume chart, top vendors, geographic coverage. The <code class="language-plaintext highlighter-rouge">GET /api/analytics/platform</code> endpoint exists (REQ-ANA-05) but AdminPortal has no UI for it.</p>
-
-<h3 id="req-adm-04-missing-vendor-suspend--reactivate-actions--p1">REQ-ADM-04 [MISSING] Vendor suspend / reactivate actions — P1</h3>
-<p>Vendor Details page only allows updating location. There are no suspend or reactivate buttons for admin to change a vendor’s status. Requires <code class="language-plaintext highlighter-rouge">POST /api/v1/admin/vendors/{id}/suspend</code> and <code class="language-plaintext highlighter-rouge">POST /api/v1/admin/vendors/{id}/reactivate</code> backend endpoints and corresponding AdminPortal page handler methods.</p>
-
-<h3 id="req-adm-05-partial-vendor-details-loads-from-full-list--p2">REQ-ADM-05 [PARTIAL] Vendor Details loads from full list — P2</h3>
-<p><code class="language-plaintext highlighter-rouge">Vendors/Details.cshtml.cs</code> loads the entire vendor list and calls <code class="language-plaintext highlighter-rouge">FirstOrDefault</code>. This is wasteful and fragile. A dedicated <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/vendors/{id}</code> endpoint and <code class="language-plaintext highlighter-rouge">ApiClient.GetVendorByIdAsync(id)</code> should be used instead.</p>
-
-<h3 id="req-adm-06-missing-order-oversight--platform-level-order-list--p2">REQ-ADM-06 [MISSING] Order oversight — platform-level order list — P2</h3>
-<p>No page exists for platform admins to view all orders across vendors (for dispute resolution, fraud detection). Requires <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/orders</code> (paginated, filterable by vendor/status/date) backend endpoint and AdminPortal list page.</p>
-
-<hr />
-
-<h2 id="area-3-vendor-portal--order-management">Area 3: Vendor Portal — Order Management</h2>
-
-<h3 id="req-vnd-01-missing-order-list-page-for-vendors--p0">REQ-VND-01 [MISSING] Order list page for vendors — P0</h3>
-<p>VendorPortal has no <code class="language-plaintext highlighter-rouge">/Orders</code> section. Vendors cannot see incoming orders. The <code class="language-plaintext highlighter-rouge">GET /api/v1/vendor/orders</code> endpoint is planned in EP-05 (T-05-010), but the portal UI is entirely absent. Requires: Orders/Index.cshtml listing orders with status filter, pagination, and status badges.</p>
-
-<h3 id="req-vnd-02-missing-order-detail-page-and-status-advancement--p0">REQ-VND-02 [MISSING] Order detail page and status advancement — P0</h3>
-<p>Vendors need to open an order, see its lines and timeline, and advance the status (Preparing → InDelivery/ReadyForPickup → Delivered). Requires: Orders/Details.cshtml with a status-advance button calling <code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/orders/{id}/status</code> and mapping the allowed transitions.</p>
-
-<h3 id="req-vnd-03-missing-opening-hours-management-ui--p1">REQ-VND-03 [MISSING] Opening hours management UI — P1</h3>
-<p>No page exists for vendors to set their shop opening hours. The domain supports <code class="language-plaintext highlighter-rouge">OpeningHours</code> (EP-01, REQ-DB-03) but VendorPortal has no UI. Requires a Settings or Profile page with a weekly schedule editor calling <code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/profile/hours</code>.</p>
-
-<h3 id="req-vnd-04-missing-analyticsrevenue-dashboard-in-vendor-portal--p1">REQ-VND-04 [MISSING] Analytics/revenue dashboard in Vendor Portal — P1</h3>
-<p>VendorPortal <code class="language-plaintext highlighter-rouge">Index.cshtml.cs</code> shows basic stats (vases, bouquets) but no revenue, order volume, or trend data. A separate Analytics page should call <code class="language-plaintext highlighter-rouge">GET /api/analytics/vendor</code> and render the data (once REQ-ANA-01/02 are fixed).</p>
-
-<h3 id="req-vnd-05-bug-vendorid-read-from-session--hardcoded--p0">REQ-VND-05 [BUG] VendorId read from session / hardcoded — P0</h3>
-<p><code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Bouquets/Index.cshtml.cs</code> reads VendorId from <code class="language-plaintext highlighter-rouge">HttpContext.Session.GetString("VendorId")</code> (stored on login). All vendor-scoped API calls should extract VendorId from the authenticated JWT claim (<code class="language-plaintext highlighter-rouge">vendor_id</code>) via <code class="language-plaintext highlighter-rouge">ITenantContextService</code> or an <code class="language-plaintext highlighter-rouge">ICurrentVendorService</code> helper, not from session. This is both a security gap and a reliability issue.</p>
-
-<h3 id="req-vnd-06-bug-bouquet-image-upload-calls-mock-vase-endpoint--p0">REQ-VND-06 [BUG] Bouquet image upload calls mock-vase endpoint — P0</h3>
-<p><code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Vases/Details.cshtml.cs</code> uploads bouquet images to <code class="language-plaintext highlighter-rouge">http://localhost:8080/api/mock-vase/{id}/bouquet-image</code> — a hardcoded development mock. Production upload must go through the real <code class="language-plaintext highlighter-rouge">POST /api/v1/bouquets/{id}/photo</code> endpoint using the authenticated <code class="language-plaintext highlighter-rouge">ApiClient</code>.</p>
-
-<h3 id="req-vnd-07-missing-vendor-profile-edit-page--p1">REQ-VND-07 [MISSING] Vendor profile edit page — P1</h3>
-<p>VendorPortal has no page where vendors can update their own display name, contact info, or description. Requires a Settings/Profile page calling <code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/profile</code>.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>File</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Stripe SDK calls</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Payments/StripeService.cs</code></td>
+    </tr>
+    <tr>
+      <td>Stripe abstraction</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Services/IStripeService.cs</code></td>
+    </tr>
+    <tr>
+      <td>Webhook receiver</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/StripeWebhookController.cs</code></td>
+    </tr>
+    <tr>
+      <td>Order command handlers</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Application/Handlers/Order/OrderCommandHandlers.cs</code></td>
+    </tr>
+    <tr>
+      <td>Order aggregate</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Domain/Aggregates/Order/Order.cs</code></td>
+    </tr>
+    <tr>
+      <td>Orders API</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Controllers/OrdersController.cs</code></td>
+    </tr>
+    <tr>
+      <td>Outbox</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Outbox/{OutboxDispatcherService,EfOutboxWriter,OutboxMessage}.cs</code></td>
+    </tr>
+    <tr>
+      <td>Idempotency middleware</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.API/Middleware/IdempotencyMiddleware.cs</code></td>
+    </tr>
+    <tr>
+      <td>Reservation expiry</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/BackgroundServices/OrderReservationExpiryService.cs</code></td>
+    </tr>
+    <tr>
+      <td>Order repository</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Persistence/Repositories/OrderRepository.cs</code></td>
+    </tr>
+    <tr>
+      <td>DI registration</td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/FlowerShop.Infrastructure/Extensions/ServiceCollectionExtensions.cs</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
-<h2 id="area-4-customer-web-app--authentication--protected-features">Area 4: Customer Web App — Authentication &amp; Protected Features</h2>
+<h2 id="how-the-current-flow-works-as-built">How the current flow works (as built)</h2>
 
-<h3 id="req-cwa-01-partial-oidc-login-wired-but-no-protected-routes--p0">REQ-CWA-01 [PARTIAL] OIDC login wired but no protected routes — P0</h3>
-<p><code class="language-plaintext highlighter-rouge">AccountController</code> implements OIDC login/logout but no controller action is decorated with <code class="language-plaintext highlighter-rouge">[Authorize]</code>. Cart, checkout, order tracking, and favorites all require authentication. The <code class="language-plaintext highlighter-rouge">customerId</code> Guid is passed as a raw URL parameter in <code class="language-plaintext highlighter-rouge">ApiClient</code> (<code class="language-plaintext highlighter-rouge">/api/v1/cart/{customerId}/items</code>) — it must be read from the authenticated user’s <code class="language-plaintext highlighter-rouge">customer_id</code> JWT claim instead.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /orders                → CreateOrderCommandHandler
+  reserve bouquets (SaveChanges per bouquet)
+  add OrderCreatedEvent to outbox + AddAsync(order)  [SaveChanges — order+outbox atomic]
+  Stripe.CreatePaymentIntent  → SetPaymentIntent + UpdateAsync   [separate SaveChanges]
+  return client_secret
 
-<h3 id="req-cwa-02-missing-cart-ui--p0">REQ-CWA-02 [MISSING] Cart UI — P0</h3>
-<p><code class="language-plaintext highlighter-rouge">CustomerApp.ApiClient</code> has <code class="language-plaintext highlighter-rouge">AddToCartAsync</code>, <code class="language-plaintext highlighter-rouge">RemoveFromCartAsync</code>, <code class="language-plaintext highlighter-rouge">GetCartAsync</code>, <code class="language-plaintext highlighter-rouge">ClearCartAsync</code>, but no <code class="language-plaintext highlighter-rouge">CartController</code> or cart view exists. Requires: GET /Cart (cart view), POST /Cart/Add, DELETE /Cart/Remove, and a cart item count in the nav header.</p>
+client confirms card with Stripe.js (PAN never hits our server ✓)
 
-<h3 id="req-cwa-03-missing-checkout--order-placement-ui--p0">REQ-CWA-03 [MISSING] Checkout / order placement UI — P0</h3>
-<p>No checkout flow exists. Requires: GET /Checkout (summary with Stripe PaymentSheet initialization), POST /Checkout/PlaceOrder calling <code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code>, confirmation page after payment success. The Stripe JS SDK must be loaded on the checkout page.</p>
+Two confirmation paths, both → ConfirmPaymentCommandHandler → order.ConfirmPayment():
+  (a) POST /orders/{id}/confirm-payment   (client-driven)
+  (b) Stripe webhook payment_intent.succeeded → StripeWebhookController
 
-<h3 id="req-cwa-04-missing-order-history-and-tracking-ui--p1">REQ-CWA-04 [MISSING] Order history and tracking UI — P1</h3>
-<p>No order list or detail page for customers. Requires: GET /Orders listing past orders with status, GET /Orders/{id} showing order detail with timeline and estimated delivery.</p>
-
-<h3 id="req-cwa-05-missing-favorites-ui--p1">REQ-CWA-05 [MISSING] Favorites UI — P1</h3>
-<p>No favorites section. Requires: a heart button on bouquet cards calling the Favorites API, GET /Favourites page listing saved bouquets with their current availability status.</p>
-
-<h3 id="req-cwa-06-missing-profile-page--p1">REQ-CWA-06 [MISSING] Profile page — P1</h3>
-<p>No customer profile UI. Requires: GET /Profile showing name, email, notification settings, and saved addresses; PUT /Profile for editing name/preferences; GET/POST /Profile/Addresses for saved address CRUD.</p>
-
-<h3 id="req-cwa-07-missing-subscription-management-ui--p2">REQ-CWA-07 [MISSING] Subscription management UI — P2</h3>
-<p>No subscriptions section. Requires: GET /Subscriptions listing active subscriptions, POST /Subscriptions/Create, DELETE /Subscriptions/{id}, and a “Disable all” button.</p>
-
-<h3 id="req-cwa-08-missing-map-view-with-leafletjs-and-real-time-pins--p1">REQ-CWA-08 [MISSING] Map view with Leaflet.js and real-time pins — P1</h3>
-<p><code class="language-plaintext highlighter-rouge">HomeController</code> renders a static bouquet list. A Leaflet.js map with bouquet pins filtered by user’s current location (browser geolocation API) is missing. Map pins should reflect real-time availability via SignalR <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> / <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> events.</p>
+Cancel → CancelOrderCommandHandler → refund if wasPaid
+Background: OrderReservationExpiryService cancels stale Created orders after 15 min
+</code></pre></div></div>
 
 <hr />
 
-<h2 id="area-5-iot-integration--remove-mocks-add-production-paths">Area 5: IoT Integration — Remove Mocks, Add Production Paths</h2>
+<h2 id="what-is-already-correct-">What is already correct ✓</h2>
 
-<h3 id="req-iot-01-bug-remove-mock-vase-endpoint-dependency--p0">REQ-IOT-01 [BUG] Remove mock-vase endpoint dependency — P0</h3>
-<p><code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Vases/Details.cshtml.cs</code> uploads to <code class="language-plaintext highlighter-rouge">http://localhost:8080/api/mock-vase/{id}/bouquet-image</code> using a new <code class="language-plaintext highlighter-rouge">HttpClient()</code> instance (no auth, no base URL config). This must use the shared, authenticated <code class="language-plaintext highlighter-rouge">_apiClient</code> and the real bouquet photo endpoint.</p>
-
-<h3 id="req-iot-02-missing-add-bouquet-photo-upload-api-endpoint--p1">REQ-IOT-02 [MISSING] Add bouquet photo upload API endpoint — P1</h3>
-<p>The real backend endpoint <code class="language-plaintext highlighter-rouge">POST /api/v1/bouquets/{id}/photo</code> (multipart/form-data) is referenced in the portal but may not be implemented. Verify <code class="language-plaintext highlighter-rouge">BouquetsController</code> has the photo upload action and that it stores the file (local storage or blob), returning the <code class="language-plaintext highlighter-rouge">photoUrl</code>.</p>
-
-<h3 id="req-iot-03-missing-mqtt-broker-authentication--p1">REQ-IOT-03 [MISSING] MQTT broker authentication — P1</h3>
-<p>Mosquitto broker in <code class="language-plaintext highlighter-rouge">docker-compose.dev.yml</code> accepts anonymous connections. Production deployment needs username/password (or certificate-based) authentication. <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code> must pass credentials from <code class="language-plaintext highlighter-rouge">IConfiguration</code> (<code class="language-plaintext highlighter-rouge">Mqtt:Username</code>, <code class="language-plaintext highlighter-rouge">Mqtt:Password</code>).</p>
-
-<h3 id="req-iot-04-missing-vase-heartbeat--offline-detection-background-service--p1">REQ-IOT-04 [MISSING] Vase heartbeat / offline detection background service — P1</h3>
-<p>When a vase stops sending MQTT heartbeats, no automatic offline detection exists. A <code class="language-plaintext highlighter-rouge">BackgroundService</code> polling <code class="language-plaintext highlighter-rouge">ISmartVaseRepository.GetStaleVasesAsync(cutoffMinutes: 10)</code> should mark stale vases as offline and dispatch <code class="language-plaintext highlighter-rouge">VaseWentOfflineEvent</code>.</p>
-
-<h3 id="req-iot-05-missing-ota-firmware-update-endpoint--p2">REQ-IOT-05 [MISSING] OTA firmware update endpoint — P2</h3>
-<p>No endpoint exists to push a firmware update to a smart vase. Requires <code class="language-plaintext highlighter-rouge">POST /api/v1/admin/vases/{id}/firmware</code> (upload binary) and MQTT publish to <code class="language-plaintext highlighter-rouge">vase/{serialNumber}/ota</code> with the download URL.</p>
+<ul>
+  <li><strong>PCI surface is correct</strong> — <code class="language-plaintext highlighter-rouge">client_secret</code> + Stripe.js/Elements; card data never touches our servers.</li>
+  <li><strong>Webhook signature verification</strong> — <code class="language-plaintext highlighter-rouge">EventUtility.ConstructEvent</code> with HMAC secret. Present and correct.</li>
+  <li><strong>Server-authoritative amounts</strong> — the PaymentIntent amount is derived from <code class="language-plaintext highlighter-rouge">order.TotalAmount</code>, and <code class="language-plaintext highlighter-rouge">Order.Create</code> validates <code class="language-plaintext highlighter-rouge">ExpectedTotalAmount</code> against the recomputed total. Clients cannot tamper with the charge amount.</li>
+  <li><strong>State-machine guards</strong> — <code class="language-plaintext highlighter-rouge">ConfirmPayment</code>/<code class="language-plaintext highlighter-rouge">Cancel</code> enforce valid transitions (<code class="language-plaintext highlighter-rouge">Status == Created</code>), giving <em>some</em> webhook idempotency for free.</li>
+  <li><strong>Transactional outbox exists</strong> — <code class="language-plaintext highlighter-rouge">OrderCreatedEvent</code>/<code class="language-plaintext highlighter-rouge">OrderPaidEvent</code> are written in the same <code class="language-plaintext highlighter-rouge">SaveChanges</code> as the aggregate, dispatched by a polling worker with <code class="language-plaintext highlighter-rouge">FOR UPDATE SKIP LOCKED</code>. This is the right backbone.</li>
+  <li><strong>Reservation-expiry worker</strong> — the article’s “stuck payment detector,” at least for the unpaid case.</li>
+</ul>
 
 <hr />
 
-<h2 id="area-6-payment-resilience--correctness-hardening">Area 6: Payment Resilience &amp; Correctness Hardening</h2>
+<h2 id="-critical--money-loss-paths-fix-before-any-real-traffic">🔴 CRITICAL — money-loss paths (fix before any real traffic)</h2>
 
-<blockquote>
-  <p>Extends EP-04 (which made the Stripe flow <em>functional</em>) with the failure-mode hardening it lacks.
-Source: review against <a href="https://newsletter.systemdesign.one/p/design-a-payment-system">systemdesign.one — Design a Payment System</a>, full findings in <code class="language-plaintext highlighter-rouge">docs/STRIPE-PAYMENT-RESILIENCE-REVIEW.md</code> (findings C1–C4 critical, H1–H6 high, M1–M6 medium).
-<strong>C1 is live today</strong>: a paid customer can be auto-cancelled by the reservation-expiry worker with no refund. C1–C4 are ship-blockers.</p>
-</blockquote>
+<h3 id="c1-charged-customer-can-have-their-order-silently-cancelled-with-no-refund">C1. Charged customer can have their order silently cancelled with <strong>no refund</strong></h3>
 
-<h3 id="req-pay-01-missing-idempotent-stripe-api-calls--p0-findings-c3-m1">REQ-PAY-01 [MISSING] Idempotent Stripe API calls — P0 (findings C3, M1)</h3>
-<p><code class="language-plaintext highlighter-rouge">StripeService</code> attaches no <code class="language-plaintext highlighter-rouge">IdempotencyKey</code> to <code class="language-plaintext highlighter-rouge">PaymentIntent.Create</code> or <code class="language-plaintext highlighter-rouge">Refund.Create</code>, so a retried <code class="language-plaintext highlighter-rouge">CreateOrderCommand</code> creates a second PaymentIntent and a retried <code class="language-plaintext highlighter-rouge">CancelOrderCommand</code> issues a second refund. The <code class="language-plaintext highlighter-rouge">CreateOrderCommand.IdempotencyKey</code> field already exists but is never read in the handler. Pass deterministic keys (<code class="language-plaintext highlighter-rouge">pi_create:{orderId}</code>, <code class="language-plaintext highlighter-rouge">refund:{orderId}</code>) on every Stripe POST. Also fix the truncating <code class="language-plaintext highlighter-rouge">(long)(amount * 100)</code> minor-unit conversion (use <code class="language-plaintext highlighter-rouge">Math.Round</code>).</p>
+<p>This is the single worst path and it is fully reachable today:</p>
 
-<h3 id="req-pay-02-missing-reliable-webhook-ingestion--p0-findings-c2-h2">REQ-PAY-02 [MISSING] Reliable webhook ingestion — P0 (findings C2, H2)</h3>
-<p><code class="language-plaintext highlighter-rouge">StripeWebhookController</code> catches all processing errors and returns <code class="language-plaintext highlighter-rouge">200</code>, so Stripe never retries — one failed webhook permanently loses a state transition. It also runs the full <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code> (DB writes per bouquet, vase updates, MQTT) inline under Stripe’s ~20s timeout. Rework to: verify signature → persist raw event → return <code class="language-plaintext highlighter-rouge">200</code>; process asynchronously via a worker; return <code class="language-plaintext highlighter-rouge">500</code> on transient processing failure so Stripe re-delivers.</p>
+<ol>
+  <li>Customer pays → Stripe charges the card → <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code> fires.</li>
+  <li>Webhook processing throws (DB blip, MQTT, deserialization, deploy) — the controller <strong>catches the exception, logs, and returns <code class="language-plaintext highlighter-rouge">200 OK</code></strong> (<code class="language-plaintext highlighter-rouge">StripeWebhookController.cs:77-83</code>). Stripe sees success and <strong>never retries</strong>.</li>
+  <li>The order stays in <code class="language-plaintext highlighter-rouge">Created</code>. 15 minutes later <code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code> calls <code class="language-plaintext highlighter-rouge">order.CancelDueToReservationExpiry()</code> — which <strong>does not refund</strong> (<code class="language-plaintext highlighter-rouge">Order.cs:210</code>). The refund logic lives only in <code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code>, which the expiry worker bypasses entirely.</li>
+</ol>
 
-<h3 id="req-pay-03-missing-persisted-webhook-event-dedup--audit-log--p0-finding-h3">REQ-PAY-03 [MISSING] Persisted webhook-event dedup &amp; audit log — P0 (finding H3)</h3>
-<p>Idempotency rests entirely on the <code class="language-plaintext highlighter-rouge">Status == Created</code> guard, which breaks for events that arrive when the order is not <code class="language-plaintext highlighter-rouge">Created</code> (refunds, disputes, async BLIK transitions) and leaves no audit trail. Add a <code class="language-plaintext highlighter-rouge">processed_stripe_events(event_id PK, type, received_at, payload, processed_at, error)</code> table; insert-or-skip on event id gives true idempotency independent of aggregate state.</p>
+<p><strong>Result: card charged, order cancelled, bouquet released, no refund, no alert.</strong> Money vanishes exactly as the article warns.</p>
 
-<h3 id="req-pay-04-bug-no-orphaned-charges--expiry-must-refund-check-refund-status--p0-findings-c1-c4">REQ-PAY-04 [BUG] No orphaned charges — expiry must refund; check refund status — P0 (findings C1, C4)</h3>
-<p><code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code> cancels <code class="language-plaintext highlighter-rouge">Created</code> orders via <code class="language-plaintext highlighter-rouge">Order.CancelDueToReservationExpiry()</code>, which never refunds and bypasses <code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code>’s refund logic — so a charged-but-unconfirmed order is cancelled with no refund. Never auto-cancel a <code class="language-plaintext highlighter-rouge">Created</code> order without first verifying the PaymentIntent at Stripe and refunding any successful charge. Separately, <code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code> logs success regardless of <code class="language-plaintext highlighter-rouge">refund.Status</code> — branch on it and flag failed/pending refunds for retry + alert.</p>
+<p><strong>Fixes (all three):</strong></p>
+<ul>
+  <li>Webhook must <strong>not</strong> swallow processing errors — return non-2xx so Stripe retries (see C2).</li>
+  <li>The expiry/auto-cancel path must verify with Stripe before cancelling, and refund if a charge succeeded. Never auto-cancel a <code class="language-plaintext highlighter-rouge">Created</code> order without confirming the PaymentIntent status at the PSP.</li>
+  <li>Reconciliation job (see H1) as the safety net.</li>
+</ul>
 
-<h3 id="req-pay-05-missing-daily-payment-reconciliation-worker--p1-finding-h1">REQ-PAY-05 [MISSING] Daily payment reconciliation worker — P1 (finding H1)</h3>
-<p>No reconciliation exists, so a single dropped webhook is invisible forever. Add a scheduled job that queries Stripe for orders in paid-ambiguous states (<code class="language-plaintext highlighter-rouge">Created</code> with a PaymentIntentId, recently cancelled, refund-pending/failed) and converges local state — confirming paid orders, refunding orphaned charges, retrying failed refunds — emitting an alert per divergence.</p>
+<h3 id="c2-webhook-returns-200-on-failure--at-least-once-delivery-is-defeated">C2. Webhook returns <code class="language-plaintext highlighter-rouge">200</code> on failure → at-least-once delivery is defeated</h3>
 
-<h3 id="req-pay-06-missing-atomic--race-safe-payment-confirmation--p1-findings-h5-h6">REQ-PAY-06 [MISSING] Atomic &amp; race-safe payment confirmation — P1 (findings H5, H6)</h3>
-<p>The client <code class="language-plaintext highlighter-rouge">confirm-payment</code> and webhook paths can run concurrently; both read <code class="language-plaintext highlighter-rouge">Status == Created</code> (TOCTOU) and <code class="language-plaintext highlighter-rouge">Order</code> has no mapped EF concurrency token, so both can proceed. <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommandHandler</code> also issues many independent <code class="language-plaintext highlighter-rouge">SaveChanges</code> (per-bouquet, outbox, order), so a mid-loop crash leaves bouquets <code class="language-plaintext highlighter-rouge">Sold</code> while the order stays <code class="language-plaintext highlighter-rouge">Created</code>. Map an optimistic-concurrency token on <code class="language-plaintext highlighter-rouge">Order</code>; wrap the paid transition + bouquet updates + outbox write in one transaction; move MQTT/vase side effects to the <code class="language-plaintext highlighter-rouge">OrderPaidEvent</code> consumer.</p>
+<p><code class="language-plaintext highlighter-rouge">catch (Exception) { log; } return Ok();</code> means a transient failure is reported to Stripe as handled. The article’s core mechanism — at-least-once delivery + idempotent processing — only works if you return an error on failure so Stripe re-delivers. Today, <strong>one failed webhook = permanently lost state transition</strong>.</p>
 
-<h3 id="req-pay-07-missing-correct-handling-of-asynchronous-payment-methods-blik--p1-finding-h4">REQ-PAY-07 [MISSING] Correct handling of asynchronous payment methods (BLIK) — P1 (finding H4)</h3>
-<p>BLIK is enabled for PLN but is asynchronous: <code class="language-plaintext highlighter-rouge">payment_intent.processing</code> arrives before <code class="language-plaintext highlighter-rouge">succeeded</code>/<code class="language-plaintext highlighter-rouge">failed</code>. The client confirm call can return before funds are confirmed, only <code class="language-plaintext highlighter-rouge">succeeded</code>/<code class="language-plaintext highlighter-rouge">failed</code> are handled, and the 15-min expiry can cancel a slow-but-valid payment. Handle <code class="language-plaintext highlighter-rouge">payment_intent.processing</code>, treat the webhook as source of truth for BLIK, and exempt in-flight intents from reservation expiry.</p>
+<p><strong>Fix:</strong> persist the raw event first, then process. Return <code class="language-plaintext highlighter-rouge">200</code> only after the event is durably stored (or successfully processed). On processing failure return <code class="language-plaintext highlighter-rouge">500</code>. Distinguish “already processed” (→200) from “transiently failed” (→500).</p>
 
-<h3 id="req-pay-08-missing-defensive-amount-check--money-event-coverage--p2-findings-m2-m5">REQ-PAY-08 [MISSING] Defensive amount check &amp; money-event coverage — P2 (findings M2, M5)</h3>
-<p>The webhook trusts <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code> without asserting <code class="language-plaintext highlighter-rouge">Amount</code>/<code class="language-plaintext highlighter-rouge">Currency</code> match the order, and ignores <code class="language-plaintext highlighter-rouge">charge.refunded</code>, <code class="language-plaintext highlighter-rouge">charge.dispute.created</code>, and <code class="language-plaintext highlighter-rouge">payment_intent.canceled</code>. Add an amount/currency equality check before confirming, and handlers for the missing money events (refund completion, chargebacks, cancellation).</p>
+<h3 id="c3-no-idempotency-key-on-stripe-paymentintentcreate-or-refund">C3. No idempotency key on Stripe <code class="language-plaintext highlighter-rouge">PaymentIntent.Create</code> or <code class="language-plaintext highlighter-rouge">Refund</code></h3>
 
-<h3 id="req-pay-09-missing-stripe-resilience-policy--pinned-api-version--p2-findings-m3-m4">REQ-PAY-09 [MISSING] Stripe resilience policy &amp; pinned API version — P2 (findings M3, M4)</h3>
-<p>No timeout/retry/circuit breaker around Stripe calls (the design recommends a breaker to protect <em>our</em> system), and the Stripe API version is not pinned. Add a Polly pipeline (timeout + bounded retry + circuit breaker — enabled only after REQ-PAY-01 idempotency keys land) and pin <code class="language-plaintext highlighter-rouge">StripeConfiguration.ApiVersion</code>.</p>
+<p><code class="language-plaintext highlighter-rouge">StripeService</code> attaches <strong>no <code class="language-plaintext highlighter-rouge">IdempotencyKey</code></strong> to either call (<code class="language-plaintext highlighter-rouge">StripeService.cs:48-49</code>, <code class="language-plaintext highlighter-rouge">105-106</code>). The article requires an idempotency key on <em>every</em> Stripe POST.</p>
 
-<h3 id="req-pay-10-missing-alerting-on-payment-anomalies--p2-finding-m6">REQ-PAY-10 [MISSING] Alerting on payment anomalies — P2 (finding M6)</h3>
-<p>Every “manual refund required”, failed refund, webhook processing failure, amount mismatch, and reconciliation divergence is currently a silent log line. Route all of these to structured alerts (metric + on-call notification) per <code class="language-plaintext highlighter-rouge">docs/deployment/OBSERVABILITY.md</code>.</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> makes the Stripe call <strong>after</strong> several <code class="language-plaintext highlighter-rouge">SaveChanges</code>. If the request is retried after a mid-flight timeout, you create a <strong>second PaymentIntent</strong> for the same order. The <code class="language-plaintext highlighter-rouge">CreateOrderCommand.IdempotencyKey</code> field exists but <strong>is never read in the handler</strong> — it’s dead code. The only protection is <code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code>, which caches the response <em>only after a 2xx completes</em> — so it does nothing for the exact timeout/crash window that idempotency keys are designed for.</li>
+  <li><code class="language-plaintext highlighter-rouge">RefundPaymentAsync</code> with no key → a retried <code class="language-plaintext highlighter-rouge">CancelOrderCommand</code> can issue <strong>two refunds</strong> (merchant loses money).</li>
+</ul>
+
+<p><strong>Fix:</strong> pass <code class="language-plaintext highlighter-rouge">RequestOptions { IdempotencyKey = ... }</code> to both calls. Use a deterministic key — e.g. <code class="language-plaintext highlighter-rouge">order_id</code> for the intent, <code class="language-plaintext highlighter-rouge">order_id:refund</code> for the refund (or the inbound webhook/event id). Highest-leverage, lowest-effort fix here.</p>
+
+<h3 id="c4-refund-result-is-never-checked">C4. Refund result is never checked</h3>
+
+<p><code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code> logs <code class="language-plaintext highlighter-rouge">"Refund issued"</code> regardless of <code class="language-plaintext highlighter-rouge">refund.Status</code> (<code class="language-plaintext highlighter-rouge">OrderCommandHandlers.cs:499-502</code>). Stripe refunds can be <code class="language-plaintext highlighter-rouge">pending</code> or <code class="language-plaintext highlighter-rouge">failed</code>. You will report success on a failed refund and the customer never gets their money.</p>
+
+<p><strong>Fix:</strong> branch on <code class="language-plaintext highlighter-rouge">refund.Status</code>; on <code class="language-plaintext highlighter-rouge">failed</code>/unexpected, do not mark the order refunded — flag for manual/automated retry and alert.</p>
+
+<hr />
+
+<h2 id="-high--correctness--resilience-gaps">🟠 HIGH — correctness &amp; resilience gaps</h2>
+
+<h3 id="h1-no-reconciliation-worker">H1. No reconciliation worker</h3>
+
+<p>The article’s daily internal-vs-Stripe reconciliation is absent. This is the last line of defense against C1/C2 and against any drift. Without it, a single dropped webhook is invisible forever.</p>
+
+<p><strong>Fix:</strong> a scheduled job that, for every order in a non-terminal paid-ambiguous state (<code class="language-plaintext highlighter-rouge">Created</code> with a PaymentIntentId, recently cancelled, refund-pending), queries Stripe and converges local state — confirming paid orders, refunding orphaned charges, retrying failed refunds.</p>
+
+<h3 id="h2-webhook-does-heavy-synchronous-business-logic">H2. Webhook does heavy synchronous business logic</h3>
+
+<p>The receiver runs the full <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code> inline — DB writes per bouquet, vase updates, fire-and-forget MQTT — under Stripe’s ~20s timeout. The article is explicit: webhook receiver should <strong>verify → store raw event → 200</strong>, and process asynchronously. Heavy inline work risks timeouts (→ duplicate deliveries) and partial application.</p>
+
+<p><strong>Fix:</strong> receiver persists the event and enqueues; a worker applies the transition idempotently. The outbox/worker pattern already exists — reuse it for <em>inbound</em> events.</p>
+
+<h3 id="h3-no-persisted-record-of-processed-webhook-events">H3. No persisted record of processed webhook events</h3>
+
+<p>Idempotency rests entirely on the <code class="language-plaintext highlighter-rouge">Status == Created</code> guard. That breaks for any event that should be processed when the order is <em>not</em> <code class="language-plaintext highlighter-rouge">Created</code> (refunds, disputes, async BLIK state changes) and gives no audit trail. The article calls for an append-only event log keyed by Stripe event id.</p>
+
+<p><strong>Fix:</strong> a <code class="language-plaintext highlighter-rouge">processed_stripe_events(event_id PK, type, received_at, payload)</code> table. Insert-or-skip on event id = true idempotency independent of aggregate state, plus the audit log the article wants.</p>
+
+<h3 id="h4-blik-is-asynchronous--the-flow-assumes-synchronous-card-semantics">H4. BLIK is asynchronous — the flow assumes synchronous card semantics</h3>
+
+<p><code class="language-plaintext highlighter-rouge">blik</code> is enabled for PLN (<code class="language-plaintext highlighter-rouge">StripeService.cs:38-40</code>). BLIK confirmation is async: <code class="language-plaintext highlighter-rouge">payment_intent.processing</code> arrives first, then <code class="language-plaintext highlighter-rouge">succeeded</code>/<code class="language-plaintext highlighter-rouge">failed</code> possibly seconds later. The client <code class="language-plaintext highlighter-rouge">confirm-payment</code> call can return before funds are confirmed, and only <code class="language-plaintext highlighter-rouge">succeeded</code>/<code class="language-plaintext highlighter-rouge">failed</code> are handled — not <code class="language-plaintext highlighter-rouge">processing</code>. Combined with the 15-min expiry, a slow-but-valid BLIK payment can be cancelled mid-flight.</p>
+
+<p><strong>Fix:</strong> treat the webhook as the source of truth for BLIK (don’t rely on the client confirm path), handle <code class="language-plaintext highlighter-rouge">payment_intent.processing</code>, and don’t auto-cancel orders with an in-flight intent.</p>
+
+<h3 id="h5-concurrency-race-between-the-two-confirmation-paths">H5. Concurrency race between the two confirmation paths</h3>
+
+<p>Client <code class="language-plaintext highlighter-rouge">confirm-payment</code> and the webhook can run concurrently. Both read <code class="language-plaintext highlighter-rouge">Status == Created</code>, both proceed (TOCTOU), both sell bouquets / emit <code class="language-plaintext highlighter-rouge">OrderPaidEvent</code>. <code class="language-plaintext highlighter-rouge">AggregateRoot.IncrementVersion()</code> is called, but no mapped EF concurrency token on <code class="language-plaintext highlighter-rouge">Order</code> was found — <strong>verify</strong> a <code class="language-plaintext highlighter-rouge">[ConcurrencyCheck]</code>/<code class="language-plaintext highlighter-rouge">xmin</code> rowversion is configured. Without it, the guard is not race-safe.</p>
+
+<p><strong>Fix:</strong> map an optimistic-concurrency token on <code class="language-plaintext highlighter-rouge">Order</code> so the second writer fails and is retried/ignored.</p>
+
+<h3 id="h6-confirmpayment-is-not-atomic">H6. ConfirmPayment is not atomic</h3>
+
+<p>The handler issues many independent <code class="language-plaintext highlighter-rouge">SaveChanges</code> (each <code class="language-plaintext highlighter-rouge">bouquet.UpdateAsync</code>, then outbox, then <code class="language-plaintext highlighter-rouge">order.UpdateAsync</code>). A crash mid-loop leaves some bouquets <code class="language-plaintext highlighter-rouge">Sold</code> but the order <strong>not</strong> <code class="language-plaintext highlighter-rouge">Paid</code> and no <code class="language-plaintext highlighter-rouge">OrderPaidEvent</code>. The article’s “atomic phases” principle is violated.</p>
+
+<p><strong>Fix:</strong> wrap the state transition + bouquet updates + outbox write in a single explicit transaction (<code class="language-plaintext highlighter-rouge">BeginTransactionAsync</code>/one <code class="language-plaintext highlighter-rouge">SaveChanges</code>), so the paid transition is all-or-nothing. The fire-and-forget MQTT should be driven off the <code class="language-plaintext highlighter-rouge">OrderPaidEvent</code> consumer, not done inline.</p>
+
+<hr />
+
+<h2 id="-medium--hardening">🟡 MEDIUM — hardening</h2>
+
+<ul>
+  <li><strong>M1. Money rounding:</strong> <code class="language-plaintext highlighter-rouge">(long)(amount * 100)</code> truncates (<code class="language-plaintext highlighter-rouge">StripeService.cs:35,102</code>). Use <code class="language-plaintext highlighter-rouge">(long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero)</code>. Off-by-one grosze is still a money bug.</li>
+  <li><strong>M2. No amount/currency check on confirm:</strong> the webhook trusts <code class="language-plaintext highlighter-rouge">succeeded</code> without asserting <code class="language-plaintext highlighter-rouge">paymentIntent.Amount</code>/<code class="language-plaintext highlighter-rouge">Currency</code> match the order. Add a defensive equality check before confirming.</li>
+  <li><strong>M3. No timeout / retry / circuit breaker on Stripe calls</strong> — the article explicitly recommends a circuit breaker (it protects <em>you</em>, not Stripe). Wrap <code class="language-plaintext highlighter-rouge">StripeService</code> in Polly with sane timeouts and bounded retries (retries safe <em>only</em> once idempotency keys from C3 are in place).</li>
+  <li><strong>M4. Stripe API version not pinned</strong> — pin <code class="language-plaintext highlighter-rouge">StripeConfiguration.ApiVersion</code> / <code class="language-plaintext highlighter-rouge">appInfo</code> so SDK upgrades don’t silently change event/object shapes.</li>
+  <li><strong>M5. Unhandled event types</strong> — no <code class="language-plaintext highlighter-rouge">charge.refunded</code>, <code class="language-plaintext highlighter-rouge">charge.dispute.created</code>, <code class="language-plaintext highlighter-rouge">payment_intent.canceled</code>. Disputes/chargebacks are money events currently ignored.</li>
+  <li><strong>M6. No alerting</strong> — every “Manual refund required” / webhook failure is a silent log line. These must page someone.</li>
+</ul>
+
+<hr />
+
+<h2 id="recommended-priority-order">Recommended priority order</h2>
+
+<ol>
+  <li><strong>C3</strong> — idempotency keys on PaymentIntent + Refund (cheapest, stops double-charge/double-refund).</li>
+  <li><strong>C2 + C1</strong> — stop returning 200 on webhook failure; never auto-cancel/expire a paid intent without refunding.</li>
+  <li><strong>C4</strong> — check refund status.</li>
+  <li><strong>H3 + H2</strong> — persist raw events, dedup by event id, process async.</li>
+  <li><strong>H1</strong> — reconciliation job (the catch-all safety net).</li>
+  <li><strong>H5/H6</strong> — concurrency token + atomic confirm transaction.</li>
+  <li>Medium items as hardening.</li>
+</ol>
+
+<hr />
+
+<h2 id="summary">Summary</h2>
+
+<p>The architecture is fundamentally sound — clean PSP abstraction, signature verification, transactional outbox, an expiry worker. The danger is concentrated in four reachable money-loss paths (C1–C4), and <strong>C1 is live today</strong>: a paid customer can be auto-cancelled with no refund. C1–C4 should be treated as ship-blockers.</p>
 
     </div>
   </main>

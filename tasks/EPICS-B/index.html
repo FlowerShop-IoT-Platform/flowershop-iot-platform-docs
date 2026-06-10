@@ -919,6 +919,51 @@ EP-15 (IoT Integration) — independent, can run in parallel
 
 <hr />
 
+<h2 id="ep-17-payment-resilience--correctness-hardening">EP-17: Payment Resilience &amp; Correctness Hardening</h2>
+
+<p><strong>Priority</strong>: P0-critical
+<strong>Dependencies</strong>: EP-04 (extends the functional Stripe flow with failure-mode hardening).
+<strong>Requirement refs</strong>: REQ-PAY-01 to REQ-PAY-10 (REQ-GAPS-B.md Area 6)
+<strong>Source</strong>: review against <a href="https://newsletter.systemdesign.one/p/design-a-payment-system">systemdesign.one — Design a Payment System</a>; full findings in <code class="language-plaintext highlighter-rouge">docs/STRIPE-PAYMENT-RESILIENCE-REVIEW.md</code> and tasks in <code class="language-plaintext highlighter-rouge">tasks-ep17-payment-resilience.json</code>.</p>
+
+<blockquote>
+  <p>EP-04 made the payment flow work; EP-17 makes it correct under failure. The review found four reachable money-loss paths (C1–C4). <strong>C1 is live today</strong>: a paid customer can be auto-cancelled by the reservation-expiry worker with no refund. C1–C4 are ship-blockers; goal is zero money-loss (no double-charge, no double-refund, no orphaned charge, no silently-dropped webhook).</p>
+</blockquote>
+
+<h3 id="stories-7">Stories</h3>
+<ul>
+  <li>S-17-01: Idempotent Stripe API calls — no double-charge / no double-refund (C3, M1)</li>
+  <li>S-17-02: Reliable webhook ingestion — store-first, dedup, retry-on-failure (C2, H2, H3)</li>
+  <li>S-17-03: No orphaned charges — expiry must refund, plus reconciliation safety net (C1, C4, H1)</li>
+  <li>S-17-04: Atomic &amp; race-safe payment confirmation (H5, H6)</li>
+  <li>S-17-05: Asynchronous payment methods (BLIK) handled correctly (H4)</li>
+  <li>S-17-06: Defensive hardening — circuit breaker, amount checks, dispute events, alerting (M2–M6)</li>
+</ul>
+
+<h3 id="tasks-7">Tasks</h3>
+<p>| ID | Story | Title |
+|—-|——-|——-|
+| T-17-001 | S-17-01 | Attach a deterministic IdempotencyKey to <code class="language-plaintext highlighter-rouge">PaymentIntent.Create</code>; wire through the dead <code class="language-plaintext highlighter-rouge">CreateOrderCommand.IdempotencyKey</code> |
+| T-17-002 | S-17-01 | Attach a deterministic IdempotencyKey to <code class="language-plaintext highlighter-rouge">Refund.Create</code> |
+| T-17-003 | S-17-01 | Fix truncating money-to-minor-unit conversion (<code class="language-plaintext highlighter-rouge">Math.Round</code>) |
+| T-17-004 | S-17-02 | Add <code class="language-plaintext highlighter-rouge">processed_stripe_events</code> table for webhook dedup + audit |
+| T-17-005 | S-17-02 | Rework <code class="language-plaintext highlighter-rouge">StripeWebhookController</code> to store-first, then <code class="language-plaintext highlighter-rouge">200</code>; stop returning <code class="language-plaintext highlighter-rouge">200</code> on failure |
+| T-17-006 | S-17-02 | Process stored webhook events asynchronously via a worker (mirror of the outbox) |
+| T-17-007 | S-17-03 | Verify-with-Stripe before expiring a <code class="language-plaintext highlighter-rouge">Created</code> order; refund if charged (fixes live C1) |
+| T-17-008 | S-17-03 | Check <code class="language-plaintext highlighter-rouge">refund.Status</code>; only mark refunded on success, else flag + alert |
+| T-17-009 | S-17-03 | Add daily payment reconciliation worker |
+| T-17-010 | S-17-04 | Add optimistic-concurrency token to <code class="language-plaintext highlighter-rouge">Order</code> |
+| T-17-011 | S-17-04 | Make payment confirmation atomic in a single transaction |
+| T-17-012 | S-17-04 | Move inline MQTT/vase side effects to the <code class="language-plaintext highlighter-rouge">OrderPaidEvent</code> consumer |
+| T-17-013 | S-17-05 | Handle <code class="language-plaintext highlighter-rouge">payment_intent.processing</code>; webhook as source of truth for BLIK |
+| T-17-014 | S-17-06 | Assert amount + currency match the order before confirming |
+| T-17-015 | S-17-06 | Wrap Stripe calls in Polly timeout + bounded retry + circuit breaker |
+| T-17-016 | S-17-06 | Pin the Stripe API version |
+| T-17-017 | S-17-06 | Handle <code class="language-plaintext highlighter-rouge">charge.refunded</code> / <code class="language-plaintext highlighter-rouge">charge.dispute.created</code> / <code class="language-plaintext highlighter-rouge">payment_intent.canceled</code> |
+| T-17-018 | S-17-06 | Route payment failures to alerting, not silent logs |</p>
+
+<hr />
+
 <h2 id="summary">Summary</h2>
 
 <table>
@@ -982,10 +1027,17 @@ EP-15 (IoT Integration) — independent, can run in parallel
       <td>none</td>
     </tr>
     <tr>
+      <td>EP-17 Payment Resilience &amp; Correctness</td>
+      <td>P0-critical</td>
+      <td>6</td>
+      <td>18</td>
+      <td>EP-04</td>
+    </tr>
+    <tr>
       <td><strong>Total</strong></td>
       <td> </td>
-      <td><strong>28</strong></td>
-      <td><strong>58</strong></td>
+      <td><strong>34</strong></td>
+      <td><strong>76</strong></td>
       <td> </td>
     </tr>
   </tbody>

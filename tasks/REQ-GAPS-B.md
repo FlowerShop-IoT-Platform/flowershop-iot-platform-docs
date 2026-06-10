@@ -123,3 +123,41 @@ When a vase stops sending MQTT heartbeats, no automatic offline detection exists
 
 ### REQ-IOT-05 [MISSING] OTA firmware update endpoint — P2
 No endpoint exists to push a firmware update to a smart vase. Requires `POST /api/v1/admin/vases/{id}/firmware` (upload binary) and MQTT publish to `vase/{serialNumber}/ota` with the download URL.
+
+---
+
+## Area 6: Payment Resilience & Correctness Hardening
+
+> Extends EP-04 (which made the Stripe flow *functional*) with the failure-mode hardening it lacks.
+> Source: review against [systemdesign.one — Design a Payment System](https://newsletter.systemdesign.one/p/design-a-payment-system), full findings in `docs/STRIPE-PAYMENT-RESILIENCE-REVIEW.md` (findings C1–C4 critical, H1–H6 high, M1–M6 medium).
+> **C1 is live today**: a paid customer can be auto-cancelled by the reservation-expiry worker with no refund. C1–C4 are ship-blockers.
+
+### REQ-PAY-01 [MISSING] Idempotent Stripe API calls — P0 (findings C3, M1)
+`StripeService` attaches no `IdempotencyKey` to `PaymentIntent.Create` or `Refund.Create`, so a retried `CreateOrderCommand` creates a second PaymentIntent and a retried `CancelOrderCommand` issues a second refund. The `CreateOrderCommand.IdempotencyKey` field already exists but is never read in the handler. Pass deterministic keys (`pi_create:{orderId}`, `refund:{orderId}`) on every Stripe POST. Also fix the truncating `(long)(amount * 100)` minor-unit conversion (use `Math.Round`).
+
+### REQ-PAY-02 [MISSING] Reliable webhook ingestion — P0 (findings C2, H2)
+`StripeWebhookController` catches all processing errors and returns `200`, so Stripe never retries — one failed webhook permanently loses a state transition. It also runs the full `ConfirmPaymentCommand` (DB writes per bouquet, vase updates, MQTT) inline under Stripe's ~20s timeout. Rework to: verify signature → persist raw event → return `200`; process asynchronously via a worker; return `500` on transient processing failure so Stripe re-delivers.
+
+### REQ-PAY-03 [MISSING] Persisted webhook-event dedup & audit log — P0 (finding H3)
+Idempotency rests entirely on the `Status == Created` guard, which breaks for events that arrive when the order is not `Created` (refunds, disputes, async BLIK transitions) and leaves no audit trail. Add a `processed_stripe_events(event_id PK, type, received_at, payload, processed_at, error)` table; insert-or-skip on event id gives true idempotency independent of aggregate state.
+
+### REQ-PAY-04 [BUG] No orphaned charges — expiry must refund; check refund status — P0 (findings C1, C4)
+`OrderReservationExpiryService` cancels `Created` orders via `Order.CancelDueToReservationExpiry()`, which never refunds and bypasses `CancelOrderCommandHandler`'s refund logic — so a charged-but-unconfirmed order is cancelled with no refund. Never auto-cancel a `Created` order without first verifying the PaymentIntent at Stripe and refunding any successful charge. Separately, `CancelOrderCommandHandler` logs success regardless of `refund.Status` — branch on it and flag failed/pending refunds for retry + alert.
+
+### REQ-PAY-05 [MISSING] Daily payment reconciliation worker — P1 (finding H1)
+No reconciliation exists, so a single dropped webhook is invisible forever. Add a scheduled job that queries Stripe for orders in paid-ambiguous states (`Created` with a PaymentIntentId, recently cancelled, refund-pending/failed) and converges local state — confirming paid orders, refunding orphaned charges, retrying failed refunds — emitting an alert per divergence.
+
+### REQ-PAY-06 [MISSING] Atomic & race-safe payment confirmation — P1 (findings H5, H6)
+The client `confirm-payment` and webhook paths can run concurrently; both read `Status == Created` (TOCTOU) and `Order` has no mapped EF concurrency token, so both can proceed. `ConfirmPaymentCommandHandler` also issues many independent `SaveChanges` (per-bouquet, outbox, order), so a mid-loop crash leaves bouquets `Sold` while the order stays `Created`. Map an optimistic-concurrency token on `Order`; wrap the paid transition + bouquet updates + outbox write in one transaction; move MQTT/vase side effects to the `OrderPaidEvent` consumer.
+
+### REQ-PAY-07 [MISSING] Correct handling of asynchronous payment methods (BLIK) — P1 (finding H4)
+BLIK is enabled for PLN but is asynchronous: `payment_intent.processing` arrives before `succeeded`/`failed`. The client confirm call can return before funds are confirmed, only `succeeded`/`failed` are handled, and the 15-min expiry can cancel a slow-but-valid payment. Handle `payment_intent.processing`, treat the webhook as source of truth for BLIK, and exempt in-flight intents from reservation expiry.
+
+### REQ-PAY-08 [MISSING] Defensive amount check & money-event coverage — P2 (findings M2, M5)
+The webhook trusts `payment_intent.succeeded` without asserting `Amount`/`Currency` match the order, and ignores `charge.refunded`, `charge.dispute.created`, and `payment_intent.canceled`. Add an amount/currency equality check before confirming, and handlers for the missing money events (refund completion, chargebacks, cancellation).
+
+### REQ-PAY-09 [MISSING] Stripe resilience policy & pinned API version — P2 (findings M3, M4)
+No timeout/retry/circuit breaker around Stripe calls (the design recommends a breaker to protect *our* system), and the Stripe API version is not pinned. Add a Polly pipeline (timeout + bounded retry + circuit breaker — enabled only after REQ-PAY-01 idempotency keys land) and pin `StripeConfiguration.ApiVersion`.
+
+### REQ-PAY-10 [MISSING] Alerting on payment anomalies — P2 (finding M6)
+Every "manual refund required", failed refund, webhook processing failure, amount mismatch, and reconciliation divergence is currently a silent log line. Route all of these to structured alerts (metric + on-call notification) per `docs/deployment/OBSERVABILITY.md`.

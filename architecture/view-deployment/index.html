@@ -1061,6 +1061,112 @@
   </tbody>
 </table>
 
+<h2 id="cloud-deployment--devstaging-environment">Cloud Deployment — Dev/Staging Environment</h2>
+
+<p>The deployed dev/staging environment uses free-tier managed services to avoid running VMs. All application processes are containerised; infrastructure services are either managed PaaS or replaced by SaaS equivalents.</p>
+
+<h3 id="hosting-decisions">Hosting Decisions</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Platform</th>
+      <th>URL</th>
+      <th>Deploy mechanism</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>REST API (<code class="language-plaintext highlighter-rouge">.NET 8</code>)</td>
+      <td><strong>Fly.io</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flyctl deploy</code> via <code class="language-plaintext highlighter-rouge">fly.api.toml</code></td>
+    </tr>
+    <tr>
+      <td>Keycloak 23</td>
+      <td><strong>Fly.io</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://auth.findmyflowers.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flyctl deploy</code> via <code class="language-plaintext highlighter-rouge">fly.keycloak.toml</code></td>
+    </tr>
+    <tr>
+      <td>Customer App (MVC)</td>
+      <td><strong>Fly.io</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flyctl deploy</code> via <code class="language-plaintext highlighter-rouge">fly.customer-app.toml</code></td>
+    </tr>
+    <tr>
+      <td>Admin Portal (Razor Pages)</td>
+      <td><strong>Render</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://admin.findmyflowers.pl</code></td>
+      <td>Image pushed to GHCR → Render deploy API</td>
+    </tr>
+    <tr>
+      <td>Vendor Portal (Razor Pages)</td>
+      <td><strong>Render</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://vendor.findmyflowers.pl</code></td>
+      <td>Image pushed to GHCR → Render deploy API</td>
+    </tr>
+    <tr>
+      <td>MQTT broker</td>
+      <td><strong>HiveMQ Cloud</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">&lt;cluster&gt;.s1.eu.hivemq.cloud:8883</code></td>
+      <td>Managed SaaS — no deploy step</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="mqtt--hivemq-cloud-free-tier">MQTT — HiveMQ Cloud Free Tier</h3>
+
+<p>Local development continues to use the Mosquitto container in docker-compose (plain TCP, port 1883, no TLS). In deployed environments Mosquitto is replaced by <strong>HiveMQ Cloud</strong> (free tier).</p>
+
+<p><strong>Free tier limits:</strong> 100 concurrent connections, 10 GB/month data transfer, no uptime SLA.<br />
+<strong>Protocol:</strong> MQTT 3.1.1 / 5.0, QoS 0/1/2, persistent sessions. TLS only — port <strong>8883</strong> (plain 1883 not available).</p>
+
+<p><strong>Required backend code changes before EP-15 (not yet implemented):</strong></p>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">MqttConfiguration</code> POCO — add <code class="language-plaintext highlighter-rouge">bool UseTls</code> property (default <code class="language-plaintext highlighter-rouge">false</code>)</li>
+  <li><code class="language-plaintext highlighter-rouge">MqttService.cs</code> — add <code class="language-plaintext highlighter-rouge">.WithTlsOptions(o =&gt; o.UseTls())</code> to the <code class="language-plaintext highlighter-rouge">MqttClientOptionsBuilder</code> when <code class="language-plaintext highlighter-rouge">UseTls = true</code></li>
+  <li><code class="language-plaintext highlighter-rouge">appsettings.Production.json</code> — set <code class="language-plaintext highlighter-rouge">MQTT:BrokerHost</code>, <code class="language-plaintext highlighter-rouge">MQTT:BrokerPort = 8883</code>, <code class="language-plaintext highlighter-rouge">MQTT:UseTls = true</code>; credentials injected via Fly.io secrets (<code class="language-plaintext highlighter-rouge">MQTT__Username</code>, <code class="language-plaintext highlighter-rouge">MQTT__Password</code>)</li>
+  <li>SmartVase firmware — must connect to HiveMQ Cloud on port 8883/TLS instead of Mosquitto on 1883 (firmware-side change)</li>
+</ol>
+
+<h3 id="cicd--github-actions">CI/CD — GitHub Actions</h3>
+
+<p>All deployments trigger on push to <code class="language-plaintext highlighter-rouge">main</code> via <code class="language-plaintext highlighter-rouge">.github/workflows/deploy-*.yml</code>. Secrets required:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Secret</th>
+      <th>Used by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FLY_API_TOKEN</code></td>
+      <td>All Fly.io deploys</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RENDER_API_KEY</code></td>
+      <td>Render portal deploys</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RENDER_ADMIN_SERVICE_ID</code></td>
+      <td>Admin Portal Render service</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RENDER_VENDOR_SERVICE_ID</code></td>
+      <td>Vendor Portal Render service</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MQTT__Username</code> / <code class="language-plaintext highlighter-rouge">MQTT__Password</code></td>
+      <td>Fly.io API app — injected at runtime via <code class="language-plaintext highlighter-rouge">fly secrets set</code></td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="environment-variables-key-settings">Environment Variables (key settings)</h2>
 
 <table>
