@@ -101,30 +101,30 @@ Implement `IsCurrentlyOpen(DateTimeOffset now)` helper that parses the `OpeningH
 
 ## 6. Order Lifecycle
 
-### REQ-ORD-01 `[MISSING]`
+### REQ-ORD-01 `[DONE — EP-04]`
 Integrate Stripe. Implement `IStripeService` with:
 - `CreatePaymentIntentAsync(decimal amount, string currency, string customerId)` → returns `(clientSecret, ephemeralKey, customerId)`
 - `RefundPaymentAsync(string paymentIntentId)` → initiates a refund
 
 Register `StripeService` in DI. Stripe secret key comes from `appsettings` / env var.
 
-### REQ-ORD-02 `[PARTIAL]`
-`CreateOrderCommandHandler` must call `IStripeService.CreatePaymentIntentAsync` after reserving bouquets and return `stripeClientSecret`, `stripeEphemeralKey`, and `stripeCustomerId` in `OrderCreatedDto` (currently missing from the DTO and handler).
+### REQ-ORD-02 `[DONE — EP-04]`
+`CreateOrderCommandHandler` must call `IStripeService.CreatePaymentIntentAsync` after reserving bouquets and return `stripeClientSecret`, `stripeEphemeralKey`, and `stripeCustomerId` in `OrderCreatedDto`. Implemented; `PaymentClientSecret`/`StripeEphemeralKey`/`StripeCustomerId` are returned in `OrderCreatedDto`.
 
-### REQ-ORD-03 `[MISSING]`
-Implement `StripeWebhookController` at `POST /api/stripe/webhook`. Handle `payment_intent.succeeded` and `payment_intent.payment_failed` events. On `succeeded`: confirm order payment (delegate to `ConfirmPaymentCommand`). On `failed`: cancel the order, release bouquet reservations. Verify Stripe webhook signature using `Stripe-Signature` header.
+### REQ-ORD-03 `[DONE — EP-04]`
+Implement `StripeWebhookController` at `POST /api/stripe/webhook`. Handle `payment_intent.succeeded` and `payment_intent.payment_failed` events. On `succeeded`: confirm order payment (delegate to `ConfirmPaymentCommand`). On `failed`: cancel the order, release bouquet reservations. Verify Stripe webhook signature using `Stripe-Signature` header. Implemented in commit `0aa528e`. **Resilience gaps (returns 200 on failure, no dedup table, inline processing) are tracked in EP-17 REQ-PAY-02/03.**
 
-### REQ-ORD-04 `[MISSING]`
-Implement idempotency for `POST /api/orders`. The `Idempotency-Key` header (UUID v4) must be stored in Redis with the serialized response. If the same key is received within 24 h, return the cached response without re-executing the handler.
+### REQ-ORD-04 `[DONE — EP-04]`
+Implement idempotency for `POST /api/orders`. The `Idempotency-Key` header (UUID v4) must be stored in Redis with the serialized response. If the same key is received within 24 h, return the cached response without re-executing the handler. Implemented via `IdempotencyMiddleware`. **Note:** this is response-caching only; idempotency keys on the Stripe API calls themselves are EP-17 REQ-PAY-01.
 
-### REQ-ORD-05 `[MISSING]`
-Implement `OrderReservationExpiryService` — a `BackgroundService` that runs every 30 s, finds orders with `Status = Created` and `BouquetReservedUntil < now`, cancels them, and releases bouquet reservations. Must dispatch a `BouquetBecameAvailable` SignalR event for each released bouquet.
+### REQ-ORD-05 `[DONE — EP-04]`
+Implement `OrderReservationExpiryService` — a `BackgroundService` that runs every 30 s, finds orders with `Status = Created` and `BouquetReservedUntil < now`, cancels them, and releases bouquet reservations. Must dispatch a `BouquetBecameAvailable` SignalR event for each released bouquet. Implemented. **Critical gap (C1): it can cancel a charged order with no refund — fixed in EP-17 REQ-PAY-04.**
 
-### REQ-ORD-06 `[PARTIAL]`
-`GET /api/orders/{id}` — response must include `deliveryQrCode` (base64 PNG data URI, generated on demand when status is `Paid` or later). Implement `IQrCodeGenerator.GenerateForOrder(orderId)` using a library such as `QRCoder`. The QR payload is the order ID.
+### REQ-ORD-06 `[DONE — EP-04]`
+`GET /api/orders/{id}` — response must include `deliveryQrCode` (generated on demand when status is `Paid` or later). Implemented: a geo `geo:` QR is built on order creation for delivery orders and lazily generated in `GetOrderDetailQueryHandler`.
 
-### REQ-ORD-07 `[MISSING]`
-`POST /api/orders/{id}/cancel` — when the order status is `Paid`, call `IStripeService.RefundPaymentAsync` and set `refundStatus: "refund_initiated"` in the response. When status is `Created`, set `refundStatus: "not_applicable"`.
+### REQ-ORD-07 `[PARTIAL — EP-04]`
+`POST /api/orders/{id}/cancel` — when the order status is `Paid`, call `IStripeService.RefundPaymentAsync` and set `refundStatus` in the response. The refund **call** is wired in `CancelOrderCommandHandler`, but the `RefundStatus` property, `CancelOrderResponseDto`, and `refundStatus` in the response body were never implemented, and the refund result status is not checked. Residual tracked in EP-17 T-17-008.
 
 ---
 
@@ -332,13 +332,13 @@ Subscription Matching Engine — implement `SubscriptionMatchingService` (backgr
 | REQ-VND-01 | Opening Hours Domain Model | P1 | MISSING |
 | REQ-VND-02 | IsCurrentlyOpen Helper | P1 | MISSING |
 | REQ-VND-03 | Public Vendor Endpoint Completeness | P1 | PARTIAL |
-| REQ-ORD-01 | Stripe Service | P0 | MISSING |
-| REQ-ORD-02 | Stripe Keys in OrderCreatedDto | P0 | PARTIAL |
-| REQ-ORD-03 | Stripe Webhook Handler | P0 | MISSING |
-| REQ-ORD-04 | Idempotency-Key for POST /api/orders | P0 | MISSING |
-| REQ-ORD-05 | Reservation Expiry Background Service | P0 | MISSING |
-| REQ-ORD-06 | Delivery QR Code Generation | P1 | PARTIAL |
-| REQ-ORD-07 | Cancel with Refund | P1 | PARTIAL |
+| REQ-ORD-01 | Stripe Service | P0 | DONE (EP-04, commit 0aa528e) |
+| REQ-ORD-02 | Stripe Keys in OrderCreatedDto | P0 | DONE (EP-04) |
+| REQ-ORD-03 | Stripe Webhook Handler | P0 | DONE (EP-04, commit 0aa528e) |
+| REQ-ORD-04 | Idempotency-Key for POST /api/orders | P0 | DONE (EP-04); hardening in EP-17 REQ-PAY-01 |
+| REQ-ORD-05 | Reservation Expiry Background Service | P0 | DONE (EP-04); refund-on-expiry gap in EP-17 REQ-PAY-04 |
+| REQ-ORD-06 | Delivery QR Code Generation | P1 | DONE (EP-04) |
+| REQ-ORD-07 | Cancel with Refund | P1 | PARTIAL (refund wired; refundStatus response → EP-17 T-17-008) |
 | REQ-VOM-01 | Vendor Order Status Endpoint | P0 | MISSING |
 | REQ-VOM-02 | UpdateOrderStatusCommand | P0 | MISSING |
 | REQ-VOM-03 | Vendor Order List Endpoint | P1 | MISSING |

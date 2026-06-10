@@ -99,7 +99,7 @@ Aggregates, repositories, and EF configurations for Cart, Order, Subscription, F
 ---
 
 ## EP-04 · Order Lifecycle & Stripe
-**Priority:** P0 · **Depends on:** EP-01
+**Priority:** P0 · **Depends on:** EP-01 · **Status (verified 2026-06-10): DONE** — implemented in commits `0aa528e`, `82847f1` + outbox series; flow manually tested against a Stripe test account (BLIK). Only S-04-06/T-04-019 is **partial** (refund call wired, but `RefundStatus`/`CancelOrderResponseDto`/`refundStatus` response never built — residual moved to EP-17 T-17-008). Correctness-under-failure hardening is **EP-17**.
 
 ### S-04-01 · Stripe service
 | Task | Requirement | Description |

@@ -802,7 +802,7 @@
 <hr />
 
 <h2 id="ep-04--order-lifecycle--stripe">EP-04 · Order Lifecycle &amp; Stripe</h2>
-<p><strong>Priority:</strong> P0 · <strong>Depends on:</strong> EP-01</p>
+<p><strong>Priority:</strong> P0 · <strong>Depends on:</strong> EP-01 · <strong>Status (verified 2026-06-10): DONE</strong> — implemented in commits <code class="language-plaintext highlighter-rouge">0aa528e</code>, <code class="language-plaintext highlighter-rouge">82847f1</code> + outbox series; flow manually tested against a Stripe test account (BLIK). Only S-04-06/T-04-019 is <strong>partial</strong> (refund call wired, but <code class="language-plaintext highlighter-rouge">RefundStatus</code>/<code class="language-plaintext highlighter-rouge">CancelOrderResponseDto</code>/<code class="language-plaintext highlighter-rouge">refundStatus</code> response never built — residual moved to EP-17 T-17-008). Correctness-under-failure hardening is <strong>EP-17</strong>.</p>
 
 <h3 id="s-04-01--stripe-service">S-04-01 · Stripe service</h3>
 <p>| Task | Requirement | Description |

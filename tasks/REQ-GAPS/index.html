@@ -787,7 +787,7 @@
 
 <h2 id="6-order-lifecycle">6. Order Lifecycle</h2>
 
-<h3 id="req-ord-01-missing">REQ-ORD-01 <code class="language-plaintext highlighter-rouge">[MISSING]</code></h3>
+<h3 id="req-ord-01-done--ep-04">REQ-ORD-01 <code class="language-plaintext highlighter-rouge">[DONE — EP-04]</code></h3>
 <p>Integrate Stripe. Implement <code class="language-plaintext highlighter-rouge">IStripeService</code> with:</p>
 <ul>
   <li><code class="language-plaintext highlighter-rouge">CreatePaymentIntentAsync(decimal amount, string currency, string customerId)</code> → returns <code class="language-plaintext highlighter-rouge">(clientSecret, ephemeralKey, customerId)</code></li>
@@ -796,23 +796,23 @@
 
 <p>Register <code class="language-plaintext highlighter-rouge">StripeService</code> in DI. Stripe secret key comes from <code class="language-plaintext highlighter-rouge">appsettings</code> / env var.</p>
 
-<h3 id="req-ord-02-partial">REQ-ORD-02 <code class="language-plaintext highlighter-rouge">[PARTIAL]</code></h3>
-<p><code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> must call <code class="language-plaintext highlighter-rouge">IStripeService.CreatePaymentIntentAsync</code> after reserving bouquets and return <code class="language-plaintext highlighter-rouge">stripeClientSecret</code>, <code class="language-plaintext highlighter-rouge">stripeEphemeralKey</code>, and <code class="language-plaintext highlighter-rouge">stripeCustomerId</code> in <code class="language-plaintext highlighter-rouge">OrderCreatedDto</code> (currently missing from the DTO and handler).</p>
+<h3 id="req-ord-02-done--ep-04">REQ-ORD-02 <code class="language-plaintext highlighter-rouge">[DONE — EP-04]</code></h3>
+<p><code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> must call <code class="language-plaintext highlighter-rouge">IStripeService.CreatePaymentIntentAsync</code> after reserving bouquets and return <code class="language-plaintext highlighter-rouge">stripeClientSecret</code>, <code class="language-plaintext highlighter-rouge">stripeEphemeralKey</code>, and <code class="language-plaintext highlighter-rouge">stripeCustomerId</code> in <code class="language-plaintext highlighter-rouge">OrderCreatedDto</code>. Implemented; <code class="language-plaintext highlighter-rouge">PaymentClientSecret</code>/<code class="language-plaintext highlighter-rouge">StripeEphemeralKey</code>/<code class="language-plaintext highlighter-rouge">StripeCustomerId</code> are returned in <code class="language-plaintext highlighter-rouge">OrderCreatedDto</code>.</p>
 
-<h3 id="req-ord-03-missing">REQ-ORD-03 <code class="language-plaintext highlighter-rouge">[MISSING]</code></h3>
-<p>Implement <code class="language-plaintext highlighter-rouge">StripeWebhookController</code> at <code class="language-plaintext highlighter-rouge">POST /api/stripe/webhook</code>. Handle <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code> and <code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code> events. On <code class="language-plaintext highlighter-rouge">succeeded</code>: confirm order payment (delegate to <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code>). On <code class="language-plaintext highlighter-rouge">failed</code>: cancel the order, release bouquet reservations. Verify Stripe webhook signature using <code class="language-plaintext highlighter-rouge">Stripe-Signature</code> header.</p>
+<h3 id="req-ord-03-done--ep-04">REQ-ORD-03 <code class="language-plaintext highlighter-rouge">[DONE — EP-04]</code></h3>
+<p>Implement <code class="language-plaintext highlighter-rouge">StripeWebhookController</code> at <code class="language-plaintext highlighter-rouge">POST /api/stripe/webhook</code>. Handle <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code> and <code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code> events. On <code class="language-plaintext highlighter-rouge">succeeded</code>: confirm order payment (delegate to <code class="language-plaintext highlighter-rouge">ConfirmPaymentCommand</code>). On <code class="language-plaintext highlighter-rouge">failed</code>: cancel the order, release bouquet reservations. Verify Stripe webhook signature using <code class="language-plaintext highlighter-rouge">Stripe-Signature</code> header. Implemented in commit <code class="language-plaintext highlighter-rouge">0aa528e</code>. <strong>Resilience gaps (returns 200 on failure, no dedup table, inline processing) are tracked in EP-17 REQ-PAY-02/03.</strong></p>
 
-<h3 id="req-ord-04-missing">REQ-ORD-04 <code class="language-plaintext highlighter-rouge">[MISSING]</code></h3>
-<p>Implement idempotency for <code class="language-plaintext highlighter-rouge">POST /api/orders</code>. The <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header (UUID v4) must be stored in Redis with the serialized response. If the same key is received within 24 h, return the cached response without re-executing the handler.</p>
+<h3 id="req-ord-04-done--ep-04">REQ-ORD-04 <code class="language-plaintext highlighter-rouge">[DONE — EP-04]</code></h3>
+<p>Implement idempotency for <code class="language-plaintext highlighter-rouge">POST /api/orders</code>. The <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header (UUID v4) must be stored in Redis with the serialized response. If the same key is received within 24 h, return the cached response without re-executing the handler. Implemented via <code class="language-plaintext highlighter-rouge">IdempotencyMiddleware</code>. <strong>Note:</strong> this is response-caching only; idempotency keys on the Stripe API calls themselves are EP-17 REQ-PAY-01.</p>
 
-<h3 id="req-ord-05-missing">REQ-ORD-05 <code class="language-plaintext highlighter-rouge">[MISSING]</code></h3>
-<p>Implement <code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code> — a <code class="language-plaintext highlighter-rouge">BackgroundService</code> that runs every 30 s, finds orders with <code class="language-plaintext highlighter-rouge">Status = Created</code> and <code class="language-plaintext highlighter-rouge">BouquetReservedUntil &lt; now</code>, cancels them, and releases bouquet reservations. Must dispatch a <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> SignalR event for each released bouquet.</p>
+<h3 id="req-ord-05-done--ep-04">REQ-ORD-05 <code class="language-plaintext highlighter-rouge">[DONE — EP-04]</code></h3>
+<p>Implement <code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code> — a <code class="language-plaintext highlighter-rouge">BackgroundService</code> that runs every 30 s, finds orders with <code class="language-plaintext highlighter-rouge">Status = Created</code> and <code class="language-plaintext highlighter-rouge">BouquetReservedUntil &lt; now</code>, cancels them, and releases bouquet reservations. Must dispatch a <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> SignalR event for each released bouquet. Implemented. <strong>Critical gap (C1): it can cancel a charged order with no refund — fixed in EP-17 REQ-PAY-04.</strong></p>
 
-<h3 id="req-ord-06-partial">REQ-ORD-06 <code class="language-plaintext highlighter-rouge">[PARTIAL]</code></h3>
-<p><code class="language-plaintext highlighter-rouge">GET /api/orders/{id}</code> — response must include <code class="language-plaintext highlighter-rouge">deliveryQrCode</code> (base64 PNG data URI, generated on demand when status is <code class="language-plaintext highlighter-rouge">Paid</code> or later). Implement <code class="language-plaintext highlighter-rouge">IQrCodeGenerator.GenerateForOrder(orderId)</code> using a library such as <code class="language-plaintext highlighter-rouge">QRCoder</code>. The QR payload is the order ID.</p>
+<h3 id="req-ord-06-done--ep-04">REQ-ORD-06 <code class="language-plaintext highlighter-rouge">[DONE — EP-04]</code></h3>
+<p><code class="language-plaintext highlighter-rouge">GET /api/orders/{id}</code> — response must include <code class="language-plaintext highlighter-rouge">deliveryQrCode</code> (generated on demand when status is <code class="language-plaintext highlighter-rouge">Paid</code> or later). Implemented: a geo <code class="language-plaintext highlighter-rouge">geo:</code> QR is built on order creation for delivery orders and lazily generated in <code class="language-plaintext highlighter-rouge">GetOrderDetailQueryHandler</code>.</p>
 
-<h3 id="req-ord-07-missing">REQ-ORD-07 <code class="language-plaintext highlighter-rouge">[MISSING]</code></h3>
-<p><code class="language-plaintext highlighter-rouge">POST /api/orders/{id}/cancel</code> — when the order status is <code class="language-plaintext highlighter-rouge">Paid</code>, call <code class="language-plaintext highlighter-rouge">IStripeService.RefundPaymentAsync</code> and set <code class="language-plaintext highlighter-rouge">refundStatus: "refund_initiated"</code> in the response. When status is <code class="language-plaintext highlighter-rouge">Created</code>, set <code class="language-plaintext highlighter-rouge">refundStatus: "not_applicable"</code>.</p>
+<h3 id="req-ord-07-partial--ep-04">REQ-ORD-07 <code class="language-plaintext highlighter-rouge">[PARTIAL — EP-04]</code></h3>
+<p><code class="language-plaintext highlighter-rouge">POST /api/orders/{id}/cancel</code> — when the order status is <code class="language-plaintext highlighter-rouge">Paid</code>, call <code class="language-plaintext highlighter-rouge">IStripeService.RefundPaymentAsync</code> and set <code class="language-plaintext highlighter-rouge">refundStatus</code> in the response. The refund <strong>call</strong> is wired in <code class="language-plaintext highlighter-rouge">CancelOrderCommandHandler</code>, but the <code class="language-plaintext highlighter-rouge">RefundStatus</code> property, <code class="language-plaintext highlighter-rouge">CancelOrderResponseDto</code>, and <code class="language-plaintext highlighter-rouge">refundStatus</code> in the response body were never implemented, and the refund result status is not checked. Residual tracked in EP-17 T-17-008.</p>
 
 <hr />
 
@@ -1132,43 +1132,43 @@
       <td>REQ-ORD-01</td>
       <td>Stripe Service</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>DONE (EP-04, commit 0aa528e)</td>
     </tr>
     <tr>
       <td>REQ-ORD-02</td>
       <td>Stripe Keys in OrderCreatedDto</td>
       <td>P0</td>
-      <td>PARTIAL</td>
+      <td>DONE (EP-04)</td>
     </tr>
     <tr>
       <td>REQ-ORD-03</td>
       <td>Stripe Webhook Handler</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>DONE (EP-04, commit 0aa528e)</td>
     </tr>
     <tr>
       <td>REQ-ORD-04</td>
       <td>Idempotency-Key for POST /api/orders</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>DONE (EP-04); hardening in EP-17 REQ-PAY-01</td>
     </tr>
     <tr>
       <td>REQ-ORD-05</td>
       <td>Reservation Expiry Background Service</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>DONE (EP-04); refund-on-expiry gap in EP-17 REQ-PAY-04</td>
     </tr>
     <tr>
       <td>REQ-ORD-06</td>
       <td>Delivery QR Code Generation</td>
       <td>P1</td>
-      <td>PARTIAL</td>
+      <td>DONE (EP-04)</td>
     </tr>
     <tr>
       <td>REQ-ORD-07</td>
       <td>Cancel with Refund</td>
       <td>P1</td>
-      <td>PARTIAL</td>
+      <td>PARTIAL (refund wired; refundStatus response → EP-17 T-17-008)</td>
     </tr>
     <tr>
       <td>REQ-VOM-01</td>
