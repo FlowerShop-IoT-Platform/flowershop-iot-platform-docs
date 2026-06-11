@@ -7,6 +7,18 @@
 
 ---
 
+> ## ✅ RESOLUTION (2026-06-11): all findings addressed by EP-17
+> Every finding below (C1–C4, H1–H6, M1–M6) has been implemented and is mapped to a story/task in
+> `docs/tasks/tasks-ep17-payment-resilience.json` and `docs/tasks/EPICS-B.md` (Area 6, REQ-PAY-01..10
+> in `docs/tasks/REQ-GAPS-B.md`). **The "C1 is live today" warning below is the original finding and
+> is now fixed.** This document is preserved as the rationale/spec of *why* each change was made — the
+> body text still describes the pre-EP-17 state. Finding → story map:
+> C1,C4,H1 → S-17-03 · C2,H2,H3 → S-17-02 · C3,M1 → S-17-01 · H5,H6 → S-17-04 · H4 → S-17-05 ·
+> M2,M3,M4,M5,M6 → S-17-06. The only carry-forward is wiring `IAlertService` to a real on-call/metrics
+> backend (M6/REQ-PAY-10) — a deployment-stack task, see `docs/deployment/OBSERVABILITY.md`.
+
+---
+
 ## Files reviewed
 
 | Concern | File |

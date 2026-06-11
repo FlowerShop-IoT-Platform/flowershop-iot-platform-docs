@@ -226,7 +226,7 @@ EP-15 (IoT Integration) — independent, can run in parallel
 **Dependencies**: EP-04 (extends the functional Stripe flow with failure-mode hardening).
 **Requirement refs**: REQ-PAY-01 to REQ-PAY-10 (REQ-GAPS-B.md Area 6)
 **Source**: review against [systemdesign.one — Design a Payment System](https://newsletter.systemdesign.one/p/design-a-payment-system); full findings in `docs/STRIPE-PAYMENT-RESILIENCE-REVIEW.md` and tasks in `tasks-ep17-payment-resilience.json`.
-**Status (2026-06-11): IN PROGRESS — P0 ship-blockers DONE** on branch `feat/ep17-payment-resilience` (commits `91df302` S-17-01, `ec10e3f` S-17-02, `80ed1b2` S-17-03). All four money-loss paths C1–C4 closed; 271 tests pass (156 unit + 115 domain, +35). Migrations `AddProcessedStripeEvents` + `AddOrderNeedsRefundRetry` applied. Remaining: S-17-04 (P1), S-17-05 (P1), S-17-06 (P2). Note: T-17-007 was implemented as "never cancel a charged/in-flight order; leave orphaned-charge refunds to the reconciliation worker (H1)" per the review's C1 guidance, rather than refunding inline in the expiry worker.
+**Status (2026-06-11): ✅ COMPLETE — all 6 stories / 18 tasks done.** P0 merged to `main` via PR #11 (`91df302` S-17-01, `ec10e3f` S-17-02, `80ed1b2` S-17-03) — all four money-loss paths C1–C4 closed. P1 + P2 on branch `feat/ep17-payment-resilience-p1` (`eb7b84e` S-17-04, `a68aafb` S-17-05, `2086bfa` S-17-06, `20c1878` T-17-012). 288 tests pass (167 unit + 121 domain). Migrations: `AddProcessedStripeEvents`, `AddOrderNeedsRefundRetry`, `AddOrderPaymentProcessing`, `AddOrderDisputed`. Notes: T-17-007 implemented as "never cancel a charged/in-flight order; leave orphaned-charge refunds to the reconciliation worker (H1)" per the review's C1 guidance; T-17-018's `IAlertService` logs at Critical with stable alert names — wiring to a real on-call/metrics backend is a deployment-stack follow-up outside EP-17 code.
 
 > EP-04 made the payment flow work; EP-17 makes it correct under failure. The review found four reachable money-loss paths (C1–C4). **C1 is live today**: a paid customer can be auto-cancelled by the reservation-expiry worker with no refund. C1–C4 are ship-blockers; goal is zero money-loss (no double-charge, no double-refund, no orphaned charge, no silently-dropped webhook).
 
@@ -234,9 +234,9 @@ EP-15 (IoT Integration) — independent, can run in parallel
 - ✅ S-17-01: Idempotent Stripe API calls — no double-charge / no double-refund (C3, M1) — **DONE**
 - ✅ S-17-02: Reliable webhook ingestion — store-first, dedup, retry-on-failure (C2, H2, H3) — **DONE**
 - ✅ S-17-03: No orphaned charges — expiry must refund, plus reconciliation safety net (C1, C4, H1) — **DONE**
-- S-17-04: Atomic & race-safe payment confirmation (H5, H6) — todo (P1)
-- S-17-05: Asynchronous payment methods (BLIK) handled correctly (H4) — todo (P1)
-- S-17-06: Defensive hardening — circuit breaker, amount checks, dispute events, alerting (M2–M6) — todo (P2)
+- ✅ S-17-04: Atomic & race-safe payment confirmation (H5, H6) — **DONE**
+- ✅ S-17-05: Asynchronous payment methods (BLIK) handled correctly (H4) — **DONE**
+- ✅ S-17-06: Defensive hardening — circuit breaker, amount checks, dispute events, alerting (M2–M6) — **DONE**
 
 ### Tasks
 | ID | Story | Title | Status |
@@ -250,15 +250,15 @@ EP-15 (IoT Integration) — independent, can run in parallel
 | T-17-007 | S-17-03 | Verify-with-Stripe before expiring a `Created` order; refund if charged (fixes live C1) | ✅ done |
 | T-17-008 | S-17-03 | Check `refund.Status`; only mark refunded on success, else flag + alert | ✅ done |
 | T-17-009 | S-17-03 | Add daily payment reconciliation worker | ✅ done |
-| T-17-010 | S-17-04 | Add optimistic-concurrency token to `Order` | todo |
-| T-17-011 | S-17-04 | Make payment confirmation atomic in a single transaction | todo |
-| T-17-012 | S-17-04 | Move inline MQTT/vase side effects to the `OrderPaidEvent` consumer | todo |
-| T-17-013 | S-17-05 | Handle `payment_intent.processing`; webhook as source of truth for BLIK | todo |
-| T-17-014 | S-17-06 | Assert amount + currency match the order before confirming | todo |
-| T-17-015 | S-17-06 | Wrap Stripe calls in Polly timeout + bounded retry + circuit breaker | todo |
-| T-17-016 | S-17-06 | Pin the Stripe API version | todo |
-| T-17-017 | S-17-06 | Handle `charge.refunded` / `charge.dispute.created` / `payment_intent.canceled` | todo |
-| T-17-018 | S-17-06 | Route payment failures to alerting, not silent logs | partial — `IAlertService` seam landed in S-17-03; real on-call routing still todo |
+| T-17-010 | S-17-04 | Add optimistic-concurrency token to `Order` | ✅ done (Order.Version, no migration) |
+| T-17-011 | S-17-04 | Make payment confirmation atomic in a single transaction | ✅ done (ExecuteInTransactionAsync) |
+| T-17-012 | S-17-04 | Move inline MQTT/vase side effects to the `OrderPaidEvent` consumer | ✅ done (OrderPaidVaseNotificationHandler) |
+| T-17-013 | S-17-05 | Handle `payment_intent.processing`; webhook as source of truth for BLIK | ✅ done |
+| T-17-014 | S-17-06 | Assert amount + currency match the order before confirming | ✅ done |
+| T-17-015 | S-17-06 | Wrap Stripe calls in Polly timeout + bounded retry + circuit breaker | ✅ done |
+| T-17-016 | S-17-06 | Pin the Stripe API version | ✅ done (SDK-pinned + AppInfo + surfaced) |
+| T-17-017 | S-17-06 | Handle `charge.refunded` / `charge.dispute.created` / `payment_intent.canceled` | ✅ done |
+| T-17-018 | S-17-06 | Route payment failures to alerting, not silent logs | ✅ done (IAlertService; real on-call backend = deploy follow-up) |
 
 ---
 

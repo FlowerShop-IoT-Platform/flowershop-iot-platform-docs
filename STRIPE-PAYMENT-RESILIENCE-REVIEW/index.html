@@ -691,6 +691,20 @@
 
 <hr />
 
+<blockquote>
+  <h2 id="-resolution-2026-06-11-all-findings-addressed-by-ep-17">✅ RESOLUTION (2026-06-11): all findings addressed by EP-17</h2>
+  <p>Every finding below (C1–C4, H1–H6, M1–M6) has been implemented and is mapped to a story/task in
+<code class="language-plaintext highlighter-rouge">docs/tasks/tasks-ep17-payment-resilience.json</code> and <code class="language-plaintext highlighter-rouge">docs/tasks/EPICS-B.md</code> (Area 6, REQ-PAY-01..10
+in <code class="language-plaintext highlighter-rouge">docs/tasks/REQ-GAPS-B.md</code>). <strong>The “C1 is live today” warning below is the original finding and
+is now fixed.</strong> This document is preserved as the rationale/spec of <em>why</em> each change was made — the
+body text still describes the pre-EP-17 state. Finding → story map:
+C1,C4,H1 → S-17-03 · C2,H2,H3 → S-17-02 · C3,M1 → S-17-01 · H5,H6 → S-17-04 · H4 → S-17-05 ·
+M2,M3,M4,M5,M6 → S-17-06. The only carry-forward is wiring <code class="language-plaintext highlighter-rouge">IAlertService</code> to a real on-call/metrics
+backend (M6/REQ-PAY-10) — a deployment-stack task, see <code class="language-plaintext highlighter-rouge">docs/deployment/OBSERVABILITY.md</code>.</p>
+</blockquote>
+
+<hr />
+
 <h2 id="files-reviewed">Files reviewed</h2>
 
 <table>
