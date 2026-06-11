@@ -173,3 +173,31 @@ No timeout/retry/circuit breaker around Stripe calls (the design recommends a br
 Every "manual refund required", failed refund, webhook processing failure, amount mismatch, and reconciliation divergence is currently a silent log line. Route all of these to structured alerts (metric + on-call notification) per `docs/deployment/OBSERVABILITY.md`.
 > Done: `IAlertService`/`LoggingAlertService` raises structured Critical alerts with stable names (`PAYMENT_REFUND_FAILED`, `PAYMENT_AMOUNT_MISMATCH`, `PAYMENT_DISPUTE_CREATED`, `PAYMENT_WEBHOOK_POISON`, `PAYMENT_EXPIRY_VERIFY_FAILED`, `PAYMENT_ORPHANED_CHARGE_REFUND_FAILED`, `PAYMENT_RECONCILIATION_DRIFT`, `PAYMENT_REFUND_RETRY_FAILED`) at every failure point.
 > **FOLLOW-UP (not EP-17):** wire `IAlertService` to a real on-call/metrics backend (PagerDuty / OpenTelemetry) per `docs/deployment/OBSERVABILITY.md`. Today it only logs at Critical.
+
+---
+
+## Area 6b: Payment Visibility & Card Checkout (EP-18)
+
+> Follow-up to EP-17 from the 2026-06-11 payment-visibility review. EP-17 made payment processing *correct* but added no operator/customer-facing surface, and checkout is BLIK-only. Requirements below are the remaining product gaps; tasks in `tasks-ep18-payment-visibility-card.json`.
+> **Card baseline:** the backend already allows card (`PaymentMethodTypes = { blik, card }` for PLN) and the confirm/webhook flow is method-agnostic — so "add card" is a UI + SCA + capture concern, not a backend-engine change.
+
+### REQ-PAY-11 [MISSING] Capture the payment method used — P1 (EP-18 S-18-01)
+The order records `PaymentIntentId`/amount but not which method paid (card / blik / apple_pay / google_pay). Method-level reporting is impossible and portals can't show "paid by card". The webhook event already carries this (`latest_charge.payment_method_details.type` / `payment_method_types`); extract and persist a nullable `Order.PaymentMethod`.
+
+### REQ-PAY-12 [MISSING] Admin payment-operations dashboard — P1 (EP-18 S-18-02)
+Admin sees only an Orders list (status+total) and a single Revenue figure. The rich EP-17 state (`RefundStatus`, `NeedsRefundRetry`, `Disputed`, reconciliation drift) is persisted but never surfaced, so operators can't find orders needing a refund retry, disputes, or drift without querying the DB. Add an admin payments view (cross-vendor) + endpoint listing orders by payment-operations state.
+
+### REQ-PAY-13 [MISSING] Vendor payment visibility — P2 (EP-18 S-18-03)
+Vendor Orders views show only amount+currency. Enrich list/detail with payment status, paid-at, refund status, and method — scoped to the vendor (scoping already enforced; do NOT expose `PaymentIntentId`/Stripe ids to vendors).
+
+### REQ-PAY-14 [MISSING] Platform payment metrics — P2 (EP-18 S-18-02)
+No refund rate, dispute count, payment-method distribution, or failed-payment count anywhere. Extend platform analytics with these (method distribution depends on REQ-PAY-11).
+
+### REQ-PAY-15 [MISSING] Card payment checkout (Payment Element) — P1 (EP-18 S-18-04)
+Customer web checkout hardcodes `stripe.confirmBlikPayment(...)`, so card cannot be used even though the backend allows it. Replace with the Stripe **Payment Element** (offers card + BLIK + wallets from the same `client_secret`) and `confirmPayment({ return_url })`. No backend change required.
+
+### REQ-PAY-16 [MISSING] SCA / 3-D Secure handling — P1 (EP-18 S-18-04)
+PLN/EU card payments return `requires_action` and need a 3-D Secure challenge + redirect. Nothing handles the return flow today. The Payment Element + `confirmPayment` handle the 3DS challenge client-side; add a payment-return page, with the existing webhook (`processing`/`succeeded`/`failed`, EP-17 S-17-05) as the order-state source of truth.
+
+### REQ-PAY-17 [MISSING] Saved cards / reusable methods — P2 stretch (EP-18 S-18-05)
+No `setup_future_usage`/`SetupIntent`/payment-method management, so returning customers re-enter card details. The ephemeral-key infra exists in `StripeService` but is unused for reuse. Card/wallet only (BLIK can't be saved). Defer until REQ-PAY-15/16 are validated.

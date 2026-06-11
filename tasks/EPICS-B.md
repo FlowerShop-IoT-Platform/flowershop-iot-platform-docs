@@ -262,6 +262,42 @@ EP-15 (IoT Integration) — independent, can run in parallel
 
 ---
 
+## EP-18: Payment Visibility & Card Checkout
+
+**Priority**: P1-high
+**Dependencies**: EP-17 (payment state to surface), EP-10/EP-11/EP-12 (analytics + portal scaffolding), EP-13 (customer web checkout).
+**Requirement refs**: REQ-PAY-11 to REQ-PAY-17 (REQ-GAPS-B.md Area 6)
+**Source**: payment-visibility review 2026-06-11 (follow-up to EP-17); tasks in `tasks-ep18-payment-visibility-card.json`.
+
+> EP-17 made payment processing correct under failure but left no operator/customer-facing surface, and checkout is BLIK-only. This epic adds: payment-method capture, an Admin payment-operations dashboard, vendor payment visibility, and **card checkout via the Stripe Payment Element + SCA**.
+>
+> **Key finding:** card is *already* enabled at the backend — `StripeService` sets `PaymentMethodTypes = { blik, card }` (PLN) / `{ card }`, and the confirm/webhook flow is method-agnostic. The gap is the customer UI (hardcoded `confirmBlikPayment()`), SCA/3-D Secure handling, and payment-method capture. The backend payment engine is unchanged.
+
+### Stories
+- S-18-01: Capture the payment method used on each order (REQ-PAY-11) — P1, data foundation
+- S-18-02: Admin payment-operations dashboard — platform-wide (REQ-PAY-12, 14) — P1
+- S-18-03: Vendor payment visibility — own orders only (REQ-PAY-13) — P2
+- S-18-04: Card payment checkout + SCA / 3-D Secure (REQ-PAY-15, 16) — P1 ← *"add card payment"*
+- S-18-05: Saved cards / reusable payment methods (REQ-PAY-17) — P2, stretch
+
+### Tasks
+| ID | Story | Title |
+|----|-------|-------|
+| T-18-001 | S-18-01 | Persist `PaymentMethod` on the Order aggregate (+ migration) |
+| T-18-002 | S-18-01 | Extract payment method from the Stripe event; thread to confirmation |
+| T-18-003 | S-18-02 | Admin payment-operations query + `GET /api/v1/admin/payments` |
+| T-18-004 | S-18-02 | Admin payment DTO (refund/dispute/method/intent fields) |
+| T-18-005 | S-18-02 | Admin Portal Payments page + nav |
+| T-18-006 | S-18-02 | Platform payment metrics (refund rate, disputes, method mix, failures) |
+| T-18-007 | S-18-03 | Add payment fields to vendor order DTOs (no Stripe ids) |
+| T-18-008 | S-18-03 | Show payment + refund status in Vendor Portal Orders views |
+| T-18-009 | S-18-04 | Replace BLIK-only checkout with the Stripe Payment Element |
+| T-18-010 | S-18-04 | Handle SCA / 3-D Secure return flow (webhook = source of truth) |
+| T-18-011 | S-18-04 | End-to-end card test (3DS card) + BLIK no-regression |
+| T-18-012 | S-18-05 | Save & reuse card payment methods (stretch) |
+
+---
+
 ## Summary
 
 | Epic | Priority | Stories | Tasks | Key Dependency |
@@ -274,4 +310,5 @@ EP-15 (IoT Integration) — independent, can run in parallel
 | EP-15 IoT Integration | P1-high | 4 | 8 | none |
 | EP-16 E2E Testing | P2-medium | 4 | 10 | none |
 | EP-17 Payment Resilience & Correctness | P0-critical | 6 | 18 | EP-04 |
-| **Total** | | **34** | **76** | |
+| EP-18 Payment Visibility & Card Checkout | P1-high | 5 | 12 | EP-17, EP-10/11/12, EP-13 |
+| **Total** | | **39** | **88** | |
