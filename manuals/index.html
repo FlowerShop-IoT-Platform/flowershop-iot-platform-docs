@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Home — FlowerShop IoT Platform</title>
+  <title>User Manuals — FlowerShop IoT Platform</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -581,13 +581,9 @@
 </header>
 
 <div class="layout">
-
-  <!-- SIDEBAR OVERLAY (mobile) -->
   <div class="sidebar-overlay" id="overlay"></div>
 
-  <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebar">
-
     <div class="sidebar-section">
       <button class="sidebar-group-btn open" data-target="nav-arch">
         <span class="sidebar-group-icon">🏗️</span> Architecture
@@ -597,45 +593,19 @@
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/">Overview</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-context">C4 Context</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-containers">C4 Containers</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/c4-components">C4 Components</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/domain-model">Domain Model</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/cross-cutting">Cross-cutting</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/view-functional">Functional View</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/view-information">Information View</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/view-concurrency">Concurrency View</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/view-development">Development View</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/view-deployment">Deployment View</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/view-operational">Operational View</a>
       </div>
     </div>
-
     <div class="sidebar-section">
-      <button class="sidebar-group-btn open" data-target="nav-flows">
-        <span class="sidebar-group-icon">🔀</span> Flows
-        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="sidebar-items open" id="nav-flows">
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-auth">Authentication</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-customer">Customer</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-vendor">Vendor</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-admin">Admin</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-iot">IoT</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-payments">Payments</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/architecture/flows-realtime">Real-time</a>
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <button class="sidebar-group-btn open" data-target="nav-api">
+      <button class="sidebar-group-btn" data-target="nav-api">
         <span class="sidebar-group-icon">📡</span> API
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <div class="sidebar-items open" id="nav-api">
+      <div class="sidebar-items" id="nav-api">
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/API-CONTRACTS">Mobile API Contracts</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/contracts/outbound">Outbound Contracts</a>
       </div>
     </div>
-
     <div class="sidebar-section">
       <button class="sidebar-group-btn" data-target="nav-deploy">
         <span class="sidebar-group-icon">🚀</span> Deployment
@@ -644,195 +614,63 @@
       <div class="sidebar-items" id="nav-deploy">
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/">Overview</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY">Observability</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
       </div>
     </div>
-
     <div class="sidebar-section">
-      <button class="sidebar-group-btn" data-target="nav-features">
-        <span class="sidebar-group-icon">✨</span> Features
-        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="sidebar-items" id="nav-features">
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/COMPLETE_WORKFLOW">Complete Workflow</a>
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <button class="sidebar-group-btn" data-target="nav-firmware">
-        <span class="sidebar-group-icon">📟</span> Firmware
-        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="sidebar-items" id="nav-firmware">
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
-      </div>
-    </div>
-
-
-    <div class="sidebar-section">
-      <button class="sidebar-group-btn" data-target="nav-manuals">
+      <button class="sidebar-group-btn open" data-target="nav-manuals">
         <span class="sidebar-group-icon">📖</span> User Manuals
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <div class="sidebar-items" id="nav-manuals">
-        <a class="sidebar-link" href="/flowershop-iot-platform-docs/manuals/">Overview</a>
+      <div class="sidebar-items open" id="nav-manuals">
+        <a class="sidebar-link active" href="/flowershop-iot-platform-docs/manuals/">Overview</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/manuals/admin-portal-manual.html">Admin Portal Manual</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
         <a class="sidebar-link" href="/flowershop-iot-platform-docs/manuals/customer-app-manual.html">Customer App Manual</a>
       </div>
     </div>
-
   </nav>
 
-  <!-- MAIN -->
   <main class="main">
     <div class="content">
-      <h1 id="flowershop-iot-platform">FlowerShop IoT Platform</h1>
+      <h1 id="user-manuals">User Manuals</h1>
 
-<p class="page-lead">Multi-tenant SaaS platform connecting flower vendors with customers through IoT-enabled smart vases. Use the left panel to navigate all documentation sections.</p>
+<p class="page-lead">Step-by-step visual guides for each portal of the FlowerShop IoT Platform. Each manual is a self-contained HTML file with embedded screenshots — open it directly in any browser, no internet connection required.</p>
 
-<h2 id="architecture">Architecture</h2>
-
-<div class="card-grid">
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/">
-    <div class="card-icon">🏗️</div>
-    <div class="card-title">Overview</div>
-    <div class="card-desc">Tech stack, Clean Architecture layers, key patterns</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/c4-context">
-    <div class="card-icon">🌐</div>
-    <div class="card-title">C4 Context</div>
-    <div class="card-desc">System-level view: users and external systems</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/c4-containers">
-    <div class="card-icon">📦</div>
-    <div class="card-title">C4 Containers</div>
-    <div class="card-desc">All runtime containers and their communication</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/c4-components">
-    <div class="card-icon">🔩</div>
-    <div class="card-title">C4 Components</div>
-    <div class="card-desc">API layer internals: controllers → handlers → domain</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/domain-model">
-    <div class="card-icon">🗂️</div>
-    <div class="card-title">Domain Model</div>
-    <div class="card-desc">ER diagram of all 14 aggregates</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/cross-cutting">
-    <div class="card-icon">⚙️</div>
-    <div class="card-title">Cross-cutting</div>
-    <div class="card-desc">Middleware, caching, multi-tenancy, idempotency</div>
-  </a>
-</div>
-
-<h2 id="flows">Flows</h2>
+<h2 id="portals">Portal Manuals</h2>
 
 <div class="card-grid">
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-auth">
-    <div class="card-icon">🔐</div>
-    <div class="card-title">Authentication</div>
-    <div class="card-desc">Keycloak OIDC, dev-token, tenant resolution, token blacklist</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-customer">
-    <div class="card-icon">🛍️</div>
-    <div class="card-title">Customer</div>
-    <div class="card-desc">Browse, QR scan, cart, order, payment, delivery</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-vendor">
-    <div class="card-icon">🌹</div>
-    <div class="card-title">Vendor</div>
-    <div class="card-desc">Onboarding, bouquet lifecycle, order fulfillment</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-admin">
+  <a class="card" href="/flowershop-iot-platform-docs/manuals/admin-portal-manual.html">
     <div class="card-icon">🛡️</div>
-    <div class="card-title">Admin</div>
-    <div class="card-desc">Vendor approval, suspension, analytics</div>
+    <div class="card-title">Admin Portal Manual</div>
+    <div class="card-desc">Complete guide for platform administrators — manage vendors, smart vases, customers, orders and payments at <code>localhost:5001</code></div>
   </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-iot">
-    <div class="card-icon">📡</div>
-    <div class="card-title">IoT</div>
-    <div class="card-desc">Vase registration, MQTT, heartbeat, sensor data</div>
+  <a class="card" href="/flowershop-iot-platform-docs/manuals/vendor-portal-manual.html">
+    <div class="card-icon">🌹</div>
+    <div class="card-title">Vendor Portal Manual</div>
+    <div class="card-desc">Complete guide for flower shop owners and freelance florists — manage bouquets, vases, orders, analytics and settings at <code>localhost:5002</code></div>
   </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-payments">
-    <div class="card-icon">💳</div>
-    <div class="card-title">Payments</div>
-    <div class="card-desc">Stripe checkout, webhook, outbox, confirmation</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/architecture/flows-realtime">
-    <div class="card-icon">⚡</div>
-    <div class="card-title">Real-time</div>
-    <div class="card-desc">SignalR hub groups, outbox dispatch, view counter</div>
+  <a class="card" href="/flowershop-iot-platform-docs/manuals/customer-app-manual.html">
+    <div class="card-icon">🗺️</div>
+    <div class="card-title">Customer App Manual</div>
+    <div class="card-desc">Complete guide for customers — discover bouquets on the map, manage your cart, place orders and track deliveries at <code>localhost:5003</code></div>
   </a>
 </div>
 
-<h2 id="api--contracts">API &amp; Contracts</h2>
+<h2 id="coverage">Coverage</h2>
 
-<div class="card-grid">
-  <a class="card" href="/flowershop-iot-platform-docs/API-CONTRACTS">
-    <div class="card-icon">📋</div>
-    <div class="card-title">Mobile API Contracts</div>
-    <div class="card-desc">Full REST + SignalR contract for the mobile app</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/contracts/outbound">
-    <div class="card-icon">📤</div>
-    <div class="card-title">Outbound Contracts</div>
-    <div class="card-desc">Domain events and integration event schemas</div>
-  </a>
-</div>
+<table>
+  <thead><tr><th>Manual</th><th>Screenshots</th><th>Sections</th><th>Theme</th></tr></thead>
+  <tbody>
+    <tr><td>Admin Portal</td><td>14 pages</td><td>Authentication, Dashboard, Vendor Mgmt, Vase Mgmt, Customer Mgmt, Orders, Payments</td><td>Blue</td></tr>
+    <tr><td>Vendor Portal</td><td>14 pages</td><td>Authentication, Dashboard, Bouquets, Vases, Orders, Payments, Feedback, Analytics, Settings</td><td>Green</td></tr>
+    <tr><td>Customer App</td><td>11 pages</td><td>Browse Bouquets, Authentication, Shopping, Orders, Account</td><td>Teal</td></tr>
+  </tbody>
+</table>
 
-<h2 id="deployment">Deployment</h2>
-
-<div class="card-grid">
-  <a class="card" href="/flowershop-iot-platform-docs/deployment/">
-    <div class="card-icon">🚀</div>
-    <div class="card-title">Overview</div>
-    <div class="card-desc">Hosting topology, infrastructure providers</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-SPEC">
-    <div class="card-icon">📐</div>
-    <div class="card-title">Deployment Spec</div>
-    <div class="card-desc">Component placement rationale and required code changes</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/deployment/DEPLOYMENT-RUNBOOK">
-    <div class="card-icon">📗</div>
-    <div class="card-title">Runbook</div>
-    <div class="card-desc">Ordered deploy-day steps with health-check gates</div>
-  </a>
-  <a class="card" href="/flowershop-iot-platform-docs/deployment/OBSERVABILITY">
-    <div class="card-icon">🔭</div>
-    <div class="card-title">Observability</div>
-    <div class="card-desc">Logs, health endpoints, metrics, alerting</div>
-  </a>
-</div>
-
-    </div>
+    </div><!-- /.content -->
   </main>
 </div>
 
-<!-- DIAGRAM MODAL -->
-<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
-  <div class="diagram-modal-toolbar">
-    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
-    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
-    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
-    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
-    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
-    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
-  </div>
-  <div class="diagram-modal-body" id="dmBody">
-    <div class="diagram-modal-canvas" id="dmCanvas"></div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
 <script>
   // ── 1. Convert Jekyll ```mermaid blocks → <div class="mermaid"> ──
   document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
