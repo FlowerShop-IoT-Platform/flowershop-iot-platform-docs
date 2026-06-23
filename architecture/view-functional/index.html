@@ -38,6 +38,8 @@
     .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
 
 
+
+
     html.light {
       --bg: #f5f7fb;
       --surface: #ffffff;
@@ -112,7 +114,7 @@
       position: fixed;
       top: 0; left: 0; right: 0;
       height: var(--header-h);
-      background: rgba(15,17,23,.9);
+      background: var(--topbar-bg);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -629,7 +631,7 @@
       .page-nav-btn { max-width: 48%; }
     }
   </style>
-  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#4b5563','--text-dim':'#9ca3af'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
+  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#4b5563','--text-dim':'#9ca3af','--topbar-bg':'rgba(245,247,251,.96)'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
 </head>
 <body>
 
@@ -1035,7 +1037,11 @@
     if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
     mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
+  }
   }
   }
   }
@@ -1272,6 +1278,8 @@
 
   
   
+  
+  
   // -- 8. Dark / light mode toggle --
   (function () {
     var root = document.documentElement;
@@ -1281,12 +1289,14 @@
     var LIGHT_VARS = {
       '--bg': '#f5f7fb', '--surface': '#ffffff', '--surface2': '#eef1f7',
       '--border': '#d1d8e8', '--accent': '#4361ee', '--accent2': '#7c3aed',
-      '--text': '#111827', '--text-muted': '#4b5563', '--text-dim': '#9ca3af'
+      '--text': '#111827', '--text-muted': '#4b5563', '--text-dim': '#9ca3af',
+      '--topbar-bg': 'rgba(245,247,251,.96)'
     };
     var DARK_VARS = {
       '--bg': '#0f1117', '--surface': '#1a1d27', '--surface2': '#22263a',
       '--border': '#2e3350', '--accent': '#6c8cff', '--accent2': '#a78bfa',
-      '--text': '#e2e8f0', '--text-muted': '#8892a4', '--text-dim': '#566070'
+      '--text': '#e2e8f0', '--text-muted': '#8892a4', '--text-dim': '#566070',
+      '--topbar-bg': 'rgba(15,17,23,.9)'
     };
     function applyTheme(mode) {
       var vars = mode === 'light' ? LIGHT_VARS : DARK_VARS;
