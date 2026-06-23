@@ -675,6 +675,22 @@
   </main>
 </div>
 
+<!-- DIAGRAM MODAL -->
+<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
+  <div class="diagram-modal-toolbar">
+    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
+    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
+    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
+    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
+    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
+    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
+  </div>
+  <div class="diagram-modal-body" id="dmBody">
+    <div class="diagram-modal-canvas" id="dmCanvas"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
 <script>
   // ── 1. Convert Jekyll ```mermaid blocks → <div class="mermaid"> ──
   document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
