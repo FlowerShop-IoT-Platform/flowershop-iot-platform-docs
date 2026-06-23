@@ -633,15 +633,7 @@
   <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
   <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
   <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
-  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
-    <span id="themeIcon">&#9728;&#65039;</span>
-    <span id="themeLabel">Light</span>
-  </button>
-  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
-    <span id="themeIcon">&#9728;&#65039;</span>
-    <span id="themeLabel">Light</span>
-  </button>
-  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+        <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
     <span id="themeIcon">&#9728;&#65039;</span>
     <span id="themeLabel">Light</span>
   </button>
@@ -866,7 +858,9 @@
   if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
     mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
   }
   }
   }
@@ -1096,6 +1090,8 @@
   })();
 
   
+  ;
+
   // -- 8. Dark / light mode toggle --
   (function () {
     var root = document.documentElement;
