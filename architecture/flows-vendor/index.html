@@ -20,7 +20,61 @@
       --radius: 8px;
       --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+
+    html.light {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface2: #eef1f7;
+      --border: #d1d8e8;
+      --accent: #4361ee;
+      --accent2: #7c3aed;
+      --text: #111827;
+      --text-muted: #4b5563;
+      --text-dim: #9ca3af;
     }
+    html.light body { background: var(--bg); color: var(--text); }
+    html.light .topbar { background: rgba(245,247,251,.92); border-bottom-color: var(--border); }
+    html.light .topbar-logo { color: var(--text); }
+    html.light .topbar-badge { background: var(--surface2); border-color: var(--border); color: var(--text-muted); }
+    html.light .topbar-link { color: var(--text-muted); }
+    html.light .topbar-link:hover { color: var(--text); background: var(--surface2); }
+    html.light .sidebar { background: var(--surface); border-right-color: var(--border); }
+    html.light .sidebar-link { color: var(--text-muted); }
+    html.light .sidebar-link:hover { color: var(--text); background: var(--surface2); }
+    html.light .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(67,97,238,.07); }
+    html.light .content p, html.light .content li { color: #374151; }
+    html.light .content code { background: var(--surface2); border-color: var(--border); color: #1d4ed8; }
+    html.light .content pre { background: var(--surface2); border-color: var(--border); }
+    html.light .content pre code { color: #1e293b; }
+    html.light .content blockquote { background: rgba(124,58,237,.05); border-left-color: var(--accent2); }
+    html.light .content blockquote p { color: var(--text-muted); }
+    html.light .content thead th { background: var(--surface2); color: var(--text); }
+    html.light .content tbody tr:hover { background: var(--surface2); }
+    html.light .content tbody td { color: #374151; }
+    html.light .mermaid { background: var(--surface2); border-color: var(--border); }
+    html.light .card { background: var(--surface); border-color: var(--border); }
+    html.light .card:hover { border-color: var(--accent); }
+    html.light .page-nav-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+    html.light .page-nav-btn:hover { background: var(--surface2); border-color: var(--accent); }
+    html.light .diagram-modal-toolbar { background: var(--surface); border-bottom-color: var(--border); }
+    html.light .dm-btn { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    html.light .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    html.light .diagram-modal-canvas { background: var(--surface2); border-color: var(--border); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1;
+      transition: color .15s, background .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+      font-family: var(--font);
+    }
+    .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -582,6 +636,10 @@
     <span id="themeIcon">&#9728;&#65039;</span>
     <span id="themeLabel">Light</span>
   </button>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">&#9728;&#65039;</span>
+    <span id="themeLabel">Light</span>
+  </button>
 </header>
 
 <div class="layout">
@@ -822,7 +880,9 @@
   });
 
   if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
     mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
   }
 
   // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
