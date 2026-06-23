@@ -41,6 +41,8 @@
 
 
 
+
+
     html.light {
       --bg: #f5f7fb;
       --surface: #ffffff;
@@ -51,6 +53,10 @@
       --text: #111827;
       --text-muted: #374151;
       --text-dim: #374151;
+      --content-text: #111827;
+      --link-hover: #1d4ed8;
+      --code-color: #1d4ed8;
+      --pre-code-color: #1e293b;
     }
     html.light body { background: var(--bg); color: var(--text); }
     html.light .topbar { background: rgba(245,247,251,.96) !important; border-bottom-color: var(--border) !important; }
@@ -317,7 +323,7 @@
 
     .content p {
       line-height: 1.75;
-      color: #c8d0dc;
+      color: var(--content-text);
       margin-bottom: 1rem;
     }
 
@@ -327,7 +333,7 @@
     }
     .content li {
       line-height: 1.75;
-      color: #c8d0dc;
+      color: var(--content-text);
       margin-bottom: .25rem;
     }
 
@@ -338,8 +344,8 @@
       transition: color .15s, border-color .15s;
     }
     .content a:hover {
-      color: #9bb5ff;
-      border-bottom-color: #9bb5ff;
+      color: var(--link-hover);
+      border-bottom-color: var(--link-hover);
     }
 
     .content strong { color: var(--text); font-weight: 600; }
@@ -352,7 +358,7 @@
       border: 1px solid var(--border);
       padding: 2px 6px;
       border-radius: 4px;
-      color: #a5d6ff;
+      color: var(--code-color);
     }
 
     .content pre {
@@ -369,7 +375,7 @@
       border: none;
       padding: 0;
       font-size: .82rem;
-      color: #c9d1d9;
+      color: var(--pre-code-color);
       line-height: 1.6;
     }
 
@@ -408,7 +414,7 @@
     .content tbody tr:hover { background: var(--surface2); }
     .content tbody td {
       padding: 9px 14px;
-      color: #c8d0dc;
+      color: var(--content-text);
       vertical-align: top;
     }
 
@@ -1295,7 +1301,11 @@ aiven_uri_to_npgsql <span class="s2">"postgres://avnadmin:xxx@xxx.aivencloud.com
     if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
     mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
+  }
   }
   }
   }
@@ -1538,6 +1548,8 @@ aiven_uri_to_npgsql <span class="s2">"postgres://avnadmin:xxx@xxx.aivencloud.com
   
   
   
+  
+  
   // -- 8. Dark / light mode toggle --
   (function () {
     var root = document.documentElement;
@@ -1548,13 +1560,17 @@ aiven_uri_to_npgsql <span class="s2">"postgres://avnadmin:xxx@xxx.aivencloud.com
       '--bg': '#f5f7fb', '--surface': '#ffffff', '--surface2': '#eef1f7',
       '--border': '#d1d8e8', '--accent': '#4361ee', '--accent2': '#7c3aed',
       '--text': '#111827', '--text-muted': '#374151', '--text-dim': '#374151',
-      '--topbar-bg': 'rgba(245,247,251,.96)'
+      '--topbar-bg': 'rgba(245,247,251,.96)',
+      '--content-text': '#111827', '--link-hover': '#1d4ed8',
+      '--code-color': '#1d4ed8', '--pre-code-color': '#1e293b'
     };
     var DARK_VARS = {
       '--bg': '#0f1117', '--surface': '#1a1d27', '--surface2': '#22263a',
       '--border': '#2e3350', '--accent': '#6c8cff', '--accent2': '#a78bfa',
       '--text': '#e2e8f0', '--text-muted': '#8892a4', '--text-dim': '#566070',
-      '--topbar-bg': 'rgba(15,17,23,.9)'
+      '--topbar-bg': 'rgba(15,17,23,.9)',
+      '--content-text': '#c8d0dc', '--link-hover': '#9bb5ff',
+      '--code-color': '#a5d6ff', '--pre-code-color': '#c9d1d9'
     };
     function applyTheme(mode) {
       var vars = mode === 'light' ? LIGHT_VARS : DARK_VARS;
