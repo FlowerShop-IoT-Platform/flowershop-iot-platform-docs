@@ -611,6 +611,7 @@
       .page-nav-btn { max-width: 48%; }
     }
   </style>
+  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#4b5563','--text-dim':'#9ca3af'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
 </head>
 <body>
 
@@ -632,6 +633,10 @@
   <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
   <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
   <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">&#9728;&#65039;</span>
+    <span id="themeLabel">Light</span>
+  </button>
   <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
     <span id="themeIcon">&#9728;&#65039;</span>
     <span id="themeLabel">Light</span>
@@ -1025,7 +1030,9 @@
 
   if (typeof mermaid !== 'undefined') {
     if (typeof mermaid !== 'undefined') {
+    if (typeof mermaid !== 'undefined') {
     mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
   }
   }
 
@@ -1253,19 +1260,32 @@
     document.querySelector('.main').appendChild(nav);
   })();
 
+  
   // -- 8. Dark / light mode toggle --
   (function () {
-    var html = document.documentElement;
+    var root = document.documentElement;
     var btn  = document.getElementById('themeToggle');
     var icon = document.getElementById('themeIcon');
     var lbl  = document.getElementById('themeLabel');
+    var LIGHT_VARS = {
+      '--bg': '#f5f7fb', '--surface': '#ffffff', '--surface2': '#eef1f7',
+      '--border': '#d1d8e8', '--accent': '#4361ee', '--accent2': '#7c3aed',
+      '--text': '#111827', '--text-muted': '#4b5563', '--text-dim': '#9ca3af'
+    };
+    var DARK_VARS = {
+      '--bg': '#0f1117', '--surface': '#1a1d27', '--surface2': '#22263a',
+      '--border': '#2e3350', '--accent': '#6c8cff', '--accent2': '#a78bfa',
+      '--text': '#e2e8f0', '--text-muted': '#8892a4', '--text-dim': '#566070'
+    };
     function applyTheme(mode) {
+      var vars = mode === 'light' ? LIGHT_VARS : DARK_VARS;
+      Object.keys(vars).forEach(function(k) { root.style.setProperty(k, vars[k]); });
       if (mode === 'light') {
-        html.classList.add('light');
+        root.classList.add('light');
         if (icon) icon.innerHTML = '&#127769;';
         if (lbl)  lbl.textContent = 'Dark';
       } else {
-        html.classList.remove('light');
+        root.classList.remove('light');
         if (icon) icon.innerHTML = '&#9728;&#65039;';
         if (lbl)  lbl.textContent = 'Light';
       }
@@ -1273,7 +1293,7 @@
     var saved = localStorage.getItem('theme') || 'dark';
     applyTheme(saved);
     if (btn) btn.addEventListener('click', function() {
-      var next = html.classList.contains('light') ? 'dark' : 'light';
+      var next = root.classList.contains('light') ? 'dark' : 'light';
       localStorage.setItem('theme', next);
       applyTheme(next);
     });
