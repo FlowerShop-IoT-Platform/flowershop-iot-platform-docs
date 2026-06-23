@@ -578,6 +578,10 @@
   <a href="/flowershop-iot-platform-docs/architecture/" class="topbar-link">Architecture</a>
   <a href="/flowershop-iot-platform-docs/deployment/" class="topbar-link">Deployment</a>
   <a href="/flowershop-iot-platform-docs/API-CONTRACTS" class="topbar-link">API</a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">&#9728;&#65039;</span>
+    <span id="themeLabel">Light</span>
+  </button>
 </header>
 
 <div class="layout">
@@ -849,7 +853,9 @@
     code.parentElement.replaceWith(wrap);
   });
 
-  mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
 
   // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
   const modal    = document.getElementById('diagramModal');
@@ -1077,6 +1083,32 @@
     }
 
     document.querySelector('.main').appendChild(nav);
+  })();
+
+  // -- 8. Dark / light mode toggle --
+  (function () {
+    var html = document.documentElement;
+    var btn  = document.getElementById('themeToggle');
+    var icon = document.getElementById('themeIcon');
+    var lbl  = document.getElementById('themeLabel');
+    function applyTheme(mode) {
+      if (mode === 'light') {
+        html.classList.add('light');
+        if (icon) icon.innerHTML = '&#127769;';
+        if (lbl)  lbl.textContent = 'Dark';
+      } else {
+        html.classList.remove('light');
+        if (icon) icon.innerHTML = '&#9728;&#65039;';
+        if (lbl)  lbl.textContent = 'Light';
+      }
+    }
+    var saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved);
+    if (btn) btn.addEventListener('click', function() {
+      var next = html.classList.contains('light') ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
   })();
 </script>
 </body>

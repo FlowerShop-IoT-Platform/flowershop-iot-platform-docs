@@ -36,14 +36,31 @@
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
   @media print { .sidebar { display: none; } .main-content { max-width: 100%; padding: 20px; } .topbar { position: static; } }
+
+  /* DARK MODE */
+  body.dark { background: #0f1117 !important; color: #e2e8f0 !important; }
+  body.dark .topbar { background: #1a1d27 !important; }
+  body.dark .sidebar { background: #1a1d27 !important; border-right-color: #2e3350 !important; }
+  body.dark .sidebar-section-title { color: #8892a4 !important; }
+  body.dark .sidebar-links li a { color: #8892a4 !important; }
+  body.dark .sidebar-links li a:hover { background: #22263a !important; color: #e2e8f0 !important; }
+  body.dark .sidebar-links li a.active { color: var(--theme) !important; background: rgba(0,0,0,.2) !important; }
+  body.dark .page-entry { background: #1a1d27 !important; box-shadow: 0 1px 4px rgba(0,0,0,.4) !important; }
+  body.dark .section-header { color: #e2e8f0 !important; }
+  body.dark .page-title { color: #e2e8f0 !important; }
+  body.dark .page-desc { color: #c8d0dc !important; }
+  body.dark .page-entry img { border-color: #2e3350 !important; }
+  .dark-toggle { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); color: #fff; cursor: pointer; padding: 4px 10px; border-radius: 6px; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; transition: background .15s; font-family: inherit; flex-shrink: 0; }
+  .dark-toggle:hover { background: rgba(255,255,255,.25); }
 </style>
 </head>
 <body>
-<div class="topbar">
+<div class="topbar" style="justify-content:space-between;">
   <div>
     <div class="topbar-title">Admin Portal</div>
     <div class="topbar-subtitle">User Manual</div>
   </div>
+  <button class="dark-toggle" id="darkToggle" title="Toggle theme"><span id="darkIcon">&#9728;&#65039;</span> <span id="darkLabel">Light</span></button>
 </div>
 <div class="layout">
   <nav class="sidebar"><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Authentication <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-1-page-1" onclick="highlightLink(this)">Login Page</a></li><li><a href="#section-1-page-2" onclick="highlightLink(this)">Forgot Password</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Dashboard <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-2-page-1" onclick="highlightLink(this)">Dashboard Overview</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Vendor Management <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-3-page-1" onclick="highlightLink(this)">All Vendors</a></li><li><a href="#section-3-page-2" onclick="highlightLink(this)">Create New Vendor</a></li><li><a href="#section-3-page-3" onclick="highlightLink(this)">Vendor Details</a></li><li><a href="#section-3-page-4" onclick="highlightLink(this)">Pending Installations</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Smart Vase Management <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-4-page-1" onclick="highlightLink(this)">All Smart Vases</a></li><li><a href="#section-4-page-2" onclick="highlightLink(this)">Vase Details</a></li><li><a href="#section-4-page-3" onclick="highlightLink(this)">Register New Vase</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Customer Management <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-5-page-1" onclick="highlightLink(this)">All Customers</a></li><li><a href="#section-5-page-2" onclick="highlightLink(this)">Customer Details</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Orders <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-6-page-1" onclick="highlightLink(this)">All Orders</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Payments <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-7-page-1" onclick="highlightLink(this)">All Payments</a></li></ul></div></nav>
@@ -78,6 +95,31 @@ const observer = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.3 });
 document.querySelectorAll('.page-entry[id]').forEach(el => observer.observe(el));
+</script>
+<script>
+(function(){
+  var btn=document.getElementById('darkToggle');
+  var icon=document.getElementById('darkIcon');
+  var lbl=document.getElementById('darkLabel');
+  function applyTheme(mode){
+    if(mode==='dark'){
+      document.body.classList.add('dark');
+      if(icon)icon.innerHTML='&#9728;&#65039;';
+      if(lbl)lbl.textContent='Light';
+    }else{
+      document.body.classList.remove('dark');
+      if(icon)icon.innerHTML='&#127769;';
+      if(lbl)lbl.textContent='Dark';
+    }
+  }
+  var saved=localStorage.getItem('manual-theme')||'dark';
+  applyTheme(saved);
+  if(btn)btn.addEventListener('click',function(){
+    var next=document.body.classList.contains('dark')?'light':'dark';
+    localStorage.setItem('manual-theme',next);
+    applyTheme(next);
+  });
+})();
 </script>
 </body>
 </html>
