@@ -57,7 +57,7 @@ Tokens are issued by Keycloak. FMF uses **OIDC Authorization Code + PKCE** flow.
 | `redirect_uri` | `pl.bloomplatform.fmf://auth/callback` |
 | `post_logout_redirect_uri` | `pl.bloomplatform.fmf://auth/logout-callback` |
 
-**Google OAuth (AUTH-03):** Google social login is configured as an Identity Provider in Keycloak. The mobile app uses the standard OIDC Authorization Code + PKCE flow — Keycloak renders the Google login button on its hosted login page. No additional client-side Google SDK integration is required.
+**Google OAuth (AUTH-03):** Google social login is **live** as an Identity Provider in the `flowershop` Keycloak realm (committed export: `docker/keycloak/flowershop-realm.json`). The mobile app uses the standard OIDC Authorization Code + PKCE flow — Keycloak renders the Google login button on its hosted login page, so no additional client-side Google SDK integration or app code change is required. Google emails are trusted as verified, so no separate email-verification step applies, and a Google login is auto-linked to any existing account with the same verified email. On the first authenticated API call, the backend provisions the local `Customer` and the `customer_id` claim just-in-time (`CustomerProvisioningService`), so all `CustomerAccess` endpoints work immediately without a re-login.
 
 ### Token Lifecycle
 

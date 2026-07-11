@@ -28,7 +28,7 @@
 | Redis cache | Upstash serverless | Free (500k cmd/mo, 256 MB) | Pay-per-command, scales to zero. Wire in once EP-09 T-09-003 lands; today `CacheService` still uses `IMemoryCache`. |
 | RabbitMQ | CloudAMQP Little Lemur | Free (1M msg/mo, 20 conn) | Domain-event fan-out once EP-09 S-09-06 replaces `InMemoryEventBus`. Share the connection pool — 20-conn cap is the binding constraint. |
 | MQTT broker | HiveMQ Cloud Serverless | Free (100 conn, 10 GB/mo) | Vases are MQTT **clients**; API subscribes as another client. Point `MQTT__BrokerHost` at HiveMQ + TLS. |
-| Bouquet photo storage | Cloudflare R2 | Free (10 GB, zero egress) | Relevant after EP-15 ships real photo upload (replacing the `http://localhost:8080/api/mock-vase/...` hardcode, EP-12 T-12-004). |
+| Bouquet photo storage | Cloudflare R2 | Free (10 GB, zero egress) | Implemented (EP-15): `FileStorageOptions.Provider=R2` → `R2FileStorageService`. Bucket `flowershop-bouquets`; photos served from the custom domain `img.findmyflowers.pl` (R2 → bucket → Settings → Custom Domains) so image bandwidth bypasses the API. Account ID + bucket + public URL live in `appsettings.Production.json`; the two credentials come from Fly secrets `FileStorage__R2__AccessKeyId` / `FileStorage__R2__SecretAccessKey`. Requires `findmyflowers.pl` DNS on Cloudflare (done). |
 | Stripe webhook | Served by API — no separate host | — | `POST /api/stripe/webhook` piggybacks on Fly's auto-HTTPS. Live signing secret only. |
 
 ## DNS layout (all CNAME → provider apex, auto-TLS)
@@ -76,6 +76,8 @@ Authentication__Keycloak__ClientId=flowershop-api
 Authentication__Keycloak__ClientSecret=<secret>
 Stripe__SecretKey=<sk_live_...>
 Stripe__WebhookSecret=<whsec_...>
+FileStorage__R2__AccessKeyId=<r2 access key id>
+FileStorage__R2__SecretAccessKey=<r2 secret access key>
 Cors__AllowedOrigins__0=https://app.findmyflowers.pl
 Cors__AllowedOrigins__1=https://admin.findmyflowers.pl
 Cors__AllowedOrigins__2=https://vendor.findmyflowers.pl

@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Epics, Stories &amp; Tasks — Option C (Addendum) — FlowerShop IoT Platform</title>
+  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --topbar-bg: rgba(15,17,23,.9);
+      --content-text: #c8d0dc;
+      --link-hover: #9bb5ff;
+      --code-color: #a5d6ff;
+      --pre-code-color: #c9d1d9;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    html.light {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface2: #eef1f7;
+      --border: #d1d8e8;
+      --accent: #4361ee;
+      --accent2: #7c3aed;
+      --text: #111827;
+      --text-muted: #374151;
+      --text-dim: #374151;
+    }
+    html.light body { background: var(--bg); color: var(--text); }
+    html.light .topbar { background: rgba(245,247,251,.96) !important; border-bottom-color: var(--border) !important; }
+    html.light .topbar-logo { color: var(--text) !important; }
+    html.light .topbar-badge { background: var(--surface2) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+    html.light .topbar-link { color: var(--text-muted) !important; }
+    html.light .topbar-link:hover { color: var(--text) !important; background: var(--surface2) !important; }
+    html.light .topbar-hamburger { color: var(--text-muted) !important; }
+    html.light .sidebar { background: var(--surface); border-right-color: var(--border); }
+    html.light .sidebar-link { color: var(--text-muted); }
+    html.light .sidebar-link:hover { color: var(--text); background: var(--surface2); }
+    html.light .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(67,97,238,.07); }
+    html.light .content code { background: var(--surface2); border-color: var(--border); }
+    html.light .content pre { background: var(--surface2); border-color: var(--border); }
+    html.light .content blockquote { background: rgba(124,58,237,.05); border-left-color: var(--accent2); }
+    html.light .content blockquote p { color: var(--text-muted); }
+    html.light .content thead th { background: var(--surface2); color: var(--text); }
+    html.light .content tbody tr:hover { background: var(--surface2); }
+    html.light .mermaid { background: var(--surface2); border-color: var(--border); }
+    html.light .card { background: var(--surface); border-color: var(--border); }
+    html.light .card:hover { border-color: var(--accent); }
+    html.light .page-nav-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+    html.light .page-nav-btn:hover { background: var(--surface2); border-color: var(--accent); }
+    html.light .diagram-modal-toolbar { background: var(--surface); border-bottom-color: var(--border); }
+    html.light .dm-btn { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    html.light .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    html.light .diagram-modal-canvas { background: var(--surface2); border-color: var(--border); }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--topbar-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1;
+      transition: color .15s, background .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+      font-family: var(--font);
+    }
+    .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 32px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: var(--link-hover);
+      border-bottom-color: var(--link-hover);
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--code-color);
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: var(--pre-code-color);
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: var(--content-text);
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── DIAGRAM WRAPPER ── */
+    .mermaid-wrap {
+      position: relative;
+      margin: 1.25rem 0;
+    }
+    .mermaid-wrap .mermaid {
+      margin: 0;
+      cursor: zoom-in;
+      transition: box-shadow .2s;
+    }
+    .mermaid-wrap .mermaid:hover {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .mermaid-expand-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(15,17,23,.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: color .15s, border-color .15s, background .15s;
+      backdrop-filter: blur(6px);
+      font-family: var(--font);
+    }
+    .mermaid-expand-btn:hover { color: var(--text); border-color: var(--accent); background: rgba(15,17,23,.95); }
+
+    /* ── DIAGRAM MODAL ── */
+    .diagram-modal {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(4px);
+      flex-direction: column;
+    }
+    .diagram-modal.open { display: flex; }
+
+    .diagram-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .diagram-modal-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .dm-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background .15s, border-color .15s;
+      line-height: 1;
+    }
+    .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    .dm-btn.close-btn { color: #f87171; }
+    .dm-zoom-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .diagram-modal-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      min-height: 0;
+      cursor: grab;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .diagram-modal-body.grabbing { cursor: grabbing; user-select: none; }
+
+    .diagram-modal-canvas {
+      flex-shrink: 0;
+      line-height: 0;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .diagram-modal-canvas svg {
+      display: block;
+      max-width: none !important;
+    }
+
+    /* ── PAGE NAV ── */
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 40px 60px;
+    }
+
+    .page-nav-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s, background .15s;
+      min-width: 0;
+      max-width: 46%;
+    }
+    .page-nav-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+      text-decoration: none;
+      color: var(--text);
+    }
+    .page-nav-btn.next { text-align: right; margin-left: auto; }
+    .page-nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .page-nav-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+      .page-nav { padding: 0 20px 40px; }
+      .page-nav-btn { max-width: 48%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <a href="/architecture/" class="topbar-link">Architecture</a>
+  <a href="/deployment/" class="topbar-link">Deployment</a>
+  <a href="/API-CONTRACTS" class="topbar-link">API</a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">☀️</span>
+    <span id="themeLabel">Light</span>
+  </button>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" href="/architecture/">Overview</a>
+        <a class="sidebar-link" href="/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" href="/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" href="/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" href="/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" href="/architecture/cross-cutting">Cross-cutting</a>
+        <a class="sidebar-link" href="/architecture/view-functional">Functional View</a>
+        <a class="sidebar-link" href="/architecture/view-information">Information View</a>
+        <a class="sidebar-link" href="/architecture/view-concurrency">Concurrency View</a>
+        <a class="sidebar-link" href="/architecture/view-development">Development View</a>
+        <a class="sidebar-link" href="/architecture/view-deployment">Deployment View</a>
+        <a class="sidebar-link" href="/architecture/view-operational">Operational View</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" href="/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" href="/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" href="/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" href="/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" href="/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" href="/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" href="/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" href="/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" href="/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" href="/deployment/">Overview</a>
+        <a class="sidebar-link" href="/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" href="/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" href="/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" href="/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" href="/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" href="/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" href="/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" href="/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" href="/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" href="/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" href="/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-manuals">
+        <span class="sidebar-group-icon">📖</span> User Manuals
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-manuals">
+        <a class="sidebar-link" href="/manuals/">Overview</a>
+        <a class="sidebar-link" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
+        <a class="sidebar-link" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="epics-stories--tasks--option-c-addendum">Epics, Stories &amp; Tasks — Option C (Addendum)</h1>
+<h2 id="vendor-self-registration-platform-subscription-vase-ordering--asset-recovery">Vendor Self-Registration, Platform Subscription, Vase Ordering &amp; Asset Recovery</h2>
+
+<blockquote>
+  <p>Companion to EPICS.md (EP-01–09, Mobile API) and EPICS-B.md (EP-10–18, Portals &amp; Analytics).
+Epics are numbered EP-19 through EP-22 to avoid collision.
+Requirement refs point to REQ-GAPS-C.md.
+Analysis date: 2026-06-27</p>
+</blockquote>
+
+<hr />
+
+<h2 id="dependency-map">Dependency Map</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EP-01 (DB Foundation — from Option C)
+  └── EP-19 (Vendor Self-Registration)
+        └── EP-20 (Vendor Platform Subscription)
+
+EP-15 (IoT — VaseHeartbeatMonitorService)
+  └── EP-22 (Vase Asset Recovery)
+
+EP-19 (self-registration = vendor portal login)
+  └── EP-21 (Vase Ordering — vendor portal UI)
+
+EP-11 (Admin Portal scaffolding)
+  └── EP-21 (Vase Ordering — admin portal UI)
+  └── EP-22 (Vase Asset Recovery — admin portal UI)
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="ep-19-vendor-self-registration--billing-onboarding">EP-19: Vendor Self-Registration &amp; Billing Onboarding</h2>
+
+<p><strong>Priority</strong>: P0-critical
+<strong>Dependencies</strong>: EP-01 (migrations), EP-04 / EP-17 Stripe service available
+<strong>Requirement refs</strong>: REQ-VONB-01 through REQ-VONB-07</p>
+
+<blockquote>
+  <p>The backend API endpoint for registration (<code class="language-plaintext highlighter-rouge">POST /api/v1/vendor-accounts/register-with-admin</code>)
+exists but is missing: Vendor Portal UI, billing address, Stripe customer creation, payment
+method capture, T&amp;C tracking, and trial subscription kick-off. This epic fills those gaps.</p>
+</blockquote>
+
+<h3 id="stories">Stories</h3>
+
+<ul>
+  <li><strong>S-19-01</strong>: Vendor Portal multi-step sign-up wizard (REQ-VONB-01)</li>
+  <li><strong>S-19-02</strong>: Extend registration API — billing address, online address, T&amp;C (REQ-VONB-02, 03, 06)</li>
+  <li><strong>S-19-03</strong>: Stripe customer creation and payment method capture on registration (REQ-VONB-04, 05)</li>
+  <li><strong>S-19-04</strong>: Admin approval gating (optional, REQ-VONB-07)</li>
+</ul>
+
+<h3 id="tasks">Tasks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Story</th>
+      <th>Requirement</th>
+      <th>Title</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>T-19-001</td>
+      <td>S-19-01</td>
+      <td>REQ-VONB-01</td>
+      <td>Add “Sign Up” link to <code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Login.cshtml</code> pointing to <code class="language-plaintext highlighter-rouge">/Account/Register</code></td>
+    </tr>
+    <tr>
+      <td>T-19-002</td>
+      <td>S-19-01</td>
+      <td>REQ-VONB-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Account/Register.cshtml</code> — step 1: vendor type radio, business name, physical address (shop) / residential address (florist)</td>
+    </tr>
+    <tr>
+      <td>T-19-003</td>
+      <td>S-19-01</td>
+      <td>REQ-VONB-01</td>
+      <td>Register step 2 (same page, JS-driven or separate page): billing address form (street, city, postal code, country)</td>
+    </tr>
+    <tr>
+      <td>T-19-004</td>
+      <td>S-19-01</td>
+      <td>REQ-VONB-01</td>
+      <td>Register step 3: Stripe Payment Element (uses SetupIntent client secret from API); load <code class="language-plaintext highlighter-rouge">stripe.js</code>, initialize Payment Element</td>
+    </tr>
+    <tr>
+      <td>T-19-005</td>
+      <td>S-19-01</td>
+      <td>REQ-VONB-01</td>
+      <td>Register step 4: T&amp;C checkbox, privacy policy link, submit button; on success redirect to <code class="language-plaintext highlighter-rouge">/</code> (dashboard)</td>
+    </tr>
+    <tr>
+      <td>T-19-006</td>
+      <td>S-19-02</td>
+      <td>REQ-VONB-02</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">OnlineAddress</code> (URL, nullable) to <code class="language-plaintext highlighter-rouge">VendorWithAdminRegisterRequest</code> DTO, <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code> aggregate, and EF config; generate migration <code class="language-plaintext highlighter-rouge">AddFreelanceFloristOnlineAddress</code></td>
+    </tr>
+    <tr>
+      <td>T-19-007</td>
+      <td>S-19-02</td>
+      <td>REQ-VONB-03</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">BillingAddress</code> (street, city, postalCode, country) value object to both vendor aggregates and EF configs; generate migration <code class="language-plaintext highlighter-rouge">AddVendorBillingAddress</code></td>
+    </tr>
+    <tr>
+      <td>T-19-008</td>
+      <td>S-19-02</td>
+      <td>REQ-VONB-06</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">TermsAcceptedAt</code> (DateTime?) and <code class="language-plaintext highlighter-rouge">TermsVersion</code> (string?) to both vendor aggregates; persist from registration request; generate migration <code class="language-plaintext highlighter-rouge">AddVendorTermsAccepted</code></td>
+    </tr>
+    <tr>
+      <td>T-19-009</td>
+      <td>S-19-03</td>
+      <td>REQ-VONB-04</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">CreateCustomerAsync(email, name, billingAddress)</code> to <code class="language-plaintext highlighter-rouge">IStripeService</code> and implement in <code class="language-plaintext highlighter-rouge">StripeService</code>; returns Stripe <code class="language-plaintext highlighter-rouge">customerId</code></td>
+    </tr>
+    <tr>
+      <td>T-19-010</td>
+      <td>S-19-03</td>
+      <td>REQ-VONB-04</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">StripeCustomerId</code> (string?) to both vendor aggregates and EF configs; migration <code class="language-plaintext highlighter-rouge">AddVendorStripeCustomerId</code>; call <code class="language-plaintext highlighter-rouge">CreateCustomerAsync</code> inside <code class="language-plaintext highlighter-rouge">VendorOnboardingService</code> after vendor creation</td>
+    </tr>
+    <tr>
+      <td>T-19-011</td>
+      <td>S-19-03</td>
+      <td>REQ-VONB-05</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">CreateSetupIntentAsync(stripeCustomerId)</code> to <code class="language-plaintext highlighter-rouge">IStripeService</code>; implement in <code class="language-plaintext highlighter-rouge">StripeService</code></td>
+    </tr>
+    <tr>
+      <td>T-19-012</td>
+      <td>S-19-03</td>
+      <td>REQ-VONB-05</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">POST /api/v1/vendor-accounts/setup-intent</code> (anonymous) returning <code class="language-plaintext highlighter-rouge">{ clientSecret }</code> for the in-progress registration; VendorPortal step 3 calls this endpoint</td>
+    </tr>
+    <tr>
+      <td>T-19-013</td>
+      <td>S-19-04</td>
+      <td>REQ-VONB-07</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">ApprovalStatus</code> (enum: Pending / Approved / Rejected) to both vendor aggregates; default = <code class="language-plaintext highlighter-rouge">Pending</code> for self-registered, <code class="language-plaintext highlighter-rouge">Approved</code> for admin-created; migration <code class="language-plaintext highlighter-rouge">AddVendorApprovalStatus</code></td>
+    </tr>
+    <tr>
+      <td>T-19-014</td>
+      <td>S-19-04</td>
+      <td>REQ-VONB-07</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">POST /api/v1/admin/vendors/{id}/approve</code> and <code class="language-plaintext highlighter-rouge">/reject</code> endpoints (PlatformAdmin); add Approve/Reject buttons to <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/Vendors/Details.cshtml</code></td>
+    </tr>
+    <tr>
+      <td>T-19-015</td>
+      <td>S-19-04</td>
+      <td>REQ-VONB-07</td>
+      <td>Enforce <code class="language-plaintext highlighter-rouge">ApprovalStatus = Approved</code> in <code class="language-plaintext highlighter-rouge">CreateBouquetCommandHandler</code> — return <code class="language-plaintext highlighter-rouge">Result.Failure("vendor-pending-approval")</code> → 403 for Pending/Rejected vendors</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="ep-20-vendor-platform-subscription-management-saas-billing">EP-20: Vendor Platform Subscription Management (SaaS Billing)</h2>
+
+<p><strong>Priority</strong>: P0-critical
+<strong>Dependencies</strong>: EP-19 (Stripe customer must exist before creating a Stripe Subscription)
+<strong>Requirement refs</strong>: REQ-VSUB-01 through REQ-VSUB-08</p>
+
+<blockquote>
+  <p>Smart note: the existing <code class="language-plaintext highlighter-rouge">Subscription</code> aggregate is for <strong>customer</strong> bouquet-alert preferences
+(radius, flower type, shop) and is completely unrelated. This epic adds <code class="language-plaintext highlighter-rouge">VendorPlatformSubscription</code>,
+a distinct aggregate for recurring SaaS billing.</p>
+</blockquote>
+
+<h3 id="stories-1">Stories</h3>
+
+<ul>
+  <li><strong>S-20-01</strong>: <code class="language-plaintext highlighter-rouge">VendorPlatformSubscription</code> domain aggregate + persistence (REQ-VSUB-01)</li>
+  <li><strong>S-20-02</strong>: Trial initiation on vendor registration (REQ-VSUB-02)</li>
+  <li><strong>S-20-03</strong>: Stripe Subscription methods + webhook handling (REQ-VSUB-03, REQ-VSUB-08)</li>
+  <li><strong>S-20-04</strong>: Access enforcement by subscription status (REQ-VSUB-04)</li>
+  <li><strong>S-20-05</strong>: Admin portal — subscription views (REQ-VSUB-05, REQ-VSUB-06)</li>
+  <li><strong>S-20-06</strong>: Vendor portal — billing page (REQ-VSUB-07)</li>
+</ul>
+
+<h3 id="tasks-1">Tasks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Story</th>
+      <th>Requirement</th>
+      <th>Title</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>T-20-001</td>
+      <td>S-20-01</td>
+      <td>REQ-VSUB-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorPlatformSubscription</code> aggregate in <code class="language-plaintext highlighter-rouge">FlowerShop.Domain/Aggregates/VendorSubscription/</code>; define all properties, <code class="language-plaintext highlighter-rouge">Status</code> enum (Trial / Active / PastDue / Cancelled / Suspended), and domain methods</td>
+    </tr>
+    <tr>
+      <td>T-20-002</td>
+      <td>S-20-01</td>
+      <td>REQ-VSUB-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorSubscriptionId</code> strongly-typed ID value object</td>
+    </tr>
+    <tr>
+      <td>T-20-003</td>
+      <td>S-20-01</td>
+      <td>REQ-VSUB-01</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">IVendorSubscriptionRepository</code> (GetByVendorIdAsync, AddAsync, UpdateAsync) to domain; implement <code class="language-plaintext highlighter-rouge">VendorSubscriptionRepository</code> in Infrastructure</td>
+    </tr>
+    <tr>
+      <td>T-20-004</td>
+      <td>S-20-01</td>
+      <td>REQ-VSUB-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorPlatformSubscriptionConfiguration</code> (EF Core); generate migration <code class="language-plaintext highlighter-rouge">AddVendorPlatformSubscriptions</code></td>
+    </tr>
+    <tr>
+      <td>T-20-005</td>
+      <td>S-20-02</td>
+      <td>REQ-VSUB-02</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">CreateSubscriptionWithTrialAsync(customerId, priceId, trialDays)</code> to <code class="language-plaintext highlighter-rouge">IStripeService</code> and implement in <code class="language-plaintext highlighter-rouge">StripeService</code></td>
+    </tr>
+    <tr>
+      <td>T-20-006</td>
+      <td>S-20-02</td>
+      <td>REQ-VSUB-02</td>
+      <td>Add domain events: <code class="language-plaintext highlighter-rouge">VendorTrialStarted</code>, <code class="language-plaintext highlighter-rouge">VendorSubscriptionActivated</code>, <code class="language-plaintext highlighter-rouge">VendorSubscriptionCancelled</code>, <code class="language-plaintext highlighter-rouge">VendorSubscriptionSuspended</code></td>
+    </tr>
+    <tr>
+      <td>T-20-007</td>
+      <td>S-20-02</td>
+      <td>REQ-VSUB-02</td>
+      <td>In <code class="language-plaintext highlighter-rouge">VendorOnboardingService.RegisterVendorWithAdminAsync</code>, after Stripe customer creation: call <code class="language-plaintext highlighter-rouge">CreateSubscriptionWithTrialAsync</code>, create <code class="language-plaintext highlighter-rouge">VendorPlatformSubscription</code> in <code class="language-plaintext highlighter-rouge">Trial</code> status, persist it</td>
+    </tr>
+    <tr>
+      <td>T-20-008</td>
+      <td>S-20-03</td>
+      <td>REQ-VSUB-08</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">CancelSubscriptionAsync</code>, <code class="language-plaintext highlighter-rouge">UpdateSubscriptionPaymentMethodAsync</code>, <code class="language-plaintext highlighter-rouge">GetSubscriptionAsync</code> to <code class="language-plaintext highlighter-rouge">IStripeService</code> and implement in <code class="language-plaintext highlighter-rouge">StripeService</code></td>
+    </tr>
+    <tr>
+      <td>T-20-009</td>
+      <td>S-20-03</td>
+      <td>REQ-VSUB-03</td>
+      <td>Extend <code class="language-plaintext highlighter-rouge">StripeWebhookController</code> / <code class="language-plaintext highlighter-rouge">StripeWebhookProcessorService</code> to handle: <code class="language-plaintext highlighter-rouge">customer.subscription.updated</code>, <code class="language-plaintext highlighter-rouge">invoice.paid</code>, <code class="language-plaintext highlighter-rouge">invoice.payment_failed</code>, <code class="language-plaintext highlighter-rouge">customer.subscription.deleted</code>, <code class="language-plaintext highlighter-rouge">customer.subscription.trial_will_end</code></td>
+    </tr>
+    <tr>
+      <td>T-20-010</td>
+      <td>S-20-03</td>
+      <td>REQ-VSUB-03</td>
+      <td>Implement command handlers (<code class="language-plaintext highlighter-rouge">ActivateVendorSubscriptionCommand</code>, <code class="language-plaintext highlighter-rouge">SuspendVendorSubscriptionCommand</code>, <code class="language-plaintext highlighter-rouge">CancelVendorSubscriptionCommand</code>) called from webhook handlers</td>
+    </tr>
+    <tr>
+      <td>T-20-011</td>
+      <td>S-20-03</td>
+      <td>REQ-VSUB-03</td>
+      <td>On <code class="language-plaintext highlighter-rouge">invoice.payment_failed</code>: notify vendor via push and email (use <code class="language-plaintext highlighter-rouge">INotificationServiceClient</code>); on <code class="language-plaintext highlighter-rouge">trial_will_end</code>: send 3-day warning notification</td>
+    </tr>
+    <tr>
+      <td>T-20-012</td>
+      <td>S-20-04</td>
+      <td>REQ-VSUB-04</td>
+      <td>Inject <code class="language-plaintext highlighter-rouge">IVendorSubscriptionRepository</code> into <code class="language-plaintext highlighter-rouge">CreateBouquetCommandHandler</code>; guard: return <code class="language-plaintext highlighter-rouge">Result.Failure("subscription-inactive")</code> → 403 if status is <code class="language-plaintext highlighter-rouge">Cancelled</code> or <code class="language-plaintext highlighter-rouge">Suspended</code></td>
+    </tr>
+    <tr>
+      <td>T-20-013</td>
+      <td>S-20-05</td>
+      <td>REQ-VSUB-05</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/vendors/{id}/subscription</code> endpoint (PlatformAdmin) returning <code class="language-plaintext highlighter-rouge">VendorSubscriptionDto</code></td>
+    </tr>
+    <tr>
+      <td>T-20-014</td>
+      <td>S-20-05</td>
+      <td>REQ-VSUB-05</td>
+      <td>Extend <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/Vendors/Details.cshtml</code> with a Subscription section: plan, status badge, trial start/end, billing dates</td>
+    </tr>
+    <tr>
+      <td>T-20-015</td>
+      <td>S-20-05</td>
+      <td>REQ-VSUB-06</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/subscriptions</code> endpoint (PlatformAdmin, paginated, filterable by status / trialExpiringSoon)</td>
+    </tr>
+    <tr>
+      <td>T-20-016</td>
+      <td>S-20-05</td>
+      <td>REQ-VSUB-06</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/Subscriptions/List.cshtml</code> — all vendor subscriptions with status filters and trial-expiry highlighting</td>
+    </tr>
+    <tr>
+      <td>T-20-017</td>
+      <td>S-20-06</td>
+      <td>REQ-VSUB-07</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GET /api/v1/vendor/subscription</code> and <code class="language-plaintext highlighter-rouge">DELETE /api/v1/vendor/subscription</code> endpoints (VendorAccess)</td>
+    </tr>
+    <tr>
+      <td>T-20-018</td>
+      <td>S-20-06</td>
+      <td>REQ-VSUB-07</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Billing/Index.cshtml.cs</code>: show plan, status, trial countdown, next billing date; “Update payment method” (new SetupIntent flow); “Cancel” button</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="ep-21-smart-vase-hardware-ordering--fulfillment">EP-21: Smart Vase Hardware Ordering &amp; Fulfillment</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-19 (vendor portal login), EP-11 (Admin Portal scaffolding)
+<strong>Requirement refs</strong>: REQ-VORD-01 through REQ-VORD-05</p>
+
+<blockquote>
+  <p>Smart vases are physical assets that the platform ships to vendors. Currently there is no
+ordering or procurement flow — vases are registered by admins directly. This epic adds the
+full vendor-request → admin-fulfillment → delivery loop.</p>
+</blockquote>
+
+<h3 id="stories-2">Stories</h3>
+
+<ul>
+  <li><strong>S-21-01</strong>: <code class="language-plaintext highlighter-rouge">VaseOrder</code> domain aggregate + persistence (REQ-VORD-01)</li>
+  <li><strong>S-21-02</strong>: VaseOrder API endpoints (REQ-VORD-02)</li>
+  <li><strong>S-21-03</strong>: Vendor portal — order new vases flow (REQ-VORD-03)</li>
+  <li><strong>S-21-04</strong>: Admin portal — vase order management (REQ-VORD-04)</li>
+  <li><strong>S-21-05</strong>: Admin portal — vase inventory per vendor (REQ-VORD-05)</li>
+</ul>
+
+<h3 id="tasks-2">Tasks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Story</th>
+      <th>Requirement</th>
+      <th>Title</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>T-21-001</td>
+      <td>S-21-01</td>
+      <td>REQ-VORD-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VaseOrder</code> aggregate in <code class="language-plaintext highlighter-rouge">FlowerShop.Domain/Aggregates/VaseOrder/</code>; define all properties, <code class="language-plaintext highlighter-rouge">VaseOrderStatus</code> enum, and domain methods (<code class="language-plaintext highlighter-rouge">Confirm</code>, <code class="language-plaintext highlighter-rouge">MarkShipped</code>, <code class="language-plaintext highlighter-rouge">MarkDelivered</code>, <code class="language-plaintext highlighter-rouge">Cancel</code>)</td>
+    </tr>
+    <tr>
+      <td>T-21-002</td>
+      <td>S-21-01</td>
+      <td>REQ-VORD-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VaseOrderId</code> strongly-typed ID value object</td>
+    </tr>
+    <tr>
+      <td>T-21-003</td>
+      <td>S-21-01</td>
+      <td>REQ-VORD-01</td>
+      <td>Add domain events: <code class="language-plaintext highlighter-rouge">VaseOrderPlaced</code>, <code class="language-plaintext highlighter-rouge">VaseOrderConfirmed</code>, <code class="language-plaintext highlighter-rouge">VaseOrderShipped</code>, <code class="language-plaintext highlighter-rouge">VaseOrderDelivered</code>, <code class="language-plaintext highlighter-rouge">VaseOrderCancelled</code></td>
+    </tr>
+    <tr>
+      <td>T-21-004</td>
+      <td>S-21-01</td>
+      <td>REQ-VORD-01</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">IVaseOrderRepository</code> (AddAsync, GetByIdAsync, GetByVendorIdAsync, GetAllAsync) to domain; implement in Infrastructure</td>
+    </tr>
+    <tr>
+      <td>T-21-005</td>
+      <td>S-21-01</td>
+      <td>REQ-VORD-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VaseOrderConfiguration</code> (EF Core); generate migration <code class="language-plaintext highlighter-rouge">AddVaseOrders</code></td>
+    </tr>
+    <tr>
+      <td>T-21-006</td>
+      <td>S-21-02</td>
+      <td>REQ-VORD-02</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">PlaceVaseOrderCommand</code> + <code class="language-plaintext highlighter-rouge">PlaceVaseOrderCommandHandler</code> (validates quantity ≥ 1, shipping address required)</td>
+    </tr>
+    <tr>
+      <td>T-21-007</td>
+      <td>S-21-02</td>
+      <td>REQ-VORD-02</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">UpdateVaseOrderStatusCommand</code> + <code class="language-plaintext highlighter-rouge">UpdateVaseOrderStatusCommandHandler</code> (admin only, enforces status machine)</td>
+    </tr>
+    <tr>
+      <td>T-21-008</td>
+      <td>S-21-02</td>
+      <td>REQ-VORD-02</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">VendorVaseOrdersController</code> at <code class="language-plaintext highlighter-rouge">/api/v1/vendor/vase-orders</code> (VendorAccess): <code class="language-plaintext highlighter-rouge">POST</code> (place order) + <code class="language-plaintext highlighter-rouge">GET</code> (list own orders)</td>
+    </tr>
+    <tr>
+      <td>T-21-009</td>
+      <td>S-21-02</td>
+      <td>REQ-VORD-02</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">AdminVaseOrdersController</code> at <code class="language-plaintext highlighter-rouge">/api/v1/admin/vase-orders</code> (PlatformAdmin): <code class="language-plaintext highlighter-rouge">GET</code> (all orders, filterable) + <code class="language-plaintext highlighter-rouge">GET /{id}</code> (detail) + <code class="language-plaintext highlighter-rouge">PUT /{id}/status</code> (advance status + tracking number)</td>
+    </tr>
+    <tr>
+      <td>T-21-010</td>
+      <td>S-21-03</td>
+      <td>REQ-VORD-03</td>
+      <td>Add “Order New Vases” button to <code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Vases/Index.cshtml</code></td>
+    </tr>
+    <tr>
+      <td>T-21-011</td>
+      <td>S-21-03</td>
+      <td>REQ-VORD-03</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Vases/Order.cshtml.cs</code> — quantity selector (1–10), shipping address form, submit → <code class="language-plaintext highlighter-rouge">POST /api/v1/vendor/vase-orders</code></td>
+    </tr>
+    <tr>
+      <td>T-21-012</td>
+      <td>S-21-03</td>
+      <td>REQ-VORD-03</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VendorPortal/Pages/Vases/Orders.cshtml.cs</code> — list vendor’s vase orders with status badges and tracking numbers</td>
+    </tr>
+    <tr>
+      <td>T-21-013</td>
+      <td>S-21-04</td>
+      <td>REQ-VORD-04</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/VaseOrders/List.cshtml.cs</code> — list all orders, filter by status; add nav link to sidebar</td>
+    </tr>
+    <tr>
+      <td>T-21-014</td>
+      <td>S-21-04</td>
+      <td>REQ-VORD-04</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/VaseOrders/Details.cshtml.cs</code> — order detail, status-advance buttons (Confirm / Mark Shipped + tracking input / Mark Delivered), admin notes</td>
+    </tr>
+    <tr>
+      <td>T-21-015</td>
+      <td>S-21-05</td>
+      <td>REQ-VORD-05</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/vendors/{id}/vase-summary</code> endpoint returning counts: ordered, delivered, online, offline, offline &gt; 7 days; include per-vase list with <code class="language-plaintext highlighter-rouge">LastHeartbeat</code></td>
+    </tr>
+    <tr>
+      <td>T-21-016</td>
+      <td>S-21-05</td>
+      <td>REQ-VORD-05</td>
+      <td>Extend <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/Vendors/Details.cshtml</code> with a “Vase Inventory” table using the vase-summary endpoint; highlight offline-7d rows in red; link to incident if one is open</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="ep-22-smart-vase-asset-recovery--offline-escalation">EP-22: Smart Vase Asset Recovery &amp; Offline Escalation</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-15 (VaseHeartbeatMonitorService must exist), EP-11 / EP-21 (Admin Portal)
+<strong>Requirement refs</strong>: REQ-VASR-01 through REQ-VASR-06</p>
+
+<blockquote>
+  <p>Smart vases are expensive IoT assets. A vase that has been offline for 7+ days is either
+abandoned, broken, or the vendor has stopped operating. This epic adds a structured case-
+management workflow: automatic incident creation, follow-up tracking (email, call, visit),
+return-request flow, and admin UI to manage and audit every step.</p>
+</blockquote>
+
+<h3 id="stories-3">Stories</h3>
+
+<ul>
+  <li><strong>S-22-01</strong>: <code class="language-plaintext highlighter-rouge">VaseIncident</code> domain aggregate + persistence (REQ-VASR-01)</li>
+  <li><strong>S-22-02</strong>: Automatic incident creation on 7-day offline threshold (REQ-VASR-02)</li>
+  <li><strong>S-22-03</strong>: Backend API for incidents (REQ-VASR-06)</li>
+  <li><strong>S-22-04</strong>: Admin portal — incident list dashboard (REQ-VASR-03)</li>
+  <li><strong>S-22-05</strong>: Admin portal — incident detail &amp; action log (REQ-VASR-04)</li>
+  <li><strong>S-22-06</strong>: Return-request tracking through to asset recovery (REQ-VASR-05)</li>
+</ul>
+
+<h3 id="tasks-3">Tasks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Story</th>
+      <th>Requirement</th>
+      <th>Title</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>T-22-001</td>
+      <td>S-22-01</td>
+      <td>REQ-VASR-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VaseIncident</code> aggregate in <code class="language-plaintext highlighter-rouge">FlowerShop.Domain/Aggregates/VaseIncident/</code>; define <code class="language-plaintext highlighter-rouge">IncidentType</code> and <code class="language-plaintext highlighter-rouge">IncidentStatus</code> enums; <code class="language-plaintext highlighter-rouge">VaseIncidentAction</code> owned entity with <code class="language-plaintext highlighter-rouge">ActionType</code> enum</td>
+    </tr>
+    <tr>
+      <td>T-22-002</td>
+      <td>S-22-01</td>
+      <td>REQ-VASR-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VaseIncidentId</code> strongly-typed ID value object</td>
+    </tr>
+    <tr>
+      <td>T-22-003</td>
+      <td>S-22-01</td>
+      <td>REQ-VASR-01</td>
+      <td>Add domain methods to <code class="language-plaintext highlighter-rouge">VaseIncident</code>: <code class="language-plaintext highlighter-rouge">AddAction</code>, <code class="language-plaintext highlighter-rouge">RequestReturn</code>, <code class="language-plaintext highlighter-rouge">Resolve</code>, <code class="language-plaintext highlighter-rouge">Escalate</code>; each mutates <code class="language-plaintext highlighter-rouge">Status</code> and appends an action entry</td>
+    </tr>
+    <tr>
+      <td>T-22-004</td>
+      <td>S-22-01</td>
+      <td>REQ-VASR-01</td>
+      <td>Add domain events: <code class="language-plaintext highlighter-rouge">VaseIncidentOpened</code>, <code class="language-plaintext highlighter-rouge">VaseIncidentEscalated</code>, <code class="language-plaintext highlighter-rouge">VaseReturnRequested</code></td>
+    </tr>
+    <tr>
+      <td>T-22-005</td>
+      <td>S-22-01</td>
+      <td>REQ-VASR-01</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">IVaseIncidentRepository</code> (AddAsync, GetByIdAsync, GetByVaseIdAsync, GetOpenIncidentsAsync) to domain; implement in Infrastructure</td>
+    </tr>
+    <tr>
+      <td>T-22-006</td>
+      <td>S-22-01</td>
+      <td>REQ-VASR-01</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">VaseIncidentConfiguration</code> (EF Core, with owned-entity collection for Actions); generate migration <code class="language-plaintext highlighter-rouge">AddVaseIncidents</code></td>
+    </tr>
+    <tr>
+      <td>T-22-007</td>
+      <td>S-22-02</td>
+      <td>REQ-VASR-02</td>
+      <td>In <code class="language-plaintext highlighter-rouge">VaseHeartbeatMonitorService</code>, add a secondary pass (run every hour) querying <code class="language-plaintext highlighter-rouge">ISmartVaseRepository.GetVasesOfflineSinceAsync(cutoffDays: 7)</code></td>
+    </tr>
+    <tr>
+      <td>T-22-008</td>
+      <td>S-22-02</td>
+      <td>REQ-VASR-02</td>
+      <td>For each vase in that result with no open <code class="language-plaintext highlighter-rouge">VaseIncident</code>: create <code class="language-plaintext highlighter-rouge">VaseIncident</code>, persist, dispatch <code class="language-plaintext highlighter-rouge">VaseIncidentOpened</code></td>
+    </tr>
+    <tr>
+      <td>T-22-009</td>
+      <td>S-22-02</td>
+      <td>REQ-VASR-02</td>
+      <td>Implement <code class="language-plaintext highlighter-rouge">VaseIncidentOpenedHandler</code>: send vendor email/push notification (“Your vase has been offline for 7+ days — please reconnect or contact support”); add initial <code class="language-plaintext highlighter-rouge">EmailSent</code> action to the incident</td>
+    </tr>
+    <tr>
+      <td>T-22-010</td>
+      <td>S-22-02</td>
+      <td>REQ-VASR-02</td>
+      <td>Add <code class="language-plaintext highlighter-rouge">GetVasesOfflineSinceAsync(cutoffDays)</code> to <code class="language-plaintext highlighter-rouge">ISmartVaseRepository</code> and implement in <code class="language-plaintext highlighter-rouge">SmartVaseRepository</code></td>
+    </tr>
+    <tr>
+      <td>T-22-011</td>
+      <td>S-22-03</td>
+      <td>REQ-VASR-06</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">AdminVaseIncidentsController</code> at <code class="language-plaintext highlighter-rouge">/api/v1/admin/vase-incidents</code> (PlatformAdmin): <code class="language-plaintext highlighter-rouge">GET</code> (list, paginated, filterable by status); <code class="language-plaintext highlighter-rouge">GET /{id}</code> (detail); <code class="language-plaintext highlighter-rouge">POST /{id}/actions</code> (add action); <code class="language-plaintext highlighter-rouge">PUT /{id}/status</code> (change status)</td>
+    </tr>
+    <tr>
+      <td>T-22-012</td>
+      <td>S-22-03</td>
+      <td>REQ-VASR-06</td>
+      <td>Implement <code class="language-plaintext highlighter-rouge">GetVaseIncidentsQuery</code> + <code class="language-plaintext highlighter-rouge">GetVaseIncidentsQueryHandler</code>; <code class="language-plaintext highlighter-rouge">AddVaseIncidentActionCommand</code> + handler; <code class="language-plaintext highlighter-rouge">UpdateVaseIncidentStatusCommand</code> + handler</td>
+    </tr>
+    <tr>
+      <td>T-22-013</td>
+      <td>S-22-04</td>
+      <td>REQ-VASR-03</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/VaseIncidents/List.cshtml.cs</code> — columns: vase serial, vendor name, offline-since, days offline, status, last action type, next planned action</td>
+    </tr>
+    <tr>
+      <td>T-22-014</td>
+      <td>S-22-04</td>
+      <td>REQ-VASR-03</td>
+      <td>Filter bar on incident list: status, vendorId; default sort: days offline descending</td>
+    </tr>
+    <tr>
+      <td>T-22-015</td>
+      <td>S-22-04</td>
+      <td>REQ-VASR-03</td>
+      <td>Add “Incidents” nav item to <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/Shared/_Layout.cshtml</code>; show badge count for Open + Escalated incidents</td>
+    </tr>
+    <tr>
+      <td>T-22-016</td>
+      <td>S-22-05</td>
+      <td>REQ-VASR-04</td>
+      <td>Create <code class="language-plaintext highlighter-rouge">AdminPortal/Pages/VaseIncidents/Details.cshtml.cs</code> — vase info header, chronological action timeline</td>
+    </tr>
+    <tr>
+      <td>T-22-017</td>
+      <td>S-22-05</td>
+      <td>REQ-VASR-04</td>
+      <td>“Add action” form on details page: <code class="language-plaintext highlighter-rouge">ActionType</code> dropdown (EmailSent, CallMade, VisitPlanned, VisitCompleted, AdminNote), notes textarea, optional <code class="language-plaintext highlighter-rouge">PlannedAt</code> date picker</td>
+    </tr>
+    <tr>
+      <td>T-22-018</td>
+      <td>S-22-05</td>
+      <td>REQ-VASR-04</td>
+      <td>“Request Return” button: confirms via modal → calls <code class="language-plaintext highlighter-rouge">PUT /{id}/status</code> (ReturnRequested) → emails vendor with return instructions; records <code class="language-plaintext highlighter-rouge">ReturnRequested</code> action</td>
+    </tr>
+    <tr>
+      <td>T-22-019</td>
+      <td>S-22-05</td>
+      <td>REQ-VASR-04</td>
+      <td>“Escalate” button: confirms → marks <code class="language-plaintext highlighter-rouge">Escalated</code> → surfaces prominently in list (red badge)</td>
+    </tr>
+    <tr>
+      <td>T-22-020</td>
+      <td>S-22-05</td>
+      <td>REQ-VASR-04</td>
+      <td>“Resolve” button: text input for resolution notes → marks <code class="language-plaintext highlighter-rouge">Resolved</code> + <code class="language-plaintext highlighter-rouge">ResolvedAt</code></td>
+    </tr>
+    <tr>
+      <td>T-22-021</td>
+      <td>S-22-06</td>
+      <td>REQ-VASR-05</td>
+      <td>On “ReturnShipped” action: admin inputs tracking number; update incident action record</td>
+    </tr>
+    <tr>
+      <td>T-22-022</td>
+      <td>S-22-06</td>
+      <td>REQ-VASR-05</td>
+      <td>On “ReturnReceived” action: auto-call <code class="language-plaintext highlighter-rouge">SmartVase.UnassignFromVendor()</code> and set <code class="language-plaintext highlighter-rouge">RegistrationStatus = UnderMaintenance</code>; close the incident with status <code class="language-plaintext highlighter-rouge">Resolved</code></td>
+    </tr>
+    <tr>
+      <td>T-22-023</td>
+      <td>S-22-06</td>
+      <td>REQ-VASR-05</td>
+      <td>If vendor responds (admin records <code class="language-plaintext highlighter-rouge">VendorResponded</code> action) and the vase comes back online within 14 days, automatically resolve the incident without return</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="ep-23-customer-social-sign-in-google-sso--done">EP-23: Customer Social Sign-In (Google SSO) ✅ Done</h2>
+
+<p><strong>Priority</strong>: P0-critical
+<strong>Dependencies</strong>: EP-02 (Customer Auth — Keycloak, customer_id claim, CustomerOnboardingService)
+<strong>Requirement refs</strong>: REQ-SSO-01 through REQ-SSO-04
+<strong>Design doc</strong>: <code class="language-plaintext highlighter-rouge">docs/superpowers/specs/2026-07-05-google-sso-customer-design.md</code>
+<strong>Setup guide</strong>: <code class="language-plaintext highlighter-rouge">docker/keycloak/README.md</code> (Google Cloud + local + production)
+<strong>Status</strong>: Implemented and browser-verified (Playwright) on branch <code class="language-plaintext highlighter-rouge">feat/ep23-google-sso-customer</code>
+against live Keycloak + a real Google OAuth client. See <code class="language-plaintext highlighter-rouge">tasks-ep23-google-sso-customer.json</code>
+<code class="language-plaintext highlighter-rouge">completionNotes</code> for the per-task deltas.</p>
+
+<blockquote>
+  <p>Customers can sign in with Google instead of manually creating an email/password account.
+Keycloak already brokers social logins and both clients forward <code class="language-plaintext highlighter-rouge">kc_idp_hint</code>, so the OAuth
+handshake is not the work. The gaps are: no Google IdP in the (manually-built, non-exported)
+realm, and a Google first-login produces a Keycloak user with no local <code class="language-plaintext highlighter-rouge">Customer</code> and no
+<code class="language-plaintext highlighter-rouge">customer_id</code> claim — so every <code class="language-plaintext highlighter-rouge">CustomerAccess</code> endpoint fails. This epic adds a committed
+realm export with a Google IdP (auto-linking existing users by verified email, skipping email
+verification), backend just-in-time <code class="language-plaintext highlighter-rouge">Customer</code> provisioning wired into <code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code>,
+and a “Continue with Google” button. Covers the Web Customer App (this repo) and the mobile app
+(Keycloak/backend config only). Vendor Portal is a fast follow reusing the same mechanism.</p>
+</blockquote>
+
+<h3 id="stories-4">Stories</h3>
+
+<ul>
+  <li><strong>S-23-01</strong>: Google Identity Provider in Keycloak realm — committed export (REQ-SSO-01)</li>
+  <li><strong>S-23-02</strong>: Backend just-in-time Customer provisioning on first social login (REQ-SSO-02)</li>
+  <li><strong>S-23-03</strong>: Customer App “Continue with Google” button (REQ-SSO-03)</li>
+  <li><strong>S-23-04</strong>: Mobile app Google sign-in documentation (REQ-SSO-04)</li>
+</ul>
+
+<h3 id="tasks-4">Tasks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Story</th>
+      <th>Requirement</th>
+      <th>Title</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>T-23-001</td>
+      <td>S-23-02</td>
+      <td>REQ-SSO-02</td>
+      <td>Write failing unit tests for <code class="language-plaintext highlighter-rouge">CustomerProvisioningService</code> (provision / auto-link / idempotent / not-for-vendor)</td>
+    </tr>
+    <tr>
+      <td>T-23-002</td>
+      <td>S-23-02</td>
+      <td>REQ-SSO-02</td>
+      <td>Implement <code class="language-plaintext highlighter-rouge">ICustomerProvisioningService</code> — atomic Customer + User creation, <code class="language-plaintext highlighter-rouge">customer_id</code> write-back to Keycloak; register in DI</td>
+    </tr>
+    <tr>
+      <td>T-23-003</td>
+      <td>S-23-02</td>
+      <td>REQ-SSO-02</td>
+      <td>Invoke provisioning from <code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code>; inject <code class="language-plaintext highlighter-rouge">customer_id</code> claim into the in-flight request</td>
+    </tr>
+    <tr>
+      <td>T-23-004</td>
+      <td>S-23-01</td>
+      <td>REQ-SSO-01</td>
+      <td>Export the <code class="language-plaintext highlighter-rouge">flowershop</code> realm to <code class="language-plaintext highlighter-rouge">docker/keycloak/flowershop-realm.json</code> (or author a minimal export)</td>
+    </tr>
+    <tr>
+      <td>T-23-005</td>
+      <td>S-23-01</td>
+      <td>REQ-SSO-01</td>
+      <td>Add Google <code class="language-plaintext highlighter-rouge">identityProvider</code> to the export — <code class="language-plaintext highlighter-rouge">trustEmail</code>, auto-link-by-verified-email, env-var placeholder secrets</td>
+    </tr>
+    <tr>
+      <td>T-23-006</td>
+      <td>S-23-01</td>
+      <td>REQ-SSO-01</td>
+      <td>Switch <code class="language-plaintext highlighter-rouge">keycloak-dev</code> to <code class="language-plaintext highlighter-rouge">start-dev --import-realm</code>, mount import dir, add <code class="language-plaintext highlighter-rouge">GOOGLE_CLIENT_ID</code>/<code class="language-plaintext highlighter-rouge">SECRET</code> env vars</td>
+    </tr>
+    <tr>
+      <td>T-23-007</td>
+      <td>S-23-03</td>
+      <td>REQ-SSO-03</td>
+      <td>Add “Continue with Google” button to the Customer App login (<code class="language-plaintext highlighter-rouge">?provider=google</code>) — already existed; evolved into T-23-011</td>
+    </tr>
+    <tr>
+      <td>T-23-008</td>
+      <td>S-23-02</td>
+      <td>REQ-SSO-02</td>
+      <td>⏳ Integration test: social identity provisions on first API call — <strong>deferred</strong> (unit + manual Playwright E2E cover it)</td>
+    </tr>
+    <tr>
+      <td>T-23-009</td>
+      <td>S-23-04</td>
+      <td>REQ-SSO-04</td>
+      <td>Update <code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> AUTH-03 note to reflect Google sign-in is live</td>
+    </tr>
+    <tr>
+      <td>T-23-010</td>
+      <td>S-23-03</td>
+      <td>REQ-SSO-02</td>
+      <td>Blank the placeholder phone (<code class="language-plaintext highlighter-rouge">+10000000000</code>) in the customer profile form (commit c40a8b9)</td>
+    </tr>
+    <tr>
+      <td>T-23-011</td>
+      <td>S-23-03</td>
+      <td>REQ-SSO-03</td>
+      <td>In-context login modal on the map — Google + email options, all redirect to Keycloak (commit 5a977b0)</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p><strong>Delivery notes:</strong> All stories done. T-23-007’s button already existed, so the UI work went
+into the on-map login modal (T-23-011). T-23-008 (automated integration test) is the only open
+item, deferred in favour of 5 unit tests plus a full manual Playwright E2E run. A literal
+iframe-embed of the Keycloak/Google login on the map is not possible (<code class="language-plaintext highlighter-rouge">X-Frame-Options: DENY</code>),
+so the modal presents our own buttons that redirect — provider redirect is inherent to OAuth.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="epic-dependency-map-full--all-epics">Epic Dependency Map (Full — all epics)</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EP-01 (DB Foundation)
+  ├── EP-02 (Customer Auth) ──► EP-23 (Customer Google SSO)
+  ├── EP-03 (Bouquet Discovery)
+  ├── EP-04 (Orders + Stripe) ──► EP-05 (Vendor Order Mgmt)
+  │                                      └── EP-12 (Vendor Portal)
+  ├── EP-06 (Fav/Sub/Notifications)
+  ├── EP-07 (Customer Profile)
+  ├── EP-08 (Real-time + Freshness) ← needs EP-05
+  ├── EP-09 (Performance) ──► EP-10 (Analytics API)
+  │                                  └── EP-11 (Admin Portal)
+  │                                        ├── EP-21 (Vase Ordering — admin UI)
+  │                                        └── EP-22 (Asset Recovery — admin UI)
+  └── EP-19 (Vendor Self-Registration)
+        └── EP-20 (Vendor Platform Subscription)
+
+EP-13 (Customer Web Shopping)
+  └── EP-14 (Customer Web Profile)
+
+EP-15 (IoT Integration)
+  └── EP-22 (Vase Asset Recovery — extends heartbeat monitor)
+
+EP-16 (E2E Testing) — independent
+EP-17 (Payment Resilience) ──► EP-18 (Payment Visibility &amp; Card)
+EP-21 (Vase Ordering — vendor portal UI) ← needs EP-19 (vendor login)
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="summary">Summary</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Epic</th>
+      <th>Priority</th>
+      <th>Stories</th>
+      <th>Tasks</th>
+      <th>Key Dependency</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EP-19 Vendor Self-Registration</td>
+      <td>P0-critical</td>
+      <td>4</td>
+      <td>15</td>
+      <td>EP-01, Stripe (EP-04/17)</td>
+      <td>✅ Done</td>
+    </tr>
+    <tr>
+      <td>EP-20 Vendor Platform Subscription</td>
+      <td>P0-critical</td>
+      <td>6</td>
+      <td>18</td>
+      <td>EP-19</td>
+      <td>✅ Done</td>
+    </tr>
+    <tr>
+      <td>EP-21 Vase Ordering &amp; Fulfillment</td>
+      <td>P1-high</td>
+      <td>5</td>
+      <td>16</td>
+      <td>EP-19, EP-11</td>
+      <td>✅ Done</td>
+    </tr>
+    <tr>
+      <td>EP-22 Vase Asset Recovery</td>
+      <td>P1-high</td>
+      <td>6</td>
+      <td>23</td>
+      <td>EP-15, EP-11/21</td>
+      <td>✅ Done</td>
+    </tr>
+    <tr>
+      <td>EP-23 Customer Google SSO</td>
+      <td>P0-critical</td>
+      <td>4</td>
+      <td>11</td>
+      <td>EP-02</td>
+      <td>✅ Done (1 test deferred)</td>
+    </tr>
+    <tr>
+      <td><strong>Total (EP-19–23)</strong></td>
+      <td> </td>
+      <td><strong>25</strong></td>
+      <td><strong>83</strong></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><strong>Grand total (EP-01–23)</strong></td>
+      <td> </td>
+      <td><strong>99</strong></td>
+      <td><strong>269</strong></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="implementation-status-2026-06-28">Implementation status (2026-06-28)</h3>
+
+<p>All four epics (21 stories, 72 tasks) are <strong>implemented and browser-verified</strong> on branch
+<code class="language-plaintext highlighter-rouge">feat/ep19-22-vendor-onboarding-subscription-vase</code> (PR #20). Per-task state is tracked in the
+<code class="language-plaintext highlighter-rouge">tasks-ep19..22-*.json</code> files (all marked <code class="language-plaintext highlighter-rouge">done</code>); see each file’s <code class="language-plaintext highlighter-rouge">completionNotes</code> for specifics.</p>
+
+<p>Migrations (one per epic, applied to <code class="language-plaintext highlighter-rouge">flowershop_iot_dev</code>): <code class="language-plaintext highlighter-rouge">AddVendorOnboardingBilling</code>,
+<code class="language-plaintext highlighter-rouge">AddVendorPlatformSubscriptions</code>, <code class="language-plaintext highlighter-rouge">AddVaseOrdersAndIncidents</code>.</p>
+
+<p>Notable deltas from the original plan:</p>
+<ul>
+  <li><strong>EP-20 T-20-018</strong> (“Update payment method”) shipped initially as a placeholder link and was
+completed afterwards as a real <code class="language-plaintext highlighter-rouge">Billing/PaymentMethod</code> page — a Stripe <strong>SetupIntent</strong> Payment
+Element plus an editable, persisted <strong>billing address</strong> (endpoints
+<code class="language-plaintext highlighter-rouge">POST /api/v1/vendor/subscription/payment-method/setup-intent</code> and
+<code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/subscription/billing-address</code>). Card capture degrades gracefully when
+<code class="language-plaintext highlighter-rouge">Stripe:PublishableKey</code> is unset; billing-address save verified persisting to the DB.</li>
+  <li><strong>EP-19</strong> required a fix to <code class="language-plaintext highlighter-rouge">VendorPortal/Filters/SessionExpiredFilter.cs</code> to whitelist the
+anonymous <code class="language-plaintext highlighter-rouge">/Account/Register</code> wizard (it was otherwise redirected to <code class="language-plaintext highlighter-rouge">/Login</code>).</li>
+  <li><strong>EP-22</strong> extended the existing <code class="language-plaintext highlighter-rouge">VaseHealthMonitoringService</code> (in <code class="language-plaintext highlighter-rouge">Infrastructure/Monitoring/</code>)
+rather than the <code class="language-plaintext highlighter-rouge">VaseHeartbeatMonitorService</code> named in the plan.</li>
+</ul>
+
+    </div>
+  </main>
+</div>
+
+<!-- DIAGRAM MODAL -->
+<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
+  <div class="diagram-modal-toolbar">
+    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
+    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
+    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
+    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
+    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
+    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
+  </div>
+  <div class="diagram-modal-body" id="dmBody">
+    <div class="diagram-modal-canvas" id="dmCanvas"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  // ── 1. Convert Jekyll ```mermaid blocks → <div class="mermaid"> ──
+  document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid-wrap';
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    const btn = document.createElement('button');
+    btn.className = 'mermaid-expand-btn';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand';
+    wrap.appendChild(div);
+    wrap.appendChild(btn);
+    code.parentElement.replaceWith(wrap);
+  });
+
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
+
+  // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
+  const modal    = document.getElementById('diagramModal');
+  const dmCanvas = document.getElementById('dmCanvas');
+  const dmBody   = document.getElementById('dmBody');
+  const dmTitle  = document.getElementById('modalTitle');
+  const dmLabel  = document.getElementById('dmZoomLabel');
+
+  let natW = 800, natH = 600, curScale = 1;
+
+  function setSvgSize() {
+    const svg = dmCanvas.querySelector('svg');
+    if (!svg) return;
+    svg.setAttribute('width',  Math.round(natW * curScale));
+    svg.setAttribute('height', Math.round(natH * curScale));
+    dmLabel.textContent = Math.round(curScale * 100) + '%';
+  }
+
+  function fitToView() {
+    const bw = dmBody.clientWidth  - 48;
+    const bh = dmBody.clientHeight - 48;
+    curScale = Math.min(bw / natW, bh / natH, 1.5);
+    setSvgSize();
+    // scroll to centre
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = (dmCanvas.offsetWidth  - dmBody.clientWidth)  / 2;
+      dmBody.scrollTop  = (dmCanvas.offsetHeight - dmBody.clientHeight) / 2;
+    });
+  }
+
+  function openModal(svgEl, title) {
+    dmTitle.textContent = title || 'Diagram';
+    dmCanvas.innerHTML  = '';
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    natW = (vb && vb.width  > 0) ? vb.width  : (parseFloat(svgEl.getAttribute('width'))  || 1200);
+    natH = (vb && vb.height > 0) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 800);
+
+    const clone = svgEl.cloneNode(true);
+    // remove any style that might constrain size
+    clone.style.cssText = 'display:block;max-width:none;';
+    dmCanvas.appendChild(clone);
+
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(fitToView);
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function changeZoom(factor) {
+    curScale = Math.min(Math.max(curScale * factor, 0.05), 10);
+    // remember scroll centre so zoom feels anchored
+    const cx = dmBody.scrollLeft + dmBody.clientWidth  / 2;
+    const cy = dmBody.scrollTop  + dmBody.clientHeight / 2;
+    const relX = cx / (natW * (curScale / factor));
+    const relY = cy / (natH * (curScale / factor));
+    setSvgSize();
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = relX * natW * curScale - dmBody.clientWidth  / 2;
+      dmBody.scrollTop  = relY * natH * curScale - dmBody.clientHeight / 2;
+    });
+  }
+
+  document.getElementById('dmClose').addEventListener('click', closeModal);
+  document.getElementById('dmZoomIn').addEventListener('click',  () => changeZoom(1.4));
+  document.getElementById('dmZoomOut').addEventListener('click', () => changeZoom(1 / 1.4));
+  document.getElementById('dmReset').addEventListener('click',   fitToView);
+
+  // Ctrl/Cmd+wheel zoom (plain wheel = scroll handled by browser natively)
+  dmBody.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    changeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+
+  // Drag-to-scroll / pan
+  let dragging = false, dragSX, dragSY, scrollLX, scrollLY;
+  dmBody.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragging = true; dragSX = e.clientX; dragSY = e.clientY;
+    scrollLX = dmBody.scrollLeft; scrollLY = dmBody.scrollTop;
+    dmBody.classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    dmBody.scrollLeft = scrollLX - (e.clientX - dragSX);
+    dmBody.scrollTop  = scrollLY - (e.clientY - dragSY);
+  });
+  window.addEventListener('mouseup', () => { dragging = false; dmBody.classList.remove('grabbing'); });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── 3. Wire expand buttons — look up SVG fresh on every click ──
+  // Do NOT capture svg in a closure: Mermaid may not have rendered yet
+  // when the observer fires, so always call querySelector at click time.
+  function wireDiagramWrap(wrap) {
+    if (wrap.dataset.wired) return;
+    wrap.dataset.wired = '1';
+    const mermaidDiv = wrap.querySelector('.mermaid');
+    const expandBtn  = wrap.querySelector('.mermaid-expand-btn');
+    const activate = () => {
+      const svg = mermaidDiv && mermaidDiv.querySelector('svg');
+      if (svg) openModal(svg, document.title);
+    };
+    if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
+    if (mermaidDiv) mermaidDiv.addEventListener('click', activate);
+  }
+
+  // Wire immediately for any wraps already in DOM, then watch for new ones
+  document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // ── 4. Sidebar accordion ──
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // ── 5. Active link highlight ──
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // ── 6. Mobile hamburger ──
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+
+  // ── 7. Global page navigation (Next / Back) ──
+  const NAV_PAGES = [
+    { path: '/',                                                                   title: 'Home' },
+    { path: '/architecture/',                                                      title: 'Architecture Overview' },
+    { path: '/architecture/c4-context',                                            title: 'C4 Context' },
+    { path: '/architecture/c4-containers',                                         title: 'C4 Containers' },
+    { path: '/architecture/c4-components',                                         title: 'C4 Components' },
+    { path: '/architecture/domain-model',                                          title: 'Domain Model' },
+    { path: '/architecture/cross-cutting',                                         title: 'Cross-cutting' },
+    { path: '/architecture/view-functional',                                       title: 'Functional View' },
+    { path: '/architecture/view-information',                                      title: 'Information View' },
+    { path: '/architecture/view-concurrency',                                      title: 'Concurrency View' },
+    { path: '/architecture/view-development',                                      title: 'Development View' },
+    { path: '/architecture/view-deployment',                                       title: 'Deployment View' },
+    { path: '/architecture/view-operational',                                      title: 'Operational View' },
+    { path: '/architecture/flows-auth',                                            title: 'Authentication Flows' },
+    { path: '/architecture/flows-customer',                                        title: 'Customer Flows' },
+    { path: '/architecture/flows-vendor',                                          title: 'Vendor Flows' },
+    { path: '/architecture/flows-admin',                                           title: 'Admin Flows' },
+    { path: '/architecture/flows-iot',                                             title: 'IoT Flows' },
+    { path: '/architecture/flows-payments',                                        title: 'Payment Flows' },
+    { path: '/architecture/flows-realtime',                                        title: 'Real-time Flows' },
+    { path: '/API-CONTRACTS',                                                      title: 'Mobile API Contracts' },
+    { path: '/contracts/outbound',                                                 title: 'Outbound Contracts' },
+    { path: '/deployment/',                                                        title: 'Deployment Overview' },
+    { path: '/deployment/DEPLOYMENT-SPEC',                                         title: 'Deployment Spec' },
+    { path: '/deployment/REGISTRATION-AND-CICD',                                   title: 'Registration & CI/CD' },
+    { path: '/deployment/SECRETS-AND-ENV-VARS',                                    title: 'Secrets & Env Vars' },
+    { path: '/deployment/DEPLOYMENT-RUNBOOK',                                      title: 'Runbook' },
+    { path: '/deployment/POST-DEPLOY-SMOKE-TESTS',                                 title: 'Smoke Tests' },
+    { path: '/deployment/OBSERVABILITY',                                           title: 'Observability' },
+    { path: '/deployment/ROLLBACK-AND-RECOVERY',                                   title: 'Rollback & Recovery' },
+    { path: '/EPIC-FEATURES-GUIDE',                                                title: 'Epic Features Guide' },
+    { path: '/STRIPE-BLIK-INTEGRATION',                                            title: 'Stripe + BLIK' },
+    { path: '/COMPLETE_WORKFLOW',                                                   title: 'Complete Workflow' },
+    { path: '/firmware/Smart_Vase_Registration_Workflows_Minimal',                 title: 'Vase Registration Workflows' },
+    { path: '/manuals/',                                                           title: 'User Manuals Overview' },
+    { path: '/manuals/admin-portal-manual.html',                                   title: 'Admin Portal Manual' },
+    { path: '/manuals/vendor-portal-manual.html',                                  title: 'Vendor Portal Manual' },
+    { path: '/manuals/customer-app-manual.html',                                   title: 'Customer App Manual' },
+  ];
+
+  (function () {
+    const norm = p => p.replace(/\/$/, '') || '/';
+    const cur  = norm(window.location.pathname);
+    const idx  = NAV_PAGES.findIndex(p => norm(p.path) === cur);
+    if (idx === -1) return;
+
+    const prev = idx > 0              ? NAV_PAGES[idx - 1] : null;
+    const next = idx < NAV_PAGES.length - 1 ? NAV_PAGES[idx + 1] : null;
+
+    const nav = document.createElement('div');
+    nav.className = 'page-nav';
+
+    if (prev) {
+      nav.innerHTML += `<a class="page-nav-btn back" href="${prev.path}">
+        <span class="page-nav-label">← Back</span>
+        <span class="page-nav-title">${prev.title}</span>
+      </a>`;
+    } else {
+      nav.innerHTML += `<span></span>`;
+    }
+
+    if (next) {
+      nav.innerHTML += `<a class="page-nav-btn next" href="${next.path}">
+        <span class="page-nav-label">Next →</span>
+        <span class="page-nav-title">${next.title}</span>
+      </a>`;
+    }
+
+    document.querySelector('.main').appendChild(nav);
+  })();
+
+  // ── 8. Dark / light mode toggle ──
+  (function () {
+    const root = document.documentElement;
+    const btn  = document.getElementById('themeToggle');
+    const icon = document.getElementById('themeIcon');
+    const lbl  = document.getElementById('themeLabel');
+    const LIGHT = {'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'};
+    const DARK  = {'--bg':'#0f1117','--surface':'#1a1d27','--surface2':'#22263a','--border':'#2e3350','--accent':'#6c8cff','--accent2':'#a78bfa','--text':'#e2e8f0','--text-muted':'#8892a4','--text-dim':'#566070','--topbar-bg':'rgba(15,17,23,.9)','--content-text':'#c8d0dc','--link-hover':'#9bb5ff','--code-color':'#a5d6ff','--pre-code-color':'#c9d1d9'};
+
+    function applyTheme(mode) {
+      const vars = mode === 'light' ? LIGHT : DARK;
+      Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+      if (mode === 'light') {
+        root.classList.add('light');
+        if (icon) icon.innerHTML = '&#127769;';
+        if (lbl)  lbl.textContent = 'Dark';
+      } else {
+        root.classList.remove('light');
+        if (icon) icon.innerHTML = '&#9728;&#65039;';
+        if (lbl)  lbl.textContent = 'Light';
+      }
+    }
+
+    const saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved);
+
+    if (btn) btn.addEventListener('click', () => {
+      const next = root.classList.contains('light') ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
+  })();
+</script>
+</body>
+</html>
