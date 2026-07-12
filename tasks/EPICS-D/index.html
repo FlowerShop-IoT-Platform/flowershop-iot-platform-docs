@@ -776,7 +776,7 @@ Analysis date: 2026-07-06</p>
   ├── S-24-01 (code blockers: portal auth config, prod CORS)   ← must merge first
   │
   ├── S-24-02 (Keycloak @ auth. → API @ api. → flip to real auth)   🔴 critical path
-  │       └── S-24-03 (three portals: admin. / vendors. / apex)
+  │       └── S-24-03 (three portals: admin. / vendors. / app.)
   │               └── (CORS wired to real origins — REQ-DEP-10, done in S-24-01's T-24-002)
   │
   ├── S-24-04 (docs.findmyflowers.pl)          ← independent, parallelizable
@@ -799,21 +799,26 @@ the Keycloak work.</p>
 <blockquote>
   <p>Take the platform live at <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code> for a pilot flower shop, including a live demo of one
 physical smart vase, at ~$10/mo. A complete plan already exists in <code class="language-plaintext highlighter-rouge">docs/deployment/</code>; this epic
-<strong>executes</strong> it, with three deltas: (1) the requested URL layout — Customer App on the bare apex,
+<strong>executes</strong> it, with three deltas: (1) the requested URL layout — Customer App on a dedicated
+subdomain (the plan first floated the bare apex; as-built it shipped on <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code>),
 Vendor Portal on <code class="language-plaintext highlighter-rouge">vendors.</code> (plural), public docs on <code class="language-plaintext highlighter-rouge">docs.</code> (new); (2) Postgres is on Fly, not
 Aiven; (3) two code blockers merge first — portals hardcode the Keycloak URL + client secret, and
 prod CORS is a wildcard that breaks credentialed calls.</p>
 </blockquote>
 
-<p><strong>Verified live state (2026-07-06):</strong> API healthy on <code class="language-plaintext highlighter-rouge">flower-shop-backend-core.fly.dev</code> in dev-auth
-mode; Fly Postgres live; R2 + <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code> working; Cloudflare zone live. Keycloak, the
-<code class="language-plaintext highlighter-rouge">api.</code> custom domain, and all three portals are undeployed.</p>
+<p><strong>Live state (updated 2026-07-12): DONE.</strong> The platform is fully deployed and live at
+<code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. API on <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl</code> with <strong>real Keycloak auth</strong> (<code class="language-plaintext highlighter-rouge">UseKeycloak=true</code>);
+Fly Postgres (PG 17) live; R2 + <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code> working; Cloudflare zone live. Keycloak
+deployed at <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code>; <strong>all three portals deployed to Fly.io</strong> (not Render) — Admin
+<code class="language-plaintext highlighter-rouge">admin.</code>, Vendor <code class="language-plaintext highlighter-rouge">vendors.</code>, Customer App on <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code>. Docs on <code class="language-plaintext highlighter-rouge">docs.findmyflowers.pl</code>. HiveMQ Cloud
+MQTT (TLS 8883) live; weekly Postgres backup to R2 (<code class="language-plaintext highlighter-rouge">db-backup.yml</code>). All apps run in region <code class="language-plaintext highlighter-rouge">fra</code>,
+always-on (<code class="language-plaintext highlighter-rouge">min_machines_running=1</code>).</p>
 
 <h3 id="s-24-01--pre-deploy-code-blockers-p0">S-24-01 — Pre-deploy code blockers <em>(P0)</em></h3>
 <p>These ship in the image, so they merge before any (re)deploy.</p>
 <ul>
   <li><strong>T-24-001</strong> — De-hardcode portal Keycloak base URL + client secret → config (<code class="language-plaintext highlighter-rouge">Authentication:KeycloakBaseUrl</code>, <code class="language-plaintext highlighter-rouge">Authentication:ClientSecret</code>), dev defaults preserved. Both portals use the <code class="language-plaintext highlighter-rouge">flowershop-api</code> client via password grant.</li>
-  <li><strong>T-24-002</strong> — Replace prod CORS <code class="language-plaintext highlighter-rouge">["*"]</code> with the three real origins (apex + admin + vendors.). This is also where REQ-DEP-10 lands.</li>
+  <li><strong>T-24-002</strong> — Replace prod CORS <code class="language-plaintext highlighter-rouge">["*"]</code> with the three real origins (app. + admin. + vendors.). This is also where REQ-DEP-10 lands.</li>
   <li><strong>T-24-003</strong> — Scrub docker-hostname placeholders in <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code> (DB/Redis/MQTT/JWT); confirm each is Fly-secret-overridden or genuinely unused.</li>
 </ul>
 
@@ -826,12 +831,18 @@ mode; Fly Postgres live; R2 + <code class="language-plaintext highlighter-rouge"
   <li><strong>T-24-008</strong> — Flip API to <code class="language-plaintext highlighter-rouge">UseKeycloak=true</code> (+ Authority/ClientId/ClientSecret) <strong>only after</strong> T-24-006 verifies; confirm <code class="language-plaintext highlighter-rouge">dev-token</code> → 404.</li>
 </ul>
 
-<h3 id="s-24-03--three-portals-on-branded-domains-p0">S-24-03 — Three portals on branded domains <em>(P0)</em></h3>
+<h3 id="s-24-03--three-portals-on-branded-domains-p0--done-deployed-to-flyio-not-render">S-24-03 — Three portals on branded domains <em>(P0)</em> — DONE (deployed to Fly.io, not Render)</h3>
 <ul>
-  <li><strong>T-24-009</strong> — Admin Portal → Render → <code class="language-plaintext highlighter-rouge">admin.findmyflowers.pl</code>.</li>
-  <li><strong>T-24-010</strong> — Vendor Portal → Render → <strong><code class="language-plaintext highlighter-rouge">vendors.</code></strong> (plural); audit workflow/docs for <code class="language-plaintext highlighter-rouge">vendor.</code> singular refs.</li>
-  <li><strong>T-24-011</strong> — Customer App → <strong>bare apex</strong> <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code> (Cloudflare CNAME-flattening) + OIDC env + Keycloak redirect URIs. The apex is the one divergence with real technical cost.</li>
+  <li><strong>T-24-009</strong> — Admin Portal → Fly app <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code> → <code class="language-plaintext highlighter-rouge">admin.findmyflowers.pl</code>.</li>
+  <li><strong>T-24-010</strong> — Vendor Portal → Fly app <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code> → <strong><code class="language-plaintext highlighter-rouge">vendors.</code></strong> (plural).</li>
+  <li><strong>T-24-011</strong> — Customer App → Fly app <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> at <strong><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></strong> (plain subdomain CNAME to <code class="language-plaintext highlighter-rouge">flowershop-customer-app.fly.dev</code>) + OIDC env + Keycloak redirect URIs. (The plan first floated the bare apex; as-built it shipped on the <code class="language-plaintext highlighter-rouge">app.</code> subdomain, so no CNAME-flattening was needed.)</li>
 </ul>
+
+<blockquote>
+  <p><strong>Delta from plan:</strong> the three portals were deployed to <strong>Fly.io</strong> (region <code class="language-plaintext highlighter-rouge">fra</code>, always-on), not
+Render. There is no Render in the live stack; keep-warm crons are unnecessary
+(<code class="language-plaintext highlighter-rouge">min_machines_running=1</code>).</p>
+</blockquote>
 
 <h3 id="s-24-04--public-docs-p1-independent">S-24-04 — Public docs <em>(P1, independent)</em></h3>
 <ul>
@@ -844,15 +855,19 @@ mode; Fly Postgres live; R2 + <code class="language-plaintext highlighter-rouge"
   <li><strong>T-24-014</strong> — Wire Stripe test-mode + webhook (<strong>optional</strong> — only if checkout is demoed).</li>
 </ul>
 
-<h3 id="s-24-06--hardening--go-live-p1">S-24-06 — Hardening &amp; go-live <em>(P1)</em></h3>
+<h3 id="s-24-06--hardening--go-live-p1--done">S-24-06 — Hardening &amp; go-live <em>(P1)</em> — DONE</h3>
 <ul>
-  <li><strong>T-24-015</strong> — cron-job.org keep-warm pings on Render portals + weekly <code class="language-plaintext highlighter-rouge">pg_dump</code> → R2 (Fly PG has no auto-backups).</li>
-  <li><strong>T-24-016</strong> — Scripted end-to-end smoke test across every branded domain; all green = go-live. Consider driving it via Playwright (MCP browser tools available).</li>
+  <li><strong>T-24-015</strong> — Weekly <code class="language-plaintext highlighter-rouge">pg_dump</code> (custom format, both DBs) → R2 via <code class="language-plaintext highlighter-rouge">.github/workflows/db-backup.yml</code> (Mondays 03:17 UTC). Keep-warm crons dropped — all Fly apps run always-on (<code class="language-plaintext highlighter-rouge">min_machines_running=1</code>).</li>
+  <li><strong>T-24-016</strong> — End-to-end smoke test across every branded domain (all green → go-live).</li>
 </ul>
 
 <hr />
 
 <h2 id="cost-summary-pilot-showcase">Cost summary (pilot showcase)</h2>
+
+<blockquote>
+  <p><strong>As deployed:</strong> all three portals run on Fly.io (region <code class="language-plaintext highlighter-rouge">fra</code>, always-on), not Render.</p>
+</blockquote>
 
 <table>
   <thead>
@@ -875,13 +890,13 @@ mode; Fly Postgres live; R2 + <code class="language-plaintext highlighter-rouge"
     </tr>
     <tr>
       <td>Customer App</td>
-      <td>Fly or Render free</td>
-      <td>~$0–3.89</td>
+      <td>Fly</td>
+      <td>~$3.89</td>
     </tr>
     <tr>
       <td>Admin + Vendor portals</td>
-      <td>Render free (cold-start OK)</td>
-      <td>$0</td>
+      <td>Fly</td>
+      <td>~$3.89 ea.</td>
     </tr>
     <tr>
       <td>Postgres</td>
@@ -916,27 +931,26 @@ mode; Fly Postgres live; R2 + <code class="language-plaintext highlighter-rouge"
   </tbody>
 </table>
 
-<p><strong>≈ $10–15/mo cash</strong> (offset by Fly’s $5 Hobby credit), accepting Render cold starts on the two
-internal portals.</p>
+<p>Cash cost scales with how many portal VMs stay always-on (offset by Fly’s $5 Hobby credit).</p>
 
 <hr />
 
 <h2 id="notes--risks">Notes &amp; risks</h2>
 
 <ul>
-  <li><strong>Apex CNAME wrinkle</strong> (T-24-011): a bare apex can’t be a plain CNAME to Render/Fly — use
-Cloudflare CNAME-flattening (proxy ON, Cloudflare terminates TLS) or A/AAAA records to the host
-IPs. This is the single item the requested URL layout adds versus the written runbook.</li>
+  <li><strong>Customer App subdomain</strong> (T-24-011): the plan first floated a bare apex (which can’t be a plain
+CNAME to Fly, and would have needed Cloudflare CNAME-flattening). As-built, the Customer App
+shipped on <strong><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></strong> — a plain subdomain CNAME to <code class="language-plaintext highlighter-rouge">flowershop-customer-app.fly.dev</code>,
+exactly like the other Fly apps, so no CNAME-flattening was needed.</li>
   <li><strong>Domain string divergence</strong>: every DNS record, CORS entry, OIDC redirect URI, and workflow
-health-check URL must use the apex (not <code class="language-plaintext highlighter-rouge">app.</code>) and <code class="language-plaintext highlighter-rouge">vendors.</code> (not <code class="language-plaintext highlighter-rouge">vendor.</code>). Audit
-<code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code> specifically.</li>
+health-check URL uses <code class="language-plaintext highlighter-rouge">app.</code> (Customer App) and <code class="language-plaintext highlighter-rouge">vendors.</code> (not <code class="language-plaintext highlighter-rouge">vendor.</code>).</li>
   <li><strong>Ordering guard</strong> (T-24-008): the API must not flip to real auth before Keycloak’s JWKS is
 reachable, or everything 401s.</li>
   <li><strong>Realm has no admin/vendor client</strong> — both portals authenticate through <code class="language-plaintext highlighter-rouge">flowershop-api</code> via
 password grant, which is why T-24-001 (config-driven secret) is a hard prerequisite for portal
 login in prod.</li>
-  <li>Inherited risks (from DEPLOYMENT-SPEC.md): Fly free-VM eviction, Render cold-start chain,
-HiveMQ 100-connection cap, no automated PG backups (mitigated by T-24-015).</li>
+  <li>Inherited risks (from DEPLOYMENT-SPEC.md): Fly VM eviction, HiveMQ 100-connection cap. Automated
+PG backups are now in place (<code class="language-plaintext highlighter-rouge">db-backup.yml</code>, weekly to R2).</li>
 </ul>
 
     </div>

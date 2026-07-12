@@ -784,13 +784,13 @@ check <span class="s2">"API /health/ready"</span>   <span class="s2">"https://ap
 check <span class="s2">"API /health/live"</span>    <span class="s2">"https://api.</span><span class="nv">$BASE</span><span class="s2">/health/live"</span>     <span class="s2">"200"</span>
 check <span class="s2">"Keycloak OIDC disc."</span> <span class="s2">"https://auth.</span><span class="nv">$BASE</span><span class="s2">/realms/flowershop/.well-known/openid-configuration"</span> <span class="s2">"200"</span>
 check <span class="s2">"CustomerApp root"</span>    <span class="s2">"https://app.</span><span class="nv">$BASE</span><span class="s2">/"</span>                <span class="s2">"200 302"</span>
-check <span class="s2">"AdminPortal /health"</span> <span class="s2">"https://admin.</span><span class="nv">$BASE</span><span class="s2">/health"</span>        <span class="s2">"200"</span>
-check <span class="s2">"VendorPortal /health"</span> <span class="s2">"https://vendor.</span><span class="nv">$BASE</span><span class="s2">/health"</span>      <span class="s2">"200"</span>
+check <span class="s2">"AdminPortal /Login"</span>  <span class="s2">"https://admin.</span><span class="nv">$BASE</span><span class="s2">/Login"</span>         <span class="s2">"200"</span>
+check <span class="s2">"VendorPortal /Login"</span> <span class="s2">"https://vendors.</span><span class="nv">$BASE</span><span class="s2">/Login"</span>       <span class="s2">"200"</span>
 <span class="nb">echo</span> <span class="s2">"---- </span><span class="nv">$pass</span><span class="s2"> pass / </span><span class="nv">$fail</span><span class="s2"> fail ----"</span>
 <span class="nb">exit</span> <span class="nv">$fail</span>
 </code></pre></div></div>
 
-<p>Save as <code class="language-plaintext highlighter-rouge">scripts/smoke.sh</code>. Fails with non-zero when anything is down — wire it into cron-job.org for passive monitoring.</p>
+<p>Save as <code class="language-plaintext highlighter-rouge">scripts/smoke.sh</code>. Fails with non-zero when anything is down — wire it into an external uptime monitor for passive monitoring.</p>
 
 <hr />
 
@@ -834,7 +834,9 @@ check <span class="s2">"VendorPortal /health"</span> <span class="s2">"https://v
 <h3 id="4-write-path--domain-event">4. Write path + domain event</h3>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># As a vendor: create a bouquet.</span>
-<span class="nv">VENDOR_TOKEN</span><span class="o">=</span><span class="si">$(</span>...same as step 1 with flowershop-vendor-portal client + vendor user...<span class="si">)</span>
+<span class="c"># NOTE: there is no flowershop-vendor-portal client — the portals authenticate</span>
+<span class="c"># through the flowershop-api client via password grant, using a vendor user.</span>
+<span class="nv">VENDOR_TOKEN</span><span class="o">=</span><span class="si">$(</span>...same as step 1 with the flowershop-api client + vendor user...<span class="si">)</span>
 
 curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$VENDOR_TOKEN</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
@@ -842,12 +844,12 @@ curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="n
   https://api.findmyflowers.pl/api/v1/vendor/bouquets | jq <span class="nb">.</span>
 </code></pre></div></div>
 
-<p><strong>Pass:</strong> 201 with a <code class="language-plaintext highlighter-rouge">bouquetId</code> GUID. Confirms: Postgres write, MediatR pipeline, domain event publish (visible in logs as <code class="language-plaintext highlighter-rouge">Published BouquetCreated to InMemoryEventBus</code> — real RabbitMQ path lands in EP-09).</p>
+<p><strong>Pass:</strong> 201 with a <code class="language-plaintext highlighter-rouge">bouquetId</code> GUID. Confirms: Postgres write, MediatR pipeline, domain event publish (visible in logs as <code class="language-plaintext highlighter-rouge">Published BouquetCreated to InMemoryEventBus</code> — <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the active impl; RabbitMQ is not provisioned in prod).</p>
 
 <h3 id="5-iot-ingest--mqtt--api--signalr">5. IoT ingest — MQTT → API → SignalR</h3>
 
 <p>Terminal A (API log tail):</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'mqtt|vase'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'mqtt|vase'</span>
 </code></pre></div></div>
 
 <p>Terminal B (simulate a vase):</p>
@@ -902,19 +904,19 @@ setTimeout(() =&gt; { console.log('FAIL: no event in 30s'); process.exit(1); }, 
 <h3 id="9-cors-from-the-real-customer-origin">9. CORS from the real customer origin</h3>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-si</span> <span class="nt">-X</span> OPTIONS https://api.findmyflowers.pl/api/v1/bouquets <span class="se">\</span>
-  <span class="nt">-H</span> <span class="s2">"Origin: https://app.findmyflowers.pl"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Origin: https://findmyflowers.pl"</span> <span class="se">\</span>
   <span class="nt">-H</span> <span class="s2">"Access-Control-Request-Method: GET"</span> <span class="se">\</span>
   | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"access-control-allow-origin"</span>
 </code></pre></div></div>
 
-<p><strong>Pass:</strong> <code class="language-plaintext highlighter-rouge">Access-Control-Allow-Origin: https://app.findmyflowers.pl</code>. If it echoes <code class="language-plaintext highlighter-rouge">*</code>, the CORS config still has the dev wildcard — fix in <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code>.</p>
+<p><strong>Pass:</strong> <code class="language-plaintext highlighter-rouge">Access-Control-Allow-Origin: https://findmyflowers.pl</code>. If it echoes <code class="language-plaintext highlighter-rouge">*</code>, the CORS config still has the dev wildcard — fix in <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code>.</p>
 
 <h3 id="10-browser-driven-critical-path">10. Browser-driven critical path</h3>
 
 <p>Do this manually in an incognito window:</p>
 
 <ul class="task-list">
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" /><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code> loads without TLS warning.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" /><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code> (the CustomerApp) loads without TLS warning.</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />“Sign in” redirects to <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code>, shows the flowershop realm login.</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Login succeeds and returns to <code class="language-plaintext highlighter-rouge">/</code> authenticated.</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Map page shows at least one bouquet pin (or, if DB empty, empty-state copy — not an error).</li>
@@ -968,7 +970,7 @@ setTimeout(() =&gt; { console.log('FAIL: no event in 30s'); process.exit(1); }, 
     </tr>
     <tr>
       <td>3 DB read</td>
-      <td>Aiven creds wrong, migration missing, <code class="language-plaintext highlighter-rouge">DbContext</code> DI broken</td>
+      <td>Fly Postgres creds wrong, migration missing, <code class="language-plaintext highlighter-rouge">DbContext</code> DI broken</td>
     </tr>
     <tr>
       <td>4 Write path</td>

@@ -762,7 +762,7 @@
 
 <h2 id="process--thread-model">Process &amp; Thread Model</h2>
 
-<p>The entire platform runs in a single ASP.NET Core process hosted by Kestrel. HTTP and WebSocket connections share the Kestrel thread pool; each request flows asynchronously through the MediatR pipeline. Three <code class="language-plaintext highlighter-rouge">IHostedService</code> background services run on the same process concurrently: the outbox dispatcher (domain event delivery), the vase health monitor (IoT liveness), and the MQTT startup subscriber (IoT message ingestion). No inter-process communication is needed within the API boundary.</p>
+<p>The entire platform runs in a single ASP.NET Core process hosted by Kestrel. HTTP and WebSocket connections share the Kestrel thread pool; each request flows asynchronously through the MediatR pipeline. Roughly eight <code class="language-plaintext highlighter-rouge">IHostedService</code> background services run on the same process concurrently — <code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code> (domain event delivery), <code class="language-plaintext highlighter-rouge">VaseHealthMonitoringService</code> (IoT liveness), <code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code> (release expired bouquet holds), <code class="language-plaintext highlighter-rouge">StripeWebhookProcessorService</code>, <code class="language-plaintext highlighter-rouge">PaymentReconciliationService</code>, <code class="language-plaintext highlighter-rouge">BouquetFreshnessUpdateService</code>, <code class="language-plaintext highlighter-rouge">PerformanceAnalyticsService</code>, and <code class="language-plaintext highlighter-rouge">SubscriptionMatchingService</code> — plus the MQTT startup subscriber for IoT message ingestion. No inter-process communication is needed within the API boundary.</p>
 
 <pre><code class="language-mermaid">flowchart TD
   subgraph APIProcess["ASP.NET Core API Process (Kestrel)"]
@@ -770,9 +770,12 @@
     MQ["MediatR Pipeline\n(per-request async chain)"]
     SIG["SignalR Hub\n(BouquetHub — in-process)"]
 
-    subgraph BGServices["Background Services (IHostedService)"]
+    subgraph BGServices["Background Services (~8 IHostedService)"]
       OBD["OutboxDispatcherService\nPolls DB every 5s"]
       VHM["VaseHealthMonitoringService\nPolls DB every 60s for stale heartbeats"]
+      ORE["OrderReservationExpiryService\nReleases expired bouquet holds"]
+      SWP["StripeWebhookProcessorService\nPaymentReconciliationService"]
+      FRA["BouquetFreshnessUpdateService\nPerformanceAnalyticsService\nSubscriptionMatchingService"]
       MQS["MqttDeviceStartupService\nSubscribes to MQTT topics on startup"]
     end
   end
@@ -817,6 +820,31 @@
       <td><code class="language-plaintext highlighter-rouge">VaseHealthMonitoringService</code></td>
       <td><strong>IoT / MQTT</strong></td>
       <td>Marks vases <code class="language-plaintext highlighter-rouge">Offline</code> when no heartbeat has been received for 1 hour; publishes <code class="language-plaintext highlighter-rouge">VaseWentOfflineEvent</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OrderReservationExpiryService</code></td>
+      <td><strong>Customer Purchasing</strong></td>
+      <td>Releases bouquet reservations whose 15-min hold has expired</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">StripeWebhookProcessorService</code> / <code class="language-plaintext highlighter-rouge">PaymentReconciliationService</code></td>
+      <td><strong>Payments</strong></td>
+      <td>Processes queued Stripe webhooks and reconciles payment intents against orders</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetFreshnessUpdateService</code></td>
+      <td><strong>Vase &amp; Bouquet Lifecycle</strong></td>
+      <td>Recomputes bouquet freshness scores from sensor data</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PerformanceAnalyticsService</code></td>
+      <td><strong>Analytics</strong></td>
+      <td>Materialises analytics/benchmark metrics on a schedule</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SubscriptionMatchingService</code></td>
+      <td><strong>Customer Engagement</strong></td>
+      <td>Matches new bouquets against customer bouquet-alert subscriptions</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">MqttDeviceStartupService</code></td>
@@ -874,7 +902,7 @@
 </code></pre>
 
 <blockquote>
-  <p><strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub — events are silently dropped when RabbitMQ bus is active. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation in current use.</p>
+  <p><strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub — events published through it are silently dropped. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation. Note that prod appsettings sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> (selecting the stub), so <code class="language-plaintext highlighter-rouge">IEventBus</code>-published events are dropped in prod; the outbox pattern above is the real event-delivery path and is unaffected.</p>
 </blockquote>
 
 <h3 id="4-vase-health-monitor--iot--mqtt">4. Vase Health Monitor — <strong>IoT / MQTT</strong></h3>

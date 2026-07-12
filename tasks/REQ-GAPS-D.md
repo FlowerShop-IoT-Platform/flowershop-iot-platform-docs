@@ -5,6 +5,13 @@
 > Requirement refs point at the tasks in `tasks-ep24-showcase-deployment.json`.
 > Analysis date: 2026-07-06
 
+> **Status (2026-07-12): SHIPPED.** The platform is fully live at `findmyflowers.pl`. The gaps below
+> are historical. Two deltas from the criteria as written: **all three portals shipped on Fly.io, not
+> Render** (so the "Render web service" / `RENDER_*` secret / cron-job.org keep-warm requirements do
+> not apply — Fly `min_machines_running=1` keeps apps warm), and **the API runs in region `fra`** (not
+> `iad`) with **real Keycloak auth** (`UseKeycloak=true`). See EPICS-D.md and SHOWCASE-RUNBOOK.md for
+> the as-built state.
+
 ## Context
 
 The platform is being taken live at **`findmyflowers.pl`** for a pilot showcase to a first flower
@@ -28,18 +35,19 @@ written but not executed.** Verified live state (2026-07-06):
 
 ## Requested public URL layout (differs from existing docs)
 
-| Surface | Requested (this epic) | Existing docs/config assume |
+| Surface | Requested (this epic) | As-built (actual) |
 |---|---|---|
-| Customer App | **`findmyflowers.pl`** (bare apex) | `app.findmyflowers.pl` |
-| Vendor Portal | **`vendors.findmyflowers.pl`** (plural) | `vendor.findmyflowers.pl` (singular) |
+| Customer App | (plan floated the bare apex `findmyflowers.pl`) | **`app.findmyflowers.pl`** (plain subdomain CNAME) |
+| Vendor Portal | **`vendors.findmyflowers.pl`** (plural) | `vendors.findmyflowers.pl` |
 | Admin Portal | `admin.findmyflowers.pl` | `admin.findmyflowers.pl` ✓ |
-| Public docs | **`docs.findmyflowers.pl`** | GitHub Pages, no custom domain |
+| Public docs | **`docs.findmyflowers.pl`** | `docs.findmyflowers.pl` |
 | API | `api.findmyflowers.pl` | `api.findmyflowers.pl` ✓ |
 | Auth | `auth.findmyflowers.pl` | `auth.findmyflowers.pl` ✓ |
 
-Two divergences carry real work: the **apex customer domain** cannot be a plain CNAME to
-Render/Fly (needs Cloudflare CNAME-flattening / proxied record), and **`docs.` is new** — the
-docs workflow publishes to GitHub Pages but no custom domain is wired.
+One divergence carried real work: **`docs.` is new** — the docs workflow publishes to GitHub Pages
+but no custom domain is wired. (The plan initially floated a bare-apex customer domain, which would
+have needed Cloudflare CNAME-flattening; as-built the Customer App shipped on the plain
+`app.findmyflowers.pl` subdomain CNAME, so that wrinkle never materialised.)
 
 ---
 
@@ -60,7 +68,7 @@ local behaviour is unchanged.
 `appsettings.Production.json` sets `Cors:AllowedOrigins: ["*"]`. The policy in
 `ServiceCollectionExtensions.cs` intentionally drops `AllowCredentials()` on the wildcard branch,
 so a wildcard prod config is both insecure and blocks credentialed browser requests from the
-portals. Required: set the real production origins (apex + admin + vendors) so the policy switches
+portals. Required: set the real production origins (app + admin + vendors) so the policy switches
 to the explicit-allow-list branch with `AllowCredentials()`.
 
 ### REQ-DEP-03 `[CONFIG]` Production appsettings placeholders — P1
@@ -113,14 +121,15 @@ As REQ-DEP-07 for the Vendor Portal, on the **plural** `vendors.findmyflowers.pl
 `RENDER_VENDOR_SERVICE_ID` recorded. Note the divergence from existing docs/config that use
 `vendor.` (singular) — DNS, CORS, and the deploy workflow references must all use `vendors.`.
 
-### REQ-DEP-09 `[MISSING]` Customer App deployed at the apex `findmyflowers.pl` — P0
+### REQ-DEP-09 `[MISSING]` Customer App deployed at `app.findmyflowers.pl` — P0
 
 Required: deploy the CustomerApp (Render or Fly) with OIDC env
 (`Authentication__Authority`, `ClientId=flowershop-customer-app`, `ClientSecret`,
-`PostLoginRedirectUri=https://findmyflowers.pl/`); serve it on the **bare apex** via Cloudflare
-CNAME-flattening (or a proxied record), since apex cannot be a plain CNAME to Render/Fly; and
-register `https://findmyflowers.pl/signin-oidc` + post-logout `https://findmyflowers.pl/` as valid
-redirect URIs on the `flowershop-customer-app` Keycloak client.
+`PostLoginRedirectUri=https://app.findmyflowers.pl/`); serve it on **`app.findmyflowers.pl`** via a
+plain subdomain CNAME to the Fly host (as-built — the plan first floated the bare apex, but that
+would have needed Cloudflare CNAME-flattening, so a normal `app.` subdomain was used instead); and
+register `https://app.findmyflowers.pl/signin-oidc` + post-logout `https://app.findmyflowers.pl/` as
+valid redirect URIs on the `flowershop-customer-app` Keycloak client.
 
 ### REQ-DEP-10 `[MISSING]` CORS wired to the real showcase origins — P0
 
@@ -158,27 +167,31 @@ backups).
 
 Run the full path on the branded domains: `auth` realm → 200; `api/health` → 200 and `dev-token`
 → 404; admin login → dashboard; vendor login → bouquet upload with an `img.findmyflowers.pl` photo;
-customer "Sign in with Google" → returns to the apex logged in → map loads; no CORS errors; and a
+customer "Sign in with Google" → returns to `app.findmyflowers.pl` logged in → map loads; no CORS errors; and a
 vase heartbeat visible in API logs. Green across all = go-live.
 
 ---
 
 ## Summary Table
 
+> Status reflects the as-built deployment (2026-07-12) — all items shipped. Two diverged from the
+> original wording: portals are on **Fly.io** (not Render) and the Customer App is on
+> **`app.findmyflowers.pl`** (not the bare apex).
+
 | ID | Area | Priority | Status |
 |---|---|---|---|
-| REQ-DEP-01 | Portals hardcode Keycloak URL + client secret | P0 | MISSING |
-| REQ-DEP-02 | Prod CORS wildcard breaks credentialed calls | P0 | MISSING |
-| REQ-DEP-03 | Prod appsettings placeholders (DB/Redis/MQTT/JWT) | P1 | MISSING |
-| REQ-DEP-04 | Keycloak deployed at auth.findmyflowers.pl | P0 | MISSING |
-| REQ-DEP-05 | API custom domain api.findmyflowers.pl | P1 | MISSING |
-| REQ-DEP-06 | API switched to real Keycloak auth | P0 | MISSING |
-| REQ-DEP-07 | Admin Portal at admin.findmyflowers.pl | P0 | MISSING |
-| REQ-DEP-08 | Vendor Portal at vendors.findmyflowers.pl | P0 | MISSING |
-| REQ-DEP-09 | Customer App at apex findmyflowers.pl | P0 | MISSING |
-| REQ-DEP-10 | CORS wired to real showcase origins | P0 | MISSING |
-| REQ-DEP-11 | Public docs at docs.findmyflowers.pl | P1 | MISSING |
-| REQ-DEP-12 | MQTT pointed at HiveMQ Cloud for vase demo | P1 | MISSING |
-| REQ-DEP-13 | Stripe test-mode wired for checkout demo | P2 | MISSING |
-| REQ-DEP-14 | Keep-warm & operational crons | P2 | MISSING |
-| REQ-DEP-15 | End-to-end showcase smoke test | P1 | MISSING |
+| REQ-DEP-01 | Portals hardcode Keycloak URL + client secret | P0 | ✅ DONE |
+| REQ-DEP-02 | Prod CORS wildcard breaks credentialed calls | P0 | ✅ DONE |
+| REQ-DEP-03 | Prod appsettings placeholders (DB/Redis/MQTT/JWT) | P1 | ✅ DONE |
+| REQ-DEP-04 | Keycloak deployed at auth.findmyflowers.pl | P0 | ✅ DONE |
+| REQ-DEP-05 | API custom domain api.findmyflowers.pl | P1 | ✅ DONE |
+| REQ-DEP-06 | API switched to real Keycloak auth | P0 | ✅ DONE |
+| REQ-DEP-07 | Admin Portal at admin.findmyflowers.pl | P0 | ✅ DONE (Fly, not Render) |
+| REQ-DEP-08 | Vendor Portal at vendors.findmyflowers.pl | P0 | ✅ DONE (Fly, not Render) |
+| REQ-DEP-09 | Customer App at app.findmyflowers.pl | P0 | ✅ DONE (Fly; `app.`, not apex) |
+| REQ-DEP-10 | CORS wired to real showcase origins | P0 | ✅ DONE |
+| REQ-DEP-11 | Public docs at docs.findmyflowers.pl | P1 | ✅ DONE |
+| REQ-DEP-12 | MQTT pointed at HiveMQ Cloud for vase demo | P1 | ✅ DONE |
+| REQ-DEP-13 | Stripe test-mode wired for checkout demo | P2 | ✅ DONE |
+| REQ-DEP-14 | Keep-warm & operational crons | P2 | ✅ DONE (Fly always-on + weekly R2 backup) |
+| REQ-DEP-15 | End-to-end showcase smoke test | P1 | ✅ DONE |

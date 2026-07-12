@@ -6,27 +6,30 @@
 > **Companion to** `DEPLOYMENT-SPEC.md` (topology + rationale). This file is the
 > ordered, executable checklist. Do the phases in order — each depends on the previous.
 
-**Last updated:** 2026-07-06
+**Last updated:** 2026-07-12 (go-live complete)
 
 ---
 
-## Current state (verified 2026-07-06)
+## Current state (all phases DONE)
 
 | Component | Status |
 |---|---|
-| API `flower-shop-backend-core` | ✅ Deployed on Fly (region `iad`), healthy at `flower-shop-backend-core.fly.dev`. Running `Authentication__UseKeycloak=false` (dev-auth mode). |
-| Postgres `flower-shop-postgres` | ✅ Deployed on Fly (chosen over Aiven from the spec) |
+| API `flower-shop-backend-core` | ✅ Deployed on Fly (region `fra`), live at `api.findmyflowers.pl`. Running `Authentication__UseKeycloak=true` (real auth). |
+| Postgres `flower-shop-postgres` | ✅ Deployed on Fly, PostgreSQL 17 (chosen over Aiven from the spec) |
 | R2 photo storage + `img.findmyflowers.pl` | ✅ Fully working (EP-15) |
 | DNS zone `findmyflowers.pl` | ✅ On Cloudflare (nameservers nora/owen) |
-| Keycloak | ❌ Not deployed (`auth.findmyflowers.pl` → 000) |
-| `api.findmyflowers.pl` custom domain | ❌ Not set (API only on `.fly.dev`) |
-| AdminPortal / VendorPortal / CustomerApp | ❌ Not deployed (`admin`/`vendor`/`app` → 000) |
-| Stripe / MQTT prod config | ❌ Background services erroring each poll |
+| Keycloak | ✅ Deployed as Fly app `flowershop-keycloak` at `auth.findmyflowers.pl` |
+| `api.findmyflowers.pl` custom domain | ✅ Live |
+| AdminPortal / VendorPortal / CustomerApp | ✅ Deployed on Fly at `admin.` / `vendors.` (plural) / `app.findmyflowers.pl` |
+| Stripe / MQTT prod config | ✅ Stripe wired; MQTT on HiveMQ Cloud (TLS 8883) |
 
 **Realm facts** (`docker/keycloak/flowershop-realm.json`): realm `flowershop`; clients
 `flowershop-api`, `flowershop-customer-app`, `ESP32-40C86C`; Google IdP `google`.
 There is **no** dedicated admin/vendor client — both portals authenticate through
 the `flowershop-api` client via password grant.
+
+> This runbook is preserved as the go-live record. The phases below describe what was
+> done, in order; they are all complete.
 
 ---
 
@@ -125,15 +128,17 @@ Only after Phase 1 is verified (else the API can't validate any token and everyt
 
 ---
 
-## Phase 4 — Deploy the three portals to Render
+## Phase 4 — Deploy the three portals to Fly
 
-Each has a Dockerfile (`src/portals/<Portal>/Dockerfile`, EXPOSE 8080). Repeat per portal.
-Ref: `DEPLOYMENT-SPEC.md` §"Render — each portal".
+Each has a Dockerfile (`src/portals/<Portal>/Dockerfile`, EXPOSE 8080) and a committed Fly config
+(`fly.admin-portal.toml`, `fly.vendor-portal.toml`, `fly.customer-app.toml`, all region `fra`,
+`min_machines_running=1`). Repeat per portal.
+Ref: `DEPLOYMENT-SPEC.md` §"Fly — each portal".
 
 For **each** of AdminPortal / VendorPortal / CustomerApp:
-1. Render → **New Web Service** → connect this repo → **Docker** runtime → set the Dockerfile path
-   to the portal's Dockerfile (root context, so it can COPY the shared projects).
-2. Env vars (common):
+1. `fly apps create <app>` (`flowershop-admin-portal` / `flowershop-vendor-portal` / `flowershop-customer-app`),
+   then `flyctl deploy --config fly.<portal>.toml` (GHA `deploy-<portal>.yml` does this on push).
+2. Secrets/env (common):
    ```
    ASPNETCORE_URLS=http://+:8080
    ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
@@ -150,11 +155,11 @@ For **each** of AdminPortal / VendorPortal / CustomerApp:
    Authentication__ClientSecret=<secret>
    Authentication__PostLoginRedirectUri=https://app.findmyflowers.pl/
    ```
-3. Add the custom domain in Render (`admin` / `vendor` / `app`.findmyflowers.pl) → Render gives a
-   `CNAME` target → add it in **Cloudflare DNS**, proxy **OFF** (grey) so Render's TLS works.
+3. `fly certs add <host> -a <app>` for `admin.` / `vendors.` (plural) / `app.findmyflowers.pl` → add
+   the matching record in **Cloudflare DNS**, proxy **OFF** (grey) so Fly's TLS works.
 4. **CustomerApp:** register `https://app.findmyflowers.pl/signin-oidc` as a valid redirect URI on
    the `flowershop-customer-app` client in Keycloak (and post-logout `.../signout-callback-oidc`).
-5. Keep-warm: add a cron-job.org ping every 10 min on CustomerApp + API (Render free sleeps at 15 min).
+5. No keep-warm cron needed — `min_machines_running=1` keeps every Fly app awake.
 
 ---
 
@@ -163,9 +168,9 @@ For **each** of AdminPortal / VendorPortal / CustomerApp:
 1. In `appsettings.Production.json` set:
    ```json
    "Cors": { "AllowedOrigins": [
-     "https://app.findmyflowers.pl",
+     "https://findmyflowers.pl",
      "https://admin.findmyflowers.pl",
-     "https://vendor.findmyflowers.pl"
+     "https://vendors.findmyflowers.pl"
    ] }
    ```
    (The API reads this into `FlowerShopPolicy`; a non-empty list without `*` switches it from
@@ -189,14 +194,14 @@ Not blockers for a login+browse showcase, but they error every poll cycle until 
 - [ ] `https://auth.findmyflowers.pl/realms/flowershop` → 200
 - [ ] `https://api.findmyflowers.pl/health` → 200; `dev-token` → 404
 - [ ] Admin portal login (platformadmin) → dashboard loads, data via `api.findmyflowers.pl`
-- [ ] Vendor portal login → bouquet upload → `photoUrl` is `img.findmyflowers.pl/...` and image loads
-- [ ] Customer app → "Sign in with Google" → returns to `app.findmyflowers.pl` logged in → map loads
+- [ ] Vendor portal (`vendors.findmyflowers.pl`) login → bouquet upload → `photoUrl` is `img.findmyflowers.pl/...` and image loads
+- [ ] Customer app (`app.findmyflowers.pl`) → "Sign in with Google" → returns to `app.findmyflowers.pl` logged in → map loads
 - [ ] No CORS errors in browser console on any portal
 
 ---
 
 ## Known risks (from DEPLOYMENT-SPEC.md, still apply)
 
-Fly free-VM eviction · Render cold-start chain (~90 s first login) · CloudAMQP 20-conn cap ·
-HiveMQ 100-device cap · Aiven/Fly PG has no auto-backups (weekly `pg_dump` → R2) ·
-Keycloak realm drift dev↔prod (commit the realm export; the showcase imports it).
+Fly VM eviction (mitigated by `min_machines_running=1`) · HiveMQ 100-device cap ·
+Fly PG backups handled by `.github/workflows/db-backup.yml` (weekly `pg_dump -F c` of both DBs → R2) ·
+Keycloak realm drift dev↔prod (realm export committed at `docker/keycloak/flowershop-realm.json`; the showcase imports it).

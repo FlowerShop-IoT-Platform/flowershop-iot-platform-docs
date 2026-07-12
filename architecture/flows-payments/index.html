@@ -802,7 +802,7 @@
 </code></pre>
 
 <blockquote>
-  <p>⚠️ <strong>Known gap (EP-04):</strong> When <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> is not configured, <code class="language-plaintext highlighter-rouge">StubStripeService</code> is active — it returns synthetic payment intent IDs and no real charge occurs. Full Stripe integration requires configuration of <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> and <code class="language-plaintext highlighter-rouge">Stripe:WebhookSecret</code> in production. End-to-end payment testing against the live Stripe sandbox is pending EP-04.</p>
+  <p><strong>Stripe is live.</strong> <code class="language-plaintext highlighter-rouge">StripeService</code> (Stripe.net + Polly retries) is wired into <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> and handles payment intents, webhook signature verification, refunds, and reconciliation. <code class="language-plaintext highlighter-rouge">StubStripeService</code> is only a dev fallback used when <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> is not configured; production sets <code class="language-plaintext highlighter-rouge">Stripe:SecretKey</code> and <code class="language-plaintext highlighter-rouge">Stripe:WebhookSecret</code>.</p>
 </blockquote>
 
 <h2 id="order-cancellation">Order Cancellation</h2>

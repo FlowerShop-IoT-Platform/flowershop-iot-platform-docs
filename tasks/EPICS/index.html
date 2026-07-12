@@ -761,6 +761,14 @@
 <p><strong>Scope:</strong> Mobile API (FMF) + Vendor Order Management
 <strong>Source:</strong> REQ-GAPS.md (2026-03-21)</p>
 
+<blockquote>
+  <p><strong>Status (2026-07-12):</strong> This was the original mobile-API plan. Most of it has since shipped —
+the Cart/Order/Subscription/Favourite/Notification/etc. migration is <strong>applied</strong>
+(<code class="language-plaintext highlighter-rouge">AddCartOrderAndRelatedTables</code>), Stripe is wired (EP-04), and the discovery/orders/profile/
+real-time work is largely built. The per-task <code class="language-plaintext highlighter-rouge">state</code> fields in the companion
+<code class="language-plaintext highlighter-rouge">tasks-ep0X-*.json</code> files lag the code — <strong>treat the codebase as ground truth</strong> for what is done.</p>
+</blockquote>
+
 <p>Execution order: EP-01 must complete before any other epic. EP-04 depends on EP-01. EP-05 depends on EP-04. All others are independent after EP-01.</p>
 
 <hr />

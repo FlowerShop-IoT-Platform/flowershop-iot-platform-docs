@@ -780,32 +780,28 @@
 
 <p>Each component has an independent release stream — revert only the one that broke.</p>
 
-<h3 id="11-fly-apps-flowershop-api-flowershop-keycloak-flowershop-customer-app">1.1 Fly apps (<code class="language-plaintext highlighter-rouge">flowershop-api</code>, <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>)</h3>
+<h3 id="11-fly-apps-flower-shop-backend-core-flowershop-keycloak-and-the-three-portals">1.1 Fly apps (<code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code>, <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code>, and the three portals)</h3>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List releases (newest first).</span>
-fly releases <span class="nt">--app</span> flowershop-api
+fly releases <span class="nt">--app</span> flower-shop-backend-core
 
 <span class="c"># Roll back to previous.</span>
-fly releases rollback <span class="nt">--app</span> flowershop-api          <span class="c"># interactive — picks N-1</span>
+fly releases rollback <span class="nt">--app</span> flower-shop-backend-core   <span class="c"># interactive — picks N-1</span>
 <span class="c"># or explicit:</span>
-fly image show <span class="nt">--app</span> flowershop-api                 <span class="c"># get current image sha</span>
-fly releases <span class="nt">--app</span> flowershop-api | <span class="nb">head</span> <span class="nt">-5</span>         <span class="c"># find the one before</span>
-fly deploy <span class="nt">--app</span> flowershop-api <span class="nt">--image</span> registry.fly.io/flowershop-api:&lt;previous-tag&gt;
+fly image show <span class="nt">--app</span> flower-shop-backend-core          <span class="c"># get current image sha</span>
+fly releases <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">head</span> <span class="nt">-5</span>  <span class="c"># find the one before</span>
+fly deploy <span class="nt">--app</span> flower-shop-backend-core <span class="nt">--image</span> registry.fly.io/flower-shop-backend-core:&lt;previous-tag&gt;
 </code></pre></div></div>
 
 <p>Fly performs a rolling deploy; the old machine is drained cleanly. Expected downtime: 0.</p>
 
-<h3 id="12-render-services-admin--vendor-portals">1.2 Render services (admin + vendor portals)</h3>
+<h3 id="12-portal-fly-apps-flowershop-admin-portal-flowershop-vendor-portal-flowershop-customer-app">1.2 Portal Fly apps (<code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code>, <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>)</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Via Render API: list deploys.</span>
-curl <span class="nt">-sH</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$RENDER_API_KEY</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="s2">"https://api.render.com/v1/services/</span><span class="nv">$RENDER_ADMIN_SERVICE_ID</span><span class="s2">/deploys?limit=5"</span> | jq <span class="nb">.</span>
+<p>Same as §1.1 — the portals are Fly apps too:</p>
 
-<span class="c"># Trigger redeploy of a past commit:</span>
-curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$RENDER_API_KEY</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
-  <span class="nt">-d</span> <span class="s1">'{"imageUrl":"ghcr.io/&lt;owner&gt;/flowershop-admin-portal:&lt;prev-sha&gt;"}'</span> <span class="se">\</span>
-  <span class="s2">"https://api.render.com/v1/services/</span><span class="nv">$RENDER_ADMIN_SERVICE_ID</span><span class="s2">/deploys"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly releases rollback <span class="nt">--app</span> flowershop-admin-portal
+fly releases rollback <span class="nt">--app</span> flowershop-vendor-portal
+fly releases rollback <span class="nt">--app</span> flowershop-customer-app
 </code></pre></div></div>
 
 <p>Or simpler: re-run the previous green GitHub Actions run from the Actions UI — “Re-run all jobs”.</p>
@@ -834,24 +830,24 @@ git push origin main
   </thead>
   <tbody>
     <tr>
-      <td><strong>Aiven PG</strong></td>
+      <td><strong>Fly Postgres</strong></td>
       <td><code class="language-plaintext highlighter-rouge">/health/ready</code> shows DB <code class="language-plaintext highlighter-rouge">Unhealthy</code>; <code class="language-plaintext highlighter-rouge">psql</code> hangs</td>
-      <td>Check <a href="https://status.aiven.io">status.aiven.io</a>. If regional outage, wait it out — site goes read-mostly (no writes) until DB returns. See §5.2 for read-only fallback.</td>
+      <td><code class="language-plaintext highlighter-rouge">fly status --app flower-shop-postgres</code>; <code class="language-plaintext highlighter-rouge">fly machines restart --app flower-shop-postgres</code> if a machine is stuck. If regional outage, wait it out — site goes read-mostly. See §5.2 for read-only fallback.</td>
     </tr>
     <tr>
-      <td><strong>Upstash Redis</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">/health/ready</code> shows Redis unhealthy</td>
-      <td>Non-fatal today — <code class="language-plaintext highlighter-rouge">CacheService</code> falls back to in-memory. Once real Redis impl (EP-09 T-09-003) lands, consider a circuit breaker.</td>
+      <td><strong>Redis</strong></td>
+      <td>not applicable in prod</td>
+      <td>Redis isn’t provisioned; <code class="language-plaintext highlighter-rouge">RedisCacheService</code> falls back to in-memory.</td>
     </tr>
     <tr>
-      <td><strong>CloudAMQP</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> logs connection errors</td>
-      <td>Currently a no-op stub; not impactful. Once EP-09 S-09-06 lands, outage means events queue in-process — risk of memory growth. Monitor.</td>
+      <td><strong>RabbitMQ</strong></td>
+      <td>not applicable in prod</td>
+      <td>RabbitMQ isn’t provisioned; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the active impl.</td>
     </tr>
     <tr>
       <td><strong>HiveMQ</strong></td>
       <td>MQTT health check fails; no vase heartbeats in logs</td>
-      <td>Restart API subscriber: <code class="language-plaintext highlighter-rouge">fly machines restart --app flowershop-api</code>. If still down, check status page. Vases will reconnect automatically.</td>
+      <td>Restart API subscriber: <code class="language-plaintext highlighter-rouge">fly machines restart --app flower-shop-backend-core</code>. If still down, check status page. Vases will reconnect automatically.</td>
     </tr>
     <tr>
       <td><strong>Keycloak</strong></td>
@@ -864,7 +860,7 @@ git push origin main
       <td>Stripe has no “rollback” — check <a href="https://status.stripe.com">status.stripe.com</a>. While down: disable checkout via feature flag; existing bouquets still browsable.</td>
     </tr>
     <tr>
-      <td><strong>Fly region <code class="language-plaintext highlighter-rouge">waw</code></strong></td>
+      <td><strong>Fly region <code class="language-plaintext highlighter-rouge">fra</code></strong></td>
       <td><code class="language-plaintext highlighter-rouge">fly status</code> shows all machines down</td>
       <td>Deploy to an alternate region: <code class="language-plaintext highlighter-rouge">fly deploy --region ams</code>. Update <code class="language-plaintext highlighter-rouge">primary_region</code> in <code class="language-plaintext highlighter-rouge">fly.*.toml</code> if this is sustained.</td>
     </tr>
@@ -877,31 +873,30 @@ git push origin main
 
 <h3 id="api-machine-crashed--memory-pressure">API machine crashed / memory pressure</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly status <span class="nt">--app</span> flowershop-api              <span class="c"># state?</span>
-fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">tail</span> <span class="nt">-200</span>    <span class="c"># crash reason</span>
-fly machines list <span class="nt">--app</span> flowershop-api       <span class="c"># which machine</span>
-fly machines restart &lt;<span class="nb">id</span><span class="o">&gt;</span> <span class="nt">--app</span> flowershop-api
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly status <span class="nt">--app</span> flower-shop-backend-core              <span class="c"># state?</span>
+fly logs <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">tail</span> <span class="nt">-200</span>    <span class="c"># crash reason</span>
+fly machines list <span class="nt">--app</span> flower-shop-backend-core       <span class="c"># which machine</span>
+fly machines restart &lt;<span class="nb">id</span><span class="o">&gt;</span> <span class="nt">--app</span> flower-shop-backend-core
 </code></pre></div></div>
 
 <p>Persistent OOM → bump memory:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly scale memory 1024 <span class="nt">--app</span> flowershop-api   <span class="c"># from 1gb to 1.5gb (costs ~$1 extra/mo)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly scale memory 1536 <span class="nt">--app</span> flower-shop-backend-core   <span class="c"># from 1gb to 1.5gb (costs ~$1 extra/mo)</span>
 </code></pre></div></div>
 
-<h3 id="render-service-stuck-deploying">Render service stuck “deploying”</h3>
+<h3 id="portal-machine-stuck--unhealthy">Portal machine stuck / unhealthy</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Cancel the stuck deploy:</span>
-curl <span class="nt">-fsS</span> <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Authorization: Bearer </span><span class="nv">$RENDER_API_KEY</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="s2">"https://api.render.com/v1/services/</span><span class="nv">$RENDER_ADMIN_SERVICE_ID</span><span class="s2">/deploys/&lt;deploy-id&gt;/cancel"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly status <span class="nt">--app</span> flowershop-admin-portal
+fly machines restart <span class="nt">--app</span> flowershop-admin-portal
 </code></pre></div></div>
 
-<p>Then re-run the GHA workflow.</p>
+<p>Then re-run the GHA workflow if a bad image shipped.</p>
 
 <h3 id="customerapp-redirect-loop-after-deploy">CustomerApp redirect loop after deploy</h3>
 
 <p>Usually <code class="language-plaintext highlighter-rouge">Authentication__PostLoginRedirectUri</code> mismatch with Keycloak valid redirect URIs.</p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check what the app is sending:</span>
 fly secrets list <span class="nt">--app</span> flowershop-customer-app
-<span class="c"># In Keycloak admin, ensure https://app.findmyflowers.pl/signin-oidc is in "Valid redirect URIs".</span>
+<span class="c"># In Keycloak admin, ensure https://findmyflowers.pl/signin-oidc is in "Valid redirect URIs".</span>
 </code></pre></div></div>
 
 <hr />
@@ -935,10 +930,10 @@ fly machines restart <span class="nt">--app</span> flowershop-keycloak   <span c
 
 <h3 id="43-keycloak-db-schema-corruption">4.3 Keycloak DB schema corruption</h3>
 
-<p>Rare, but if <code class="language-plaintext highlighter-rouge">keycloak</code> schema on Aiven is damaged:</p>
+<p>Rare, but if the <code class="language-plaintext highlighter-rouge">keycloak</code> DB on Fly Postgres is damaged:</p>
 <ol>
   <li>Create a fresh DB: <code class="language-plaintext highlighter-rouge">CREATE DATABASE keycloak_v2;</code></li>
-  <li>Update <code class="language-plaintext highlighter-rouge">KC_DB_URL</code> to point at it.</li>
+  <li>Update <code class="language-plaintext highlighter-rouge">KC_DB_URL</code> (<code class="language-plaintext highlighter-rouge">jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak_v2</code>).</li>
   <li>Redeploy Keycloak — it will migrate schema from scratch.</li>
   <li>Import realm (§4.1).</li>
   <li>Regenerate client secrets, update <code class="language-plaintext highlighter-rouge">Authentication__Keycloak__ClientSecret</code> on API and CustomerApp.</li>
@@ -952,20 +947,22 @@ fly machines restart <span class="nt">--app</span> flowershop-keycloak   <span c
 
 <h3 id="51-restore-from-backup">5.1 Restore from backup</h3>
 
-<p><strong>Backups come from the weekly cron</strong> (see §7 below). If Aiven has point-in-time recovery enabled (paid tiers), prefer that.</p>
+<p><strong>Backups come from the weekly pipeline</strong> (<code class="language-plaintext highlighter-rouge">.github/workflows/db-backup.yml</code>, see §7 below). Dumps are <code class="language-plaintext highlighter-rouge">pg_dump -F c</code> (PostgreSQL custom format), so restore with <code class="language-plaintext highlighter-rouge">pg_restore</code>, not <code class="language-plaintext highlighter-rouge">psql</code>.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Download the most recent dump from R2:</span>
-aws <span class="nt">--endpoint-url</span> https://&lt;r2-account&gt;.r2.cloudflarestorage.com s3 <span class="nb">cp</span> <span class="se">\</span>
-  s3://flowershop-backups/flowershop_iot-<span class="si">$(</span><span class="nb">date</span> <span class="nt">-d</span> yesterday +%F<span class="si">)</span>.sql.gz ./
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Open a tunnel to Fly Postgres (keep this terminal open):</span>
+flyctl proxy 5433:5432 <span class="nt">-a</span> flower-shop-postgres
 
-<span class="nb">gunzip </span>flowershop_iot-<span class="k">*</span>.sql.gz
+<span class="c"># Download the most recent dump from R2 (files are named &lt;db&gt;-&lt;STAMP&gt;.dump):</span>
+aws <span class="nt">--endpoint-url</span> <span class="s2">"</span><span class="nv">$R2_ENDPOINT</span><span class="s2">"</span> s3 <span class="nb">cp</span> <span class="se">\</span>
+  <span class="s2">"s3://</span><span class="nv">$R2_BACKUP_BUCKET</span><span class="s2">/flower_shop_backend_core-&lt;STAMP&gt;.dump"</span> ./
 
 <span class="c"># Restore into a fresh DB (never overwrite prod without a staging copy first):</span>
-psql <span class="s2">"</span><span class="nv">$AIVEN_RESTORE_URI</span><span class="s2">"</span> &lt; flowershop_iot-<span class="k">*</span>.sql
+createdb <span class="nt">-h</span> localhost <span class="nt">-p</span> 5433 <span class="nt">-U</span> postgres flower_shop_backend_core_restore
+pg_restore <span class="nt">-h</span> localhost <span class="nt">-p</span> 5433 <span class="nt">-U</span> postgres <span class="se">\</span>
+  <span class="nt">-d</span> flower_shop_backend_core_restore <span class="nt">--no-owner</span> flower_shop_backend_core-&lt;STAMP&gt;.dump
 
-<span class="c"># After verifying data looks correct, swap connection strings.</span>
-fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop-api <span class="se">\</span>
-  <span class="nv">ConnectionStrings__DefaultConnection</span><span class="o">=</span><span class="s2">"</span><span class="nv">$RESTORED_URI</span><span class="s2">"</span>
+<span class="c"># The keycloak DB dump restores the same way from keycloak-&lt;STAMP&gt;.dump.</span>
+<span class="c"># After verifying data looks correct, point the app connection string at the restored DB.</span>
 </code></pre></div></div>
 
 <h3 id="52-read-only-fallback">5.2 Read-only fallback</h3>
@@ -993,7 +990,7 @@ fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check the cert chain:</span>
 openssl s_client <span class="nt">-connect</span> api.findmyflowers.pl:443 <span class="nt">-servername</span> api.findmyflowers.pl &lt; /dev/null
 
-<span class="c"># Common cause: Cloudflare proxy (orange cloud) turned on for a domain Fly/Render manages.</span>
+<span class="c"># Common cause: Cloudflare proxy (orange cloud) turned on for a domain Fly manages.</span>
 <span class="c"># Fix: Cloudflare DNS → click the cloud icon to grey (DNS only).</span>
 </code></pre></div></div>
 
@@ -1004,58 +1001,40 @@ openssl s_client <span class="nt">-connect</span> api.findmyflowers.pl:443 <span
 <h3 id="63-subdomain-points-at-a-stale-flydev">6.3 Subdomain points at a stale <code class="language-plaintext highlighter-rouge">*.fly.dev</code></h3>
 
 <p>Happens after app rename. Update the CNAME in Cloudflare to the current Fly host, then:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly certs check api.findmyflowers.pl <span class="nt">--app</span> flowershop-api
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly certs check api.findmyflowers.pl <span class="nt">--app</span> flower-shop-backend-core
 </code></pre></div></div>
 
 <hr />
 
-<h2 id="7-database-backup-set-and-forget">§7 Database backup (set-and-forget)</h2>
+<h2 id="7-database-backup-existing-pipeline">§7 Database backup (existing pipeline)</h2>
 
-<p>Aiven free tier has <strong>no automated backups</strong>. Set this up during Stage 10 of the runbook.</p>
+<p>Backups are <strong>already automated</strong> by <code class="language-plaintext highlighter-rouge">.github/workflows/db-backup.yml</code>.</p>
 
-<h3 id="71-github-actions-weekly-dump--cloudflare-r2">7.1 GitHub Actions weekly dump → Cloudflare R2</h3>
+<h3 id="71-what-the-pipeline-does">7.1 What the pipeline does</h3>
 
-<p>Create <code class="language-plaintext highlighter-rouge">.github/workflows/backup-db.yml</code>:</p>
+<ul>
+  <li><strong>Schedule:</strong> Mondays at <strong>03:17 UTC</strong> (plus <code class="language-plaintext highlighter-rouge">workflow_dispatch</code> for manual runs).</li>
+  <li><strong>Method:</strong> reaches Fly Postgres via <code class="language-plaintext highlighter-rouge">flyctl proxy</code>, then <code class="language-plaintext highlighter-rouge">pg_dump -F c</code> (PostgreSQL custom format) of <strong>both</strong> databases:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">flower_shop_backend_core-&lt;STAMP&gt;.dump</code></li>
+      <li><code class="language-plaintext highlighter-rouge">keycloak-&lt;STAMP&gt;.dump</code></li>
+    </ul>
+  </li>
+  <li><strong>Destination:</strong> uploaded to Cloudflare R2 (via the AWS S3 CLI against <code class="language-plaintext highlighter-rouge">$R2_ENDPOINT</code> / <code class="language-plaintext highlighter-rouge">$R2_BACKUP_BUCKET</code>).</li>
+  <li><strong>Secrets:</strong> <code class="language-plaintext highlighter-rouge">PG_PASSWORD</code>, <code class="language-plaintext highlighter-rouge">R2_ACCESS_KEY_ID</code>, <code class="language-plaintext highlighter-rouge">R2_SECRET_ACCESS_KEY</code>, <code class="language-plaintext highlighter-rouge">R2_ENDPOINT</code>, <code class="language-plaintext highlighter-rouge">R2_BACKUP_BUCKET</code>.</li>
+</ul>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">backup-db</span>
-<span class="na">on</span><span class="pi">:</span>
-  <span class="na">schedule</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">cron</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">3</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">0"</span>   <span class="c1"># Sun 03:00 UTC</span>
-  <span class="na">workflow_dispatch</span><span class="pi">:</span>
-
-<span class="na">jobs</span><span class="pi">:</span>
-  <span class="na">dump</span><span class="pi">:</span>
-    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
-    <span class="na">timeout-minutes</span><span class="pi">:</span> <span class="m">30</span>
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install pg_dump</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="s">sudo apt-get update &amp;&amp; sudo apt-get install -y postgresql-client</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Dump flowershop_iot</span>
-        <span class="na">env</span><span class="pi">:</span>
-          <span class="na">PGURI</span><span class="pi">:</span> <span class="s">$</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">pg_dump "$PGURI" | gzip &gt; flowershop_iot-$(date +%F).sql.gz</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Upload to R2</span>
-        <span class="na">env</span><span class="pi">:</span>
-          <span class="na">AWS_ACCESS_KEY_ID</span><span class="pi">:</span> <span class="s">$</span>
-          <span class="na">AWS_SECRET_ACCESS_KEY</span><span class="pi">:</span> <span class="s">$</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">aws --endpoint-url https://&lt;r2-account&gt;.r2.cloudflarestorage.com \</span>
-            <span class="s">s3 cp flowershop_iot-*.sql.gz s3://flowershop-backups/</span>
-</code></pre></div></div>
-
-<p>Retention: manually delete anything older than 90 days from R2.</p>
+<p>Restore with <code class="language-plaintext highlighter-rouge">pg_restore</code> (custom-format dumps, not <code class="language-plaintext highlighter-rouge">psql</code>) — see §5.1. Retention: manually delete anything older than 90 days from R2.</p>
 
 <h3 id="72-restore-drill">7.2 Restore drill</h3>
 
-<p>Practice it. Once a quarter, pick a dump at random, restore to a scratch Aiven DB, and run a smoke query. A backup you’ve never restored is not a backup.</p>
+<p>Practice it. Once a quarter, pick a dump at random, <code class="language-plaintext highlighter-rouge">pg_restore</code> it into a scratch DB on Fly Postgres, and run a smoke query. A backup you’ve never restored is not a backup.</p>
 
 <hr />
 
 <h2 id="8-runbook-for-total-loss">§8 Runbook for total loss</h2>
 
-<p>If the Fly org, Render account, or Aiven project is deleted (billing lapse, hijack, human error):</p>
+<p>If the Fly org is deleted (billing lapse, hijack, human error) — this takes out the API, Keycloak, the three portals, and Postgres, since everything runs on Fly:</p>
 
 <ol>
   <li>Treat domain and Keycloak realm JSON as the only irreplaceable assets — both should be in the git repo or a personal password manager.</li>
@@ -1066,7 +1045,7 @@ openssl s_client <span class="nt">-connect</span> api.findmyflowers.pl:443 <span
 
 <p>Mitigations against this scenario:</p>
 <ul>
-  <li>Enable 2FA on every SaaS account (Fly, Render, Aiven, Cloudflare, GitHub, Stripe).</li>
+  <li>Enable 2FA on every SaaS account (Fly, Cloudflare, GitHub, Stripe, HiveMQ).</li>
   <li>Keep billing alerts on — Fly free credit exhaustion triggers machine shutdown.</li>
   <li>Export Keycloak realm monthly: <code class="language-plaintext highlighter-rouge">fly ssh console -a flowershop-keycloak</code> → <code class="language-plaintext highlighter-rouge">kc.sh export --dir /tmp --realm flowershop</code> → <code class="language-plaintext highlighter-rouge">fly sftp shell</code> → <code class="language-plaintext highlighter-rouge">get</code>.</li>
 </ul>
@@ -1083,7 +1062,7 @@ openssl s_client <span class="nt">-connect</span> api.findmyflowers.pl:443 <span
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add a regression test or smoke check that would have caught it</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />If a runbook step was ambiguous, fix the runbook</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Rotate any credential that was exposed during the incident</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Verify backups are running (weekly cron last success)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Verify backups are running (<code class="language-plaintext highlighter-rouge">db-backup.yml</code> last success — Mondays 03:17 UTC)</li>
 </ul>
 
     </div>

@@ -758,11 +758,14 @@
     <div class="content">
       <h1 id="domain-model">Domain Model</h1>
 
-<p>All 14 aggregates and their relationships.</p>
+<p>All 17 aggregates and their relationships.</p>
 
 <pre><code class="language-mermaid">erDiagram
   Vendor ||--o{ SmartVase : "owns"
   Vendor ||--o{ Employee : "employs"
+  Vendor ||--o| VendorPlatformSubscription : "billed by"
+  Vendor ||--o{ VaseOrder : "orders vases"
+  Vendor ||--o{ VaseIncident : "responsible for"
   Vendor {
     VendorId Id
     string Name
@@ -772,6 +775,7 @@
   }
 
   SmartVase ||--o| Bouquet : "currently displays"
+  SmartVase ||--o{ VaseIncident : "raises"
   SmartVase {
     VaseId Id
     VendorId VendorId
@@ -907,6 +911,34 @@
     VendorId VendorId
     VendorType VendorType
   }
+
+  VendorPlatformSubscription {
+    VendorPlatformSubscriptionId Id
+    VendorId VendorId
+    SubscriptionPlan Plan
+    SubscriptionStatus Status
+    string StripeSubscriptionId
+    DateTime TrialEndsAt
+    DateTime CurrentPeriodEnd
+  }
+
+  VaseOrder {
+    VaseOrderId Id
+    VendorId VendorId
+    int Quantity
+    VaseOrderStatus Status
+    Address ShippingAddress
+    DateTime PlacedAt
+  }
+
+  VaseIncident {
+    VaseIncidentId Id
+    VaseId VaseId
+    VendorId VendorId
+    IncidentType Type
+    IncidentStatus Status
+    DateTime DetectedAt
+  }
 </code></pre>
 
 <h2 id="aggregate-notes">Aggregate Notes</h2>
@@ -942,6 +974,18 @@
     <tr>
       <td><strong>User</strong></td>
       <td>Role determines which of <code class="language-plaintext highlighter-rouge">CustomerId</code> / <code class="language-plaintext highlighter-rouge">VendorId</code> is set.</td>
+    </tr>
+    <tr>
+      <td><strong>VendorPlatformSubscription</strong></td>
+      <td>SaaS billing plan for a vendor (trial → active → past-due → cancelled), backed by a Stripe Subscription. Distinct from the customer bouquet-alert <code class="language-plaintext highlighter-rouge">Subscription</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>VaseOrder</strong></td>
+      <td>Vendor’s hardware order for smart vases; fulfilled by platform admins.</td>
+    </tr>
+    <tr>
+      <td><strong>VaseIncident</strong></td>
+      <td>Asset-recovery / offline escalation case for a vase (e.g. 7-day offline threshold); tracks follow-up and return-request workflow.</td>
     </tr>
   </tbody>
 </table>

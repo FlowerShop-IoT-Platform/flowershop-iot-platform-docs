@@ -25,13 +25,13 @@ check "API /health/ready"   "https://api.$BASE/health/ready"    "200"
 check "API /health/live"    "https://api.$BASE/health/live"     "200"
 check "Keycloak OIDC disc." "https://auth.$BASE/realms/flowershop/.well-known/openid-configuration" "200"
 check "CustomerApp root"    "https://app.$BASE/"                "200 302"
-check "AdminPortal /health" "https://admin.$BASE/health"        "200"
-check "VendorPortal /health" "https://vendor.$BASE/health"      "200"
+check "AdminPortal /Login"  "https://admin.$BASE/Login"         "200"
+check "VendorPortal /Login" "https://vendors.$BASE/Login"       "200"
 echo "---- $pass pass / $fail fail ----"
 exit $fail
 ```
 
-Save as `scripts/smoke.sh`. Fails with non-zero when anything is down — wire it into cron-job.org for passive monitoring.
+Save as `scripts/smoke.sh`. Fails with non-zero when anything is down — wire it into an external uptime monitor for passive monitoring.
 
 ---
 
@@ -79,7 +79,9 @@ curl -fsS -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 # As a vendor: create a bouquet.
-VENDOR_TOKEN=$(...same as step 1 with flowershop-vendor-portal client + vendor user...)
+# NOTE: there is no flowershop-vendor-portal client — the portals authenticate
+# through the flowershop-api client via password grant, using a vendor user.
+VENDOR_TOKEN=$(...same as step 1 with the flowershop-api client + vendor user...)
 
 curl -fsS -X POST -H "Authorization: Bearer $VENDOR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -87,13 +89,13 @@ curl -fsS -X POST -H "Authorization: Bearer $VENDOR_TOKEN" \
   https://api.findmyflowers.pl/api/v1/vendor/bouquets | jq .
 ```
 
-**Pass:** 201 with a `bouquetId` GUID. Confirms: Postgres write, MediatR pipeline, domain event publish (visible in logs as `Published BouquetCreated to InMemoryEventBus` — real RabbitMQ path lands in EP-09).
+**Pass:** 201 with a `bouquetId` GUID. Confirms: Postgres write, MediatR pipeline, domain event publish (visible in logs as `Published BouquetCreated to InMemoryEventBus` — `InMemoryEventBus` is the active impl; RabbitMQ is not provisioned in prod).
 
 ### 5. IoT ingest — MQTT → API → SignalR
 
 Terminal A (API log tail):
 ```bash
-fly logs --app flowershop-api | grep -iE 'mqtt|vase'
+fly logs --app flower-shop-backend-core | grep -iE 'mqtt|vase'
 ```
 
 Terminal B (simulate a vase):
@@ -153,18 +155,18 @@ done | sort | uniq -c
 
 ```bash
 curl -si -X OPTIONS https://api.findmyflowers.pl/api/v1/bouquets \
-  -H "Origin: https://app.findmyflowers.pl" \
+  -H "Origin: https://findmyflowers.pl" \
   -H "Access-Control-Request-Method: GET" \
   | grep -i "access-control-allow-origin"
 ```
 
-**Pass:** `Access-Control-Allow-Origin: https://app.findmyflowers.pl`. If it echoes `*`, the CORS config still has the dev wildcard — fix in `appsettings.Production.json`.
+**Pass:** `Access-Control-Allow-Origin: https://findmyflowers.pl`. If it echoes `*`, the CORS config still has the dev wildcard — fix in `appsettings.Production.json`.
 
 ### 10. Browser-driven critical path
 
 Do this manually in an incognito window:
 
-- [ ] `https://app.findmyflowers.pl/` loads without TLS warning.
+- [ ] `https://app.findmyflowers.pl/` (the CustomerApp) loads without TLS warning.
 - [ ] "Sign in" redirects to `auth.findmyflowers.pl`, shows the flowershop realm login.
 - [ ] Login succeeds and returns to `/` authenticated.
 - [ ] Map page shows at least one bouquet pin (or, if DB empty, empty-state copy — not an error).
@@ -204,7 +206,7 @@ Add it to CI as a **post-deploy job** in `deploy-api.yml`, gated on a `SMOKE_ENA
 |---|---|
 | 1 Auth loop | Keycloak realm not imported, client secrets rotated, realm disabled |
 | 2 Authenticated call | Wrong `Authority`, `TenantResolutionMiddleware` broken, JWT mapping regression |
-| 3 DB read | Aiven creds wrong, migration missing, `DbContext` DI broken |
+| 3 DB read | Fly Postgres creds wrong, migration missing, `DbContext` DI broken |
 | 4 Write path | Handler DI, validation pipeline, outbox / event publish wiring |
 | 5 MQTT ingest | HiveMQ creds, broker TLS, `MqttDeviceCommunicationService` not subscribed (common after redeploy) |
 | 6 Stripe loop | Webhook signing secret mismatch, bouquet reservation regression |

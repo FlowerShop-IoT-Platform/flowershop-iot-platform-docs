@@ -776,9 +776,13 @@
 
 <h2 id="2-mqtt-connect--heartbeat">2. MQTT Connect + Heartbeat</h2>
 
+<blockquote>
+  <p><strong>Broker:</strong> Mosquitto in development; <strong>HiveMQ Cloud (TLS, port 8883)</strong> in production.</p>
+</blockquote>
+
 <pre><code class="language-mermaid">sequenceDiagram
   participant Vase as SmartVase Device
-  participant MQTT as Mosquitto Broker
+  participant MQTT as MQTT Broker
   participant API as MqttDeviceCommunicationService
   participant DB as PostgreSQL
   participant Monitor as VaseHealthMonitoringService
@@ -806,7 +810,7 @@
 
 <pre><code class="language-mermaid">sequenceDiagram
   participant Vase as SmartVase Device
-  participant MQTT as Mosquitto Broker
+  participant MQTT as MQTT Broker
   participant API as MqttDeviceCommunicationService
   participant DB as PostgreSQL
 

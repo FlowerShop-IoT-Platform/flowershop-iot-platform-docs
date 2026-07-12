@@ -9,7 +9,7 @@
 - Work top-to-bottom. Every stage has **Pre-reqs → Do → Verify → Gate**.
 - The **Gate** is a literal command whose success is the single criterion for moving on. If the gate fails, consult the *Troubleshoot* row, then retry — do not skip ahead.
 - Commands assume `bash` (Git Bash on Windows is fine). All `$VAR` placeholders map to the secrets table in [SECRETS-AND-ENV-VARS.md](SECRETS-AND-ENV-VARS.md).
-- Expected total time for a clean run: **~2.5 h** (most of it waiting for DNS, Aiven provisioning, and Keycloak's first boot).
+- Expected total time for a clean run: **~2.5 h** (most of it waiting for DNS propagation and Keycloak's first boot).
 
 ---
 
@@ -28,9 +28,11 @@ The accounts and the code must be ready **before** you sit down to deploy.
 
 **Gate 0:**
 ```bash
-fly auth whoami && psql --version && gh secret list | grep -E 'FLY_API_TOKEN|RENDER_API_KEY|AIVEN_PG_CONNECTION' | wc -l
-# must print at least 3
+fly auth whoami && psql --version && gh secret list | grep -E 'FLY_API_TOKEN' | wc -l
+# must print at least 1
 ```
+
+> **Hosting reality:** everything runs on **Fly.io** in region **`fra`** — the API, all three portals, Keycloak, and PostgreSQL. There is no Render, Aiven, Upstash, or CloudAMQP. Redis and RabbitMQ are dev-only (docker-compose) and are **not provisioned in prod**.
 
 ---
 
@@ -72,51 +74,50 @@ Everything that stores state, in one pass. Order inside the stage does not matte
 
 **Pre-reqs:** §1 green.
 
-### 2a. Aiven PostgreSQL
+### 2a. PostgreSQL on Fly
 
-**Do:** [REGISTRATION-AND-CICD.md §2.4](REGISTRATION-AND-CICD.md#24-aiven-postgresql). Create service `flowershop-pg`, then on the **Databases** tab add `flowershop_iot` and `keycloak` (leave `defaultdb` alone).
+**Do:** provision a Fly Postgres app `flower-shop-postgres` (PostgreSQL **17**), region `fra`, then create the two databases the platform needs: `flower_shop_backend_core` (app) and `keycloak`.
 
-**Verify:** copy the service URI into `$AIVEN_BASE_URI` locally (don't commit).
 ```bash
-export APP_DB="${AIVEN_BASE_URI/\/defaultdb/\/flowershop_iot}"
-export KC_DB="${AIVEN_BASE_URI/\/defaultdb/\/keycloak}"
+# Create the cluster (skip if it already exists).
+fly postgres create --name flower-shop-postgres --region fra --vm-size shared-cpu-1x --initial-cluster-size 1
 
-psql "$APP_DB" -c "SELECT version();"
-psql "$KC_DB"  -c "SELECT 1;"
+# Create the two databases (via psql over a local proxy).
+fly proxy 15432:5432 -a flower-shop-postgres &
+psql "postgres://postgres:$PG_PASSWORD@localhost:15432/postgres" -c "CREATE DATABASE flower_shop_backend_core;"
+psql "postgres://postgres:$PG_PASSWORD@localhost:15432/postgres" -c "CREATE DATABASE keycloak;"
 ```
 
-**Gate 2a:** both `psql` calls return without error.
-
-### 2b. Upstash Redis
-
-**Do:** [REGISTRATION-AND-CICD.md §2.5](REGISTRATION-AND-CICD.md#25-upstash-redis). Copy the `rediss://...` URL.
-
-**Verify:**
+**Verify:** reach both DBs through the Fly proxy (don't commit any URI).
 ```bash
-redis-cli --tls -u "$UPSTASH_REDIS_URL" ping
-# Expected: PONG
+# flyctl proxy 15432:5432 -a flower-shop-postgres  must be running in another shell
+psql "postgres://postgres:$PG_PASSWORD@localhost:15432/flower_shop_backend_core" -c "SELECT version();"
+psql "postgres://postgres:$PG_PASSWORD@localhost:15432/keycloak"                  -c "SELECT 1;"
 ```
-(If `redis-cli` isn't installed, skip — we'll re-verify during Stage 5 via the API `/health` which tests Redis connectivity.)
 
-### 2c. CloudAMQP
+**Gate 2a:** both `psql` calls return without error. Note that within Fly's private network the DB is reached at `flower-shop-postgres.flycast:5432` — that is what Keycloak and the API use (Stages 3 & 5), not the local proxy.
 
-**Do:** [REGISTRATION-AND-CICD.md §2.6](REGISTRATION-AND-CICD.md#26-cloudamqp-rabbitmq).
+### 2b. Redis — not provisioned in prod
 
-**Verify:** open the instance's **RabbitMQ Manager** link — it should load the mgmt UI. Note the `amqps://` URI.
+Redis is a **dev-only** dependency (docker-compose.dev.yml). There is no managed Redis in production. `RedisCacheService` falls back to an in-memory distributed cache when `ConnectionStrings:Redis` is unset, so no action is required here. Skip to 2c.
+
+### 2c. RabbitMQ — not provisioned in prod
+
+RabbitMQ is likewise **dev-only**. Prod `appsettings` sets `EventBus:Type=RabbitMQ`, but `RabbitMQEventBus.PublishAsync` is a stub; the working event path in production is the **Outbox pattern**, with `InMemoryEventBus` as the effective in-process fallback. No managed broker is provisioned — skip to 2d.
 
 ### 2d. HiveMQ Cloud
 
-**Do:** [REGISTRATION-AND-CICD.md §2.7](REGISTRATION-AND-CICD.md#27-hivemq-cloud-mqtt).
+**Do:** [REGISTRATION-AND-CICD.md §2.7](REGISTRATION-AND-CICD.md#27-hivemq-cloud-mqtt). This is the one external managed service — it replaces the dev-only Mosquitto broker.
 
 **Verify:**
 ```bash
-# Any MQTT client works; mosquitto_pub shown here.
+# Any MQTT client works; mosquitto_pub shown here. TLS on port 8883.
 mosquitto_pub -h "$HIVEMQ_HOST" -p 8883 --cafile /etc/ssl/certs/ca-certificates.crt \
   -u "$HIVEMQ_USER" -P "$HIVEMQ_PASS" -t "test/deploy" -m "hello" -d
 # Expected: "Client sent CONNECT" then "Client received CONNACK (0)"
 ```
 
-**Gate 2:** all four services are reachable from your laptop with the credentials you just saved.
+**Gate 2:** Postgres (both DBs) and HiveMQ are reachable with the credentials you just saved.
 
 ---
 
@@ -132,13 +133,13 @@ Keycloak must come up **before** the API, because the API validates tokens again
 cd <repo root>
 
 # 1. Launch the app (idempotent — skips create if it exists).
-fly launch --no-deploy --copy-config --name flowershop-keycloak --region waw --yes
+fly launch --no-deploy --copy-config --name flowershop-keycloak --region fra --yes
 
-# 2. Set secrets.
+# 2. Set secrets. Keycloak reaches Postgres over Fly's private network (.flycast).
 fly secrets set --app flowershop-keycloak \
-  KC_DB_URL="jdbc:postgresql://${AIVEN_PG_HOST}:${AIVEN_PG_PORT}/keycloak?sslmode=require" \
-  KC_DB_USERNAME="$AIVEN_PG_USER" \
-  KC_DB_PASSWORD="$AIVEN_PG_PASSWORD" \
+  KC_DB_URL="jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak" \
+  KC_DB_USERNAME="postgres" \
+  KC_DB_PASSWORD="$PG_PASSWORD" \
   KEYCLOAK_ADMIN="admin" \
   KEYCLOAK_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD"
 
@@ -163,8 +164,8 @@ curl -fsS https://flowershop-keycloak.fly.dev/health/ready
 
 | Troubleshoot | Fix |
 |---|---|
-| `FATAL: role "..." does not exist` | Wrong `KC_DB_USERNAME`; check Aiven service users |
-| Stuck in "starting" > 3 min | `fly logs -a flowershop-keycloak`; usually DB TLS issue — confirm `?sslmode=require` in `KC_DB_URL` |
+| `FATAL: role "..." does not exist` | Wrong `KC_DB_USERNAME`; the Fly Postgres superuser is `postgres` |
+| Stuck in "starting" > 3 min | `fly logs -a flowershop-keycloak`; usually the DB isn't reachable — confirm the `flower-shop-postgres.flycast:5432/keycloak` host in `KC_DB_URL` and that both apps share the same Fly org/private network |
 | `KC_HOSTNAME` mismatch warnings | Cert hasn't attached yet — keep deploying via `.fly.dev` until Stage 8 adds the CNAME |
 
 ---
@@ -175,15 +176,15 @@ curl -fsS https://flowershop-keycloak.fly.dev/health/ready
 
 **Do:**
 1. Browser → `https://flowershop-keycloak.fly.dev`, login as `admin / $KEYCLOAK_ADMIN_PASSWORD`.
-2. **Realm** dropdown → **Create realm** → *Resource file* → upload `infra/keycloak/flowershop-realm.json` (committed during Stage 0).
-3. Verify the four clients exist: `flowershop-api`, `flowershop-customer-app`, `flowershop-admin-portal`, `flowershop-vendor-portal`.
+2. **Realm** dropdown → **Create realm** → *Resource file* → upload `docker/keycloak/flowershop-realm.json` (committed during Stage 0). The realm ships with a **Google identity provider** already configured.
+3. Verify the `flowershop-api` and `flowershop-customer-app` clients exist. The three portals do **not** have their own OIDC clients — they authenticate against the `flowershop-api` client using the password (Direct Access) grant.
 4. For each **confidential** client (`flowershop-api`, `flowershop-customer-app`): **Credentials** tab → copy the secret.
 5. Store as GitHub Actions secrets and also locally for the next stage:
    - `KEYCLOAK_CLIENT_SECRET_API`
    - `KEYCLOAK_CLIENT_SECRET_CUSTOMER`
 6. In each client's **Settings**, update the redirect URIs to production hosts (they likely point at `localhost` in the dev export):
-   - `flowershop-customer-app` → Valid redirect URIs: `https://app.findmyflowers.pl/signin-oidc`, Post logout: `https://app.findmyflowers.pl/`
-   - `flowershop-api` → no browser redirects needed; confirm "Direct access grants" on if you use dev tokens.
+   - `flowershop-customer-app` → the customer app is served on `app.findmyflowers.pl`, so Valid redirect URIs: `https://app.findmyflowers.pl/signin-oidc`, Post logout: `https://app.findmyflowers.pl/`
+   - `flowershop-api` → no browser redirects needed; confirm **Direct access grants** is **on** (the portals and dev tokens depend on it).
 
 **Gate 4:**
 ```bash
@@ -200,14 +201,17 @@ curl -fsS https://flowershop-keycloak.fly.dev/realms/flowershop/.well-known/open
 
 **Do:**
 
-```bash
-fly launch --no-deploy --copy-config --name flowershop-api --region waw --yes
+The API is the Fly app **`flower-shop-backend-core`**, deployed via the repo's **`fly.toml`** (region `fra`, 1 GB VM, always-on). Ignore the stale, unused `fly.api.toml` orphan.
 
-fly secrets set --app flowershop-api \
-  ConnectionStrings__DefaultConnection="$APP_DB" \
-  ConnectionStrings__ReadConnection="$APP_DB" \
-  ConnectionStrings__Redis="$UPSTASH_REDIS_URL" \
-  RabbitMQ__ConnectionString="$CLOUDAMQP_URL" \
+```bash
+fly launch --no-deploy --copy-config --name flower-shop-backend-core --region fra --yes
+
+# Redis and RabbitMQ are NOT provisioned in prod — do not set ConnectionStrings__Redis
+# or RabbitMQ__ConnectionString. The API's cache falls back to in-memory and the working
+# event path is the Outbox pattern.
+fly secrets set --app flower-shop-backend-core \
+  ConnectionStrings__DefaultConnection="postgres://postgres:$PG_PASSWORD@flower-shop-postgres.flycast:5432/flower_shop_backend_core" \
+  ConnectionStrings__ReadConnection="postgres://postgres:$PG_PASSWORD@flower-shop-postgres.flycast:5432/flower_shop_backend_core" \
   MQTT__BrokerHost="$HIVEMQ_HOST" \
   MQTT__BrokerPort="8883" \
   MQTT__UseTls="true" \
@@ -219,27 +223,32 @@ fly secrets set --app flowershop-api \
   Authentication__Keycloak__ClientSecret="$KEYCLOAK_CLIENT_SECRET_API" \
   Stripe__SecretKey="$STRIPE_SECRET_KEY" \
   Stripe__WebhookSecret="$STRIPE_WEBHOOK_SECRET" \
-  Cors__AllowedOrigins__0="https://app.findmyflowers.pl" \
+  FileStorage__Provider="R2" \
+  FileStorage__R2__AccessKeyId="$R2_ACCESS_KEY_ID" \
+  FileStorage__R2__SecretAccessKey="$R2_SECRET_ACCESS_KEY" \
+  Cors__AllowedOrigins__0="https://findmyflowers.pl" \
   Cors__AllowedOrigins__1="https://admin.findmyflowers.pl" \
-  Cors__AllowedOrigins__2="https://vendor.findmyflowers.pl"
+  Cors__AllowedOrigins__2="https://vendors.findmyflowers.pl"
 
-fly certs add api.findmyflowers.pl --app flowershop-api
+fly certs add api.findmyflowers.pl --app flower-shop-backend-core
 
-fly deploy --config fly.api.toml
+fly deploy --config fly.toml
 ```
 
-The API runs `Database.MigrateAsync()` on startup (Program.cs ~line 248, 10-attempt retry). Expect the first boot to spend ~30 s creating tables on an empty Aiven DB.
+Photos are stored in **Cloudflare R2** (bucket `flowershop-bouquets`, served publicly at `https://img.findmyflowers.pl`). Only the two R2 access-key secrets need setting here; the bucket name, public URL and provider live in committed config.
+
+The API runs `Database.MigrateAsync()` on startup (Program.cs ~line 248, 10-attempt retry). Expect the first boot to spend ~30 s creating tables on the empty `flower_shop_backend_core` DB.
 
 **Verify:**
 ```bash
 # Logs should show "Applied migration" entries and then "Now listening on: http://[::]:8080".
-fly logs --app flowershop-api | grep -E 'Applied migration|Now listening'
+fly logs --app flower-shop-backend-core | grep -E 'Applied migration|Now listening'
 
 # Fly's built-in health check polls /health/ready every 15 s.
-fly status --app flowershop-api | grep passing
+fly status --app flower-shop-backend-core | grep passing
 
 # Hit /health/ready directly.
-curl -fsS https://flowershop-api.fly.dev/health/ready | jq .
+curl -fsS https://flower-shop-backend-core.fly.dev/health/ready | jq .
 # Expected: {"status":"Healthy","results":{"...":{"status":"Healthy"},...}}
 ```
 
@@ -247,7 +256,7 @@ curl -fsS https://flowershop-api.fly.dev/health/ready | jq .
 
 | Troubleshoot | Fix |
 |---|---|
-| `"status":"Unhealthy"` with DB entry red | Wrong Aiven URI; check `?sslmode=require` + user/DB names |
+| `"status":"Unhealthy"` with DB entry red | Wrong connection string; confirm the `flower-shop-postgres.flycast:5432/flower_shop_backend_core` host, user `postgres`, and `$PG_PASSWORD` |
 | Keycloak JWKS fetch fails | Keycloak cert not ready yet — use `https://flowershop-keycloak.fly.dev` in the Authority env var temporarily, redeploy, then switch back after Stage 8 |
 | MQTT check "Unhealthy" | HiveMQ credentials — test with `mosquitto_pub` again (§2d) |
 
@@ -259,8 +268,10 @@ curl -fsS https://flowershop-api.fly.dev/health/ready | jq .
 
 **Do:**
 
+The customer app is served on **`app.findmyflowers.pl`** (Fly app `flowershop-customer-app`, region `fra`).
+
 ```bash
-fly launch --no-deploy --copy-config --name flowershop-customer-app --region waw --yes
+fly launch --no-deploy --copy-config --name flowershop-customer-app --region fra --yes
 
 fly secrets set --app flowershop-customer-app \
   Authentication__ClientId="flowershop-customer-app" \
@@ -277,67 +288,73 @@ curl -si https://flowershop-customer-app.fly.dev/ | head -n 1
 # Expected: HTTP/2 200 OR HTTP/2 302 (302 if it redirects unauthenticated users to Keycloak)
 ```
 
-**Gate 6:** status code is `200` or `302`. Navigating the `.fly.dev` URL in a browser loads the homepage or redirects cleanly to `auth.findmyflowers.pl`.
+**Gate 6:** status code is `200` or `302`. Navigating the `.fly.dev` URL in a browser loads the homepage or redirects cleanly to `auth.findmyflowers.pl`. Once DNS is attached (Stage 8) it's live at `app.findmyflowers.pl`.
 
 ---
 
-## Stage 7 — Admin & Vendor portals on Render
+## Stage 7 — Admin & Vendor portals on Fly
 
-These are the last surfaces because they only matter once the API is serving.
+These are the last surfaces because they only matter once the API is serving. Both portals deploy to **Fly.io** (region `fra`), same as everything else — there is no Render.
 
 **Pre-reqs:** §5 green.
 
-**Do:** [REGISTRATION-AND-CICD.md §4.2](REGISTRATION-AND-CICD.md#42-render-services-dashboard-path--recommended) — create both Render services via dashboard, set env vars as listed, add custom domains `admin.findmyflowers.pl` and `vendor.findmyflowers.pl`, **disable Render's auto-deploy**, copy both service IDs into GitHub secrets.
+**Do:** launch and deploy each portal from its committed Fly config. Fly keeps them warm via `min_machines_running=1`, so no external keep-warm cron is needed.
 
-Then trigger both workflows manually:
 ```bash
-gh workflow run deploy-admin-portal.yml
-gh workflow run deploy-vendor-portal.yml
-gh run watch
+# Admin portal — app flowershop-admin-portal, domain admin.findmyflowers.pl
+fly launch --no-deploy --copy-config --name flowershop-admin-portal --region fra --yes
+fly certs add admin.findmyflowers.pl --app flowershop-admin-portal
+flyctl deploy --config fly.admin-portal.toml
+
+# Vendor portal — app flowershop-vendor-portal, domain vendors.findmyflowers.pl (PLURAL)
+fly launch --no-deploy --copy-config --name flowershop-vendor-portal --region fra --yes
+fly certs add vendors.findmyflowers.pl --app flowershop-vendor-portal
+flyctl deploy --config fly.vendor-portal.toml
 ```
 
-**Verify:**
+Both portals authenticate against the `flowershop-api` Keycloak client using the password grant — they have no OIDC client of their own, so no extra Keycloak secrets are needed here.
+
+**Verify:** the portal health-check path is **`/Login`** (not `/health`).
 ```bash
-# Render gives each service a *.onrender.com hostname. Substitute yours.
-curl -fsS https://flowershop-admin-portal.onrender.com/health
-curl -fsS https://flowershop-vendor-portal.onrender.com/health
+curl -fsS https://flowershop-admin-portal.fly.dev/Login  -o /dev/null -w '%{http_code}\n'
+curl -fsS https://flowershop-vendor-portal.fly.dev/Login -o /dev/null -w '%{http_code}\n'
 ```
 
-**Gate 7:** both `/health` return 200.
+**Gate 7:** both `/Login` return 200.
 
 ---
 
 ## Stage 8 — Attach subdomains
 
-Now every backend is live on its `*.fly.dev` / `*.onrender.com` hostname — point DNS at them.
+Now every surface is live on its `*.fly.dev` hostname — point DNS at them. Everything is on Fly, so every record follows Fly's DNS/TLS conventions.
 
 **Pre-reqs:** §3, §5, §6, §7 green.
 
-**Do:** in Cloudflare DNS, create these CNAMEs (**Proxy status: DNS only** — orange cloud *off*, since Fly and Render manage their own TLS):
+**Do:** in Cloudflare DNS, create these records (**Proxy status: DNS only** — orange cloud *off*, since Fly manages its own TLS). Every record is a plain subdomain CNAME to its `.fly.dev` host, including the customer app on `app`:
 
 | Name | Target |
 |---|---|
-| `api` | `flowershop-api.fly.dev` |
+| `api` | `flower-shop-backend-core.fly.dev` |
 | `auth` | `flowershop-keycloak.fly.dev` |
 | `app` | `flowershop-customer-app.fly.dev` |
-| `admin` | `<your-admin-service>.onrender.com` |
-| `vendor` | `<your-vendor-service>.onrender.com` |
+| `admin` | `flowershop-admin-portal.fly.dev` |
+| `vendors` | `flowershop-vendor-portal.fly.dev` |
 
-Wait for each host to issue its cert (Fly and Render both do this automatically once the CNAME exists — 1–5 min typical).
+Wait for each host to issue its cert (Fly does this automatically once the record exists — 1–5 min typical).
 
 **Verify:**
 ```bash
-for sub in api auth app admin vendor; do
-  echo "=== $sub ==="
-  curl -sI "https://$sub.findmyflowers.pl/" | head -n 1
+for host in api.findmyflowers.pl auth.findmyflowers.pl app.findmyflowers.pl admin.findmyflowers.pl vendors.findmyflowers.pl; do
+  echo "=== $host ==="
+  curl -sI "https://$host/" | head -n 1
 done
 ```
 
-**Gate 8:** every subdomain returns `HTTP/2 200` or `HTTP/2 302` with a valid cert (no TLS errors).
+**Gate 8:** every host returns `HTTP/2 200` or `HTTP/2 302` with a valid cert (no TLS errors).
 
 | Troubleshoot | Fix |
 |---|---|
-| `SSL_ERROR_NO_CYPHER_OVERLAP` / cert still old | Cloudflare proxy is on — switch the CNAME to DNS-only (grey cloud) |
+| `SSL_ERROR_NO_CYPHER_OVERLAP` / cert still old | Cloudflare proxy is on — switch the record to DNS-only (grey cloud) |
 | Fly says "awaiting certificate" > 10 min | `fly certs check <host> --app <app>` — usually a stale AAAA record left by the proxy |
 
 ---
@@ -352,7 +369,7 @@ done
 3. Events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`.
 4. Copy the signing secret → set on Fly:
    ```bash
-   fly secrets set --app flowershop-api Stripe__WebhookSecret="$NEW_WEBHOOK_SECRET"
+   fly secrets set --app flower-shop-backend-core Stripe__WebhookSecret="$NEW_WEBHOOK_SECRET"
    # fly auto-rolls the app on secret change; wait for passing status
    ```
 5. In Stripe dashboard → **Send test webhook** → choose `payment_intent.succeeded` → click Send.
@@ -360,7 +377,7 @@ done
 **Verify:**
 ```bash
 # Tail API logs while the test fires. You want to see a 2xx response and NO signature errors.
-fly logs --app flowershop-api | grep -iE 'stripe|webhook'
+fly logs --app flower-shop-backend-core | grep -iE 'stripe|webhook'
 ```
 
 **Gate 9:** Stripe dashboard shows the test delivery with a `200` response.
@@ -371,14 +388,21 @@ fly logs --app flowershop-api | grep -iE 'stripe|webhook'
 
 **Pre-reqs:** §8 green.
 
-**Do:** at [cron-job.org](https://cron-job.org) create two pings (every 10 min, HTTP GET, expect 200):
+**Do:** no external keep-warm service is needed — every Fly app runs with `min_machines_running=1`, so machines stay warm without pinging. There is no cron-job.org dependency.
 
-- `https://admin.findmyflowers.pl/health`
-- `https://vendor.findmyflowers.pl/health`
+Database backup is already automated in-repo as **`.github/workflows/db-backup.yml`** — it runs every **Monday at 03:17 UTC**, does a `pg_dump -F c` of **both** databases (`flower_shop_backend_core` and `keycloak`), and uploads the dumps to Cloudflare R2. Restores use `pg_restore` (see [ROLLBACK-AND-RECOVERY.md §"Database backup"](ROLLBACK-AND-RECOVERY.md#database-backup)). Just confirm the workflow is present and its R2 secrets are set.
 
-Also add a weekly backup job — see [ROLLBACK-AND-RECOVERY.md §"Database backup"](ROLLBACK-AND-RECOVERY.md#database-backup).
+**Verify:**
+```bash
+# Confirm all Fly apps report min_machines_running >= 1.
+for app in flower-shop-backend-core flowershop-admin-portal flowershop-vendor-portal flowershop-customer-app; do
+  fly status --app "$app" | grep -E 'started'
+done
+# Confirm the backup workflow exists and has run (or run it once manually).
+gh workflow view db-backup.yml
+```
 
-**Gate 10:** two "Success" executions visible on cron-job.org within 20 min.
+**Gate 10:** all apps show `started` machines and `gh workflow view db-backup.yml` resolves.
 
 ---
 
@@ -407,11 +431,11 @@ Run the scripted smoke suite in [POST-DEPLOY-SMOKE-TESTS.md](POST-DEPLOY-SMOKE-T
 | 0 Pre-flight | prior day | Code changes merged, secrets in GH |
 | 1 DNS | 15 min – 2 h wait | Nothing else can finish without NS propagated |
 | 2 Data plane | 15 min | — |
-| 3 Keycloak | 10 min | Aiven must be up |
+| 3 Keycloak | 10 min | Fly Postgres must be up |
 | 4 Realm | 10 min | — |
 | 5 API | 10 min (inc. migrations) | Keycloak JWKS reachable |
 | 6 CustomerApp | 5 min | — |
-| 7 Portals | 10 min | Render dashboard steps |
+| 7 Portals | 10 min | Fly deploy of both portals |
 | 8 DNS attach | 10–15 min (cert issue) | — |
 | 9 Stripe | 5 min | — |
 | 10 Crons | 5 min | — |
@@ -427,12 +451,14 @@ Useful when re-opening the runbook on day two:
 
 ```bash
 echo "== Fly =="
-fly status --app flowershop-api        | grep -E 'passing|failing'
-fly status --app flowershop-keycloak   | grep -E 'passing|failing'
-fly status --app flowershop-customer-app | grep -E 'passing|failing'
+fly status --app flower-shop-backend-core  | grep -E 'passing|failing'
+fly status --app flowershop-keycloak       | grep -E 'passing|failing'
+fly status --app flowershop-customer-app   | grep -E 'passing|failing'
+fly status --app flowershop-admin-portal   | grep -E 'passing|failing'
+fly status --app flowershop-vendor-portal  | grep -E 'passing|failing'
 echo "== HTTP =="
-for h in api auth app admin vendor; do
-  printf "%-10s %s\n" "$h" "$(curl -s -o /dev/null -w '%{http_code}' https://$h.findmyflowers.pl/)"
+for h in api.findmyflowers.pl auth.findmyflowers.pl app.findmyflowers.pl admin.findmyflowers.pl vendors.findmyflowers.pl; do
+  printf "%-30s %s\n" "$h" "$(curl -s -o /dev/null -w '%{http_code}' https://$h/)"
 done
 ```
 

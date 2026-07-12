@@ -766,9 +766,9 @@
 
 <pre><code class="language-mermaid">flowchart TD
   subgraph Backend["src/backend/"]
-    API["FlowerShop.API\n─────────────\nControllers (23)\nMiddleware pipeline\nProgram.cs / DI root\nDTO request/response types"]
+    API["FlowerShop.API\n─────────────\nControllers (29)\nMiddleware pipeline\nProgram.cs / DI root\nDTO request/response types"]
     APP["FlowerShop.Application\n─────────────\nCommands + Handlers\nQueries + Handlers\nDomain Services\nDTOs (application)\nFluentValidation validators\nMediatR behaviours\nEvent handlers"]
-    DOM["FlowerShop.Domain\n─────────────\nAggregates (14)\nValue Objects\nDomain Events\nRepository interfaces\nIDs (strongly-typed)\nResult&lt;T&gt;"]
+    DOM["FlowerShop.Domain\n─────────────\nAggregates (17)\nValue Objects\nDomain Events\nRepository interfaces\nIDs (strongly-typed)\nResult&lt;T&gt;"]
     INF["FlowerShop.Infrastructure\n─────────────\nEF Core DbContext\nEntity configurations\nRepositories\nKeycloak client\nMQTT services\nSignalR hub\nRedis cache\nEvent bus\nDI extensions"]
   end
 
@@ -818,12 +818,12 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.Infrastructure</code></td>
       <td><strong>Identity &amp; Tenancy, IoT/MQTT, Payments, Vendor Management</strong></td>
-      <td>EF Core repositories, Keycloak client, MQTT services, Redis cache, Stripe stub, FCM stub, SignalR hub, RabbitMQ/InMemory event bus</td>
+      <td>EF Core repositories, Keycloak client, MQTT services, Redis cache, Stripe (Stripe.net), FCM stub, R2 file storage (Cloudflare R2; local storage in dev), Twilio SMS, SignalR hub, RabbitMQ/InMemory event bus</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code></td>
       <td>All sub-domains</td>
-      <td>Controllers (23), middleware pipeline, DI root — thin HTTP adapter over Application layer</td>
+      <td>Controllers (29), middleware pipeline, DI root — thin HTTP adapter over Application layer</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.AdminPortal</code> (:5001)</td>
@@ -1048,7 +1048,7 @@
 </table>
 
 <blockquote>
-  <p><strong>Current status</strong>: 126/126 tests passing.</p>
+  <p><strong>Current status</strong>: 8 test projects, 400+ test methods.</p>
 </blockquote>
 
 <h2 id="migration-workflow">Migration Workflow</h2>
@@ -1061,7 +1061,7 @@ dotnet ef database update
 </code></pre></div></div>
 
 <blockquote>
-  <p><strong>Known gap</strong>: <code class="language-plaintext highlighter-rouge">Cart</code>, <code class="language-plaintext highlighter-rouge">CartItem</code>, <code class="language-plaintext highlighter-rouge">OrderLine</code> (multi-line schema), <code class="language-plaintext highlighter-rouge">Subscription</code>, <code class="language-plaintext highlighter-rouge">Favourite</code>, <code class="language-plaintext highlighter-rouge">Notification</code>, <code class="language-plaintext highlighter-rouge">DeviceRegistration</code>, <code class="language-plaintext highlighter-rouge">SavedAddress</code> tables require <code class="language-plaintext highlighter-rouge">AddCartAndOrderLines</code> migration — not yet run.</p>
+  <p>The <code class="language-plaintext highlighter-rouge">Cart</code>, <code class="language-plaintext highlighter-rouge">CartItem</code>, <code class="language-plaintext highlighter-rouge">OrderLine</code> (multi-line schema), <code class="language-plaintext highlighter-rouge">Subscription</code>, <code class="language-plaintext highlighter-rouge">Favourite</code>, <code class="language-plaintext highlighter-rouge">Notification</code>, <code class="language-plaintext highlighter-rouge">DeviceRegistration</code>, and <code class="language-plaintext highlighter-rouge">SavedAddress</code> tables are created by the <code class="language-plaintext highlighter-rouge">AddCartOrderAndRelatedTables</code> migration, which is applied (one of 30+ migrations in the history).</p>
 </blockquote>
 
     </div>

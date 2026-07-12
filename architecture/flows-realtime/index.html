@@ -798,7 +798,7 @@
 </code></pre>
 
 <blockquote>
-  <p>⚠️ <strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code> — all events are silently dropped when RabbitMQ bus is active. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation currently in use. Fix: wire real RabbitMQ publish in EP-09 S-09-06.</p>
+  <p>⚠️ <strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code> — all events published through it are silently dropped. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation. <strong>Production nuance:</strong> prod appsettings sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code>, which selects the stub — so <code class="language-plaintext highlighter-rouge">IEventBus</code>-published events are dropped in prod. The <strong>outbox pattern</strong> (<code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code>, shown above) is the actual event-delivery path in production and is unaffected. Fix: wire real RabbitMQ publish in EP-09 S-09-06.</p>
 </blockquote>
 
 <blockquote>

@@ -2,7 +2,13 @@
 ## Admin Portal, Vendor Portal, Customer Web App, Analytics API, IoT Integration
 
 > Companion to EPICS.md (Option C — Mobile API, EP-01 through EP-09).
-> Epics are numbered EP-10 through EP-15 to avoid collision.
+> Epics are numbered EP-10 through EP-18 to avoid collision.
+
+> **Status (2026-07-12):** Largely shipped. The analytics `VendorId.New()` bug is fixed (EP-10),
+> all three portals are built and deployed to Fly.io, IoT uses real R2 photo upload + MQTT/TLS
+> (HiveMQ, EP-15), and EP-16/17/18 (E2E, payment resilience, card checkout) are complete. The
+> per-task `state` fields in some `tasks-ep1X-*.json` files lag the code — **treat the codebase as
+> ground truth** for what is done.
 
 ---
 

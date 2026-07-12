@@ -21,34 +21,30 @@ Something is wrong in prod
 
 Each component has an independent release stream — revert only the one that broke.
 
-### 1.1 Fly apps (`flowershop-api`, `flowershop-keycloak`, `flowershop-customer-app`)
+### 1.1 Fly apps (`flower-shop-backend-core`, `flowershop-keycloak`, and the three portals)
 
 ```bash
 # List releases (newest first).
-fly releases --app flowershop-api
+fly releases --app flower-shop-backend-core
 
 # Roll back to previous.
-fly releases rollback --app flowershop-api          # interactive — picks N-1
+fly releases rollback --app flower-shop-backend-core   # interactive — picks N-1
 # or explicit:
-fly image show --app flowershop-api                 # get current image sha
-fly releases --app flowershop-api | head -5         # find the one before
-fly deploy --app flowershop-api --image registry.fly.io/flowershop-api:<previous-tag>
+fly image show --app flower-shop-backend-core          # get current image sha
+fly releases --app flower-shop-backend-core | head -5  # find the one before
+fly deploy --app flower-shop-backend-core --image registry.fly.io/flower-shop-backend-core:<previous-tag>
 ```
 
 Fly performs a rolling deploy; the old machine is drained cleanly. Expected downtime: 0.
 
-### 1.2 Render services (admin + vendor portals)
+### 1.2 Portal Fly apps (`flowershop-admin-portal`, `flowershop-vendor-portal`, `flowershop-customer-app`)
+
+Same as §1.1 — the portals are Fly apps too:
 
 ```bash
-# Via Render API: list deploys.
-curl -sH "Authorization: Bearer $RENDER_API_KEY" \
-  "https://api.render.com/v1/services/$RENDER_ADMIN_SERVICE_ID/deploys?limit=5" | jq .
-
-# Trigger redeploy of a past commit:
-curl -fsS -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"imageUrl":"ghcr.io/<owner>/flowershop-admin-portal:<prev-sha>"}' \
-  "https://api.render.com/v1/services/$RENDER_ADMIN_SERVICE_ID/deploys"
+fly releases rollback --app flowershop-admin-portal
+fly releases rollback --app flowershop-vendor-portal
+fly releases rollback --app flowershop-customer-app
 ```
 
 Or simpler: re-run the previous green GitHub Actions run from the Actions UI — "Re-run all jobs".
@@ -70,13 +66,13 @@ git push origin main
 
 | Dependency | How to detect | Immediate action |
 |---|---|---|
-| **Aiven PG** | `/health/ready` shows DB `Unhealthy`; `psql` hangs | Check [status.aiven.io](https://status.aiven.io). If regional outage, wait it out — site goes read-mostly (no writes) until DB returns. See §5.2 for read-only fallback. |
-| **Upstash Redis** | `/health/ready` shows Redis unhealthy | Non-fatal today — `CacheService` falls back to in-memory. Once real Redis impl (EP-09 T-09-003) lands, consider a circuit breaker. |
-| **CloudAMQP** | `RabbitMQEventBus.PublishAsync` logs connection errors | Currently a no-op stub; not impactful. Once EP-09 S-09-06 lands, outage means events queue in-process — risk of memory growth. Monitor. |
-| **HiveMQ** | MQTT health check fails; no vase heartbeats in logs | Restart API subscriber: `fly machines restart --app flowershop-api`. If still down, check status page. Vases will reconnect automatically. |
+| **Fly Postgres** | `/health/ready` shows DB `Unhealthy`; `psql` hangs | `fly status --app flower-shop-postgres`; `fly machines restart --app flower-shop-postgres` if a machine is stuck. If regional outage, wait it out — site goes read-mostly. See §5.2 for read-only fallback. |
+| **Redis** | not applicable in prod | Redis isn't provisioned; `RedisCacheService` falls back to in-memory. |
+| **RabbitMQ** | not applicable in prod | RabbitMQ isn't provisioned; `InMemoryEventBus` is the active impl. |
+| **HiveMQ** | MQTT health check fails; no vase heartbeats in logs | Restart API subscriber: `fly machines restart --app flower-shop-backend-core`. If still down, check status page. Vases will reconnect automatically. |
 | **Keycloak** | All auth'd endpoints 401 | See §4. |
 | **Stripe** | Checkout returns errors | Stripe has no "rollback" — check [status.stripe.com](https://status.stripe.com). While down: disable checkout via feature flag; existing bouquets still browsable. |
-| **Fly region `waw`** | `fly status` shows all machines down | Deploy to an alternate region: `fly deploy --region ams`. Update `primary_region` in `fly.*.toml` if this is sustained. |
+| **Fly region `fra`** | `fly status` shows all machines down | Deploy to an alternate region: `fly deploy --region ams`. Update `primary_region` in `fly.*.toml` if this is sustained. |
 
 ---
 
@@ -85,26 +81,25 @@ git push origin main
 ### API machine crashed / memory pressure
 
 ```bash
-fly status --app flowershop-api              # state?
-fly logs --app flowershop-api | tail -200    # crash reason
-fly machines list --app flowershop-api       # which machine
-fly machines restart <id> --app flowershop-api
+fly status --app flower-shop-backend-core              # state?
+fly logs --app flower-shop-backend-core | tail -200    # crash reason
+fly machines list --app flower-shop-backend-core       # which machine
+fly machines restart <id> --app flower-shop-backend-core
 ```
 
 Persistent OOM → bump memory:
 ```bash
-fly scale memory 1024 --app flowershop-api   # from 1gb to 1.5gb (costs ~$1 extra/mo)
+fly scale memory 1536 --app flower-shop-backend-core   # from 1gb to 1.5gb (costs ~$1 extra/mo)
 ```
 
-### Render service stuck "deploying"
+### Portal machine stuck / unhealthy
 
 ```bash
-# Cancel the stuck deploy:
-curl -fsS -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
-  "https://api.render.com/v1/services/$RENDER_ADMIN_SERVICE_ID/deploys/<deploy-id>/cancel"
+fly status --app flowershop-admin-portal
+fly machines restart --app flowershop-admin-portal
 ```
 
-Then re-run the GHA workflow.
+Then re-run the GHA workflow if a bad image shipped.
 
 ### CustomerApp redirect loop after deploy
 
@@ -112,7 +107,7 @@ Usually `Authentication__PostLoginRedirectUri` mismatch with Keycloak valid redi
 ```bash
 # Check what the app is sending:
 fly secrets list --app flowershop-customer-app
-# In Keycloak admin, ensure https://app.findmyflowers.pl/signin-oidc is in "Valid redirect URIs".
+# In Keycloak admin, ensure https://findmyflowers.pl/signin-oidc is in "Valid redirect URIs".
 ```
 
 ---
@@ -148,9 +143,9 @@ fly machines restart --app flowershop-keycloak   # admin user is re-created on b
 
 ### 4.3 Keycloak DB schema corruption
 
-Rare, but if `keycloak` schema on Aiven is damaged:
+Rare, but if the `keycloak` DB on Fly Postgres is damaged:
 1. Create a fresh DB: `CREATE DATABASE keycloak_v2;`
-2. Update `KC_DB_URL` to point at it.
+2. Update `KC_DB_URL` (`jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak_v2`).
 3. Redeploy Keycloak — it will migrate schema from scratch.
 4. Import realm (§4.1).
 5. Regenerate client secrets, update `Authentication__Keycloak__ClientSecret` on API and CustomerApp.
@@ -163,21 +158,23 @@ Rare, but if `keycloak` schema on Aiven is damaged:
 
 ### 5.1 Restore from backup
 
-**Backups come from the weekly cron** (see §7 below). If Aiven has point-in-time recovery enabled (paid tiers), prefer that.
+**Backups come from the weekly pipeline** (`.github/workflows/db-backup.yml`, see §7 below). Dumps are `pg_dump -F c` (PostgreSQL custom format), so restore with `pg_restore`, not `psql`.
 
 ```bash
-# Download the most recent dump from R2:
-aws --endpoint-url https://<r2-account>.r2.cloudflarestorage.com s3 cp \
-  s3://flowershop-backups/flowershop_iot-$(date -d yesterday +%F).sql.gz ./
+# Open a tunnel to Fly Postgres (keep this terminal open):
+flyctl proxy 5433:5432 -a flower-shop-postgres
 
-gunzip flowershop_iot-*.sql.gz
+# Download the most recent dump from R2 (files are named <db>-<STAMP>.dump):
+aws --endpoint-url "$R2_ENDPOINT" s3 cp \
+  "s3://$R2_BACKUP_BUCKET/flower_shop_backend_core-<STAMP>.dump" ./
 
 # Restore into a fresh DB (never overwrite prod without a staging copy first):
-psql "$AIVEN_RESTORE_URI" < flowershop_iot-*.sql
+createdb -h localhost -p 5433 -U postgres flower_shop_backend_core_restore
+pg_restore -h localhost -p 5433 -U postgres \
+  -d flower_shop_backend_core_restore --no-owner flower_shop_backend_core-<STAMP>.dump
 
-# After verifying data looks correct, swap connection strings.
-fly secrets set --app flowershop-api \
-  ConnectionStrings__DefaultConnection="$RESTORED_URI"
+# The keycloak DB dump restores the same way from keycloak-<STAMP>.dump.
+# After verifying data looks correct, point the app connection string at the restored DB.
 ```
 
 ### 5.2 Read-only fallback
@@ -204,7 +201,7 @@ Every deploy that adds a migration must be tested against a staging DB first. Re
 # Check the cert chain:
 openssl s_client -connect api.findmyflowers.pl:443 -servername api.findmyflowers.pl < /dev/null
 
-# Common cause: Cloudflare proxy (orange cloud) turned on for a domain Fly/Render manages.
+# Common cause: Cloudflare proxy (orange cloud) turned on for a domain Fly manages.
 # Fix: Cloudflare DNS → click the cloud icon to grey (DNS only).
 ```
 
@@ -216,59 +213,35 @@ If the whole zone goes, re-add it in Cloudflare (free tier). NS records at OVH s
 
 Happens after app rename. Update the CNAME in Cloudflare to the current Fly host, then:
 ```bash
-fly certs check api.findmyflowers.pl --app flowershop-api
+fly certs check api.findmyflowers.pl --app flower-shop-backend-core
 ```
 
 ---
 
-## §7 Database backup (set-and-forget)
+## §7 Database backup (existing pipeline)
 
-Aiven free tier has **no automated backups**. Set this up during Stage 10 of the runbook.
+Backups are **already automated** by `.github/workflows/db-backup.yml`.
 
-### 7.1 GitHub Actions weekly dump → Cloudflare R2
+### 7.1 What the pipeline does
 
-Create `.github/workflows/backup-db.yml`:
+- **Schedule:** Mondays at **03:17 UTC** (plus `workflow_dispatch` for manual runs).
+- **Method:** reaches Fly Postgres via `flyctl proxy`, then `pg_dump -F c` (PostgreSQL custom format) of **both** databases:
+  - `flower_shop_backend_core-<STAMP>.dump`
+  - `keycloak-<STAMP>.dump`
+- **Destination:** uploaded to Cloudflare R2 (via the AWS S3 CLI against `$R2_ENDPOINT` / `$R2_BACKUP_BUCKET`).
+- **Secrets:** `PG_PASSWORD`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BACKUP_BUCKET`.
 
-```yaml
-name: backup-db
-on:
-  schedule:
-    - cron: "0 3 * * 0"   # Sun 03:00 UTC
-  workflow_dispatch:
-
-jobs:
-  dump:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install pg_dump
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Dump flowershop_iot
-        env:
-          PGURI: ${{ secrets.AIVEN_PG_CONNECTION_FLOWERSHOP }}
-        run: |
-          pg_dump "$PGURI" | gzip > flowershop_iot-$(date +%F).sql.gz
-      - name: Upload to R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          aws --endpoint-url https://<r2-account>.r2.cloudflarestorage.com \
-            s3 cp flowershop_iot-*.sql.gz s3://flowershop-backups/
-```
-
-Retention: manually delete anything older than 90 days from R2.
+Restore with `pg_restore` (custom-format dumps, not `psql`) — see §5.1. Retention: manually delete anything older than 90 days from R2.
 
 ### 7.2 Restore drill
 
-Practice it. Once a quarter, pick a dump at random, restore to a scratch Aiven DB, and run a smoke query. A backup you've never restored is not a backup.
+Practice it. Once a quarter, pick a dump at random, `pg_restore` it into a scratch DB on Fly Postgres, and run a smoke query. A backup you've never restored is not a backup.
 
 ---
 
 ## §8 Runbook for total loss
 
-If the Fly org, Render account, or Aiven project is deleted (billing lapse, hijack, human error):
+If the Fly org is deleted (billing lapse, hijack, human error) — this takes out the API, Keycloak, the three portals, and Postgres, since everything runs on Fly:
 
 1. Treat domain and Keycloak realm JSON as the only irreplaceable assets — both should be in the git repo or a personal password manager.
 2. Rebuild from scratch using [DEPLOYMENT-RUNBOOK.md](DEPLOYMENT-RUNBOOK.md).
@@ -276,7 +249,7 @@ If the Fly org, Render account, or Aiven project is deleted (billing lapse, hija
 4. Expected recovery time: 3–4 h if all credentials are in the password manager.
 
 Mitigations against this scenario:
-- Enable 2FA on every SaaS account (Fly, Render, Aiven, Cloudflare, GitHub, Stripe).
+- Enable 2FA on every SaaS account (Fly, Cloudflare, GitHub, Stripe, HiveMQ).
 - Keep billing alerts on — Fly free credit exhaustion triggers machine shutdown.
 - Export Keycloak realm monthly: `fly ssh console -a flowershop-keycloak` → `kc.sh export --dir /tmp --realm flowershop` → `fly sftp shell` → `get`.
 
@@ -291,4 +264,4 @@ After any rollback:
 - [ ] Add a regression test or smoke check that would have caught it
 - [ ] If a runbook step was ambiguous, fix the runbook
 - [ ] Rotate any credential that was exposed during the incident
-- [ ] Verify backups are running (weekly cron last success)
+- [ ] Verify backups are running (`db-backup.yml` last success — Mondays 03:17 UTC)

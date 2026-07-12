@@ -762,7 +762,7 @@
 
 <pre><code class="language-mermaid">sequenceDiagram
   participant Client as Mobile App / Portal
-  participant KC as Keycloak :8090
+  participant KC as Keycloak (dev :8090; prod auth.findmyflowers.pl)
   participant API as REST API
   participant MW as TenantResolutionMiddleware
   participant Redis as Redis (Blacklist)
@@ -785,6 +785,10 @@
   note over Client,Redis: Error path: token revoked → 401 Unauthorized
   note over Client,Redis: Error path: tenant claims missing → 403 Forbidden
 </code></pre>
+
+<blockquote>
+  <p><strong>Google SSO (EP-23):</strong> the <code class="language-plaintext highlighter-rouge">flowershop</code> Keycloak realm has a <code class="language-plaintext highlighter-rouge">google</code> identity provider. On a customer’s first Google login, <code class="language-plaintext highlighter-rouge">CustomerProvisioningService</code> performs just-in-time provisioning — creating the <code class="language-plaintext highlighter-rouge">Customer</code> aggregate and linking it to the Keycloak user — after which the standard OIDC flow above applies.</p>
+</blockquote>
 
 <h2 id="dev-token-development-only">Dev Token (Development Only)</h2>
 

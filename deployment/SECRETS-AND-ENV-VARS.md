@@ -1,6 +1,6 @@
 # Secrets & Environment Variables — Source of Truth
 
-> **Scope**: every secret, credential, and configuration value needed across Fly, Render, GitHub Actions, Cloudflare, Stripe and the four SaaS providers.
+> **Scope**: every secret, credential, and configuration value needed across Fly (API, Keycloak, all 3 portals, Postgres), GitHub Actions, Cloudflare (DNS + R2), Stripe and HiveMQ.
 > **Rule #1**: secrets never live in the repo. `appsettings.*.json` may contain *defaults* but never production values.
 > **Rule #2**: rotate anything listed here if it ever lands in a chat log, screenshot, ticket, or PR diff.
 
@@ -8,9 +8,8 @@
 
 | Store | What belongs here | How set |
 |---|---|---|
-| **Fly secrets** (per app) | Runtime config for `FlowerShop.API`, `flowershop-keycloak`, `flowershop-customer-app` | `fly secrets set KEY=value --app <name>` — triggers a rolling restart |
-| **Render env vars** (per service) | Runtime config for admin + vendor portals | Dashboard → service → Environment |
-| **GitHub Actions secrets** | Build/deploy-time credentials (Fly token, Render API key, GHCR PAT if private) | `Settings → Secrets and variables → Actions` |
+| **Fly secrets** (per app) | Runtime config for `flower-shop-backend-core` (API), `flowershop-keycloak`, `flowershop-customer-app`, `flowershop-admin-portal`, `flowershop-vendor-portal` | `fly secrets set KEY=value --app <name>` — triggers a rolling restart |
+| **GitHub Actions secrets** | Build/deploy-time credentials (Fly token, docs deploy token, backup creds) | `Settings → Secrets and variables → Actions` |
 | **Cloudflare zone** | DNS records, R2 credentials | Dashboard; no secrets stored in code |
 | **Local `.env`** (never committed) | Your laptop's copy when running `fly secrets set` bootstrap | `.gitignore` already covers `.env` |
 
@@ -20,16 +19,16 @@ Do **not** use `fly.*.toml` `[env]` blocks for secrets — those are committed t
 
 ## Master table — every value, where it comes from, who consumes it
 
-Abbreviations in the "Consumer" column: **A** = `FlowerShop.API` · **K** = Keycloak · **C** = CustomerApp · **Ad** = AdminPortal · **Ve** = VendorPortal · **GHA** = GitHub Actions · **DNS** = Cloudflare.
+Abbreviations in the "Consumer" column: **A** = `FlowerShop.API` (`flower-shop-backend-core`) · **K** = Keycloak · **C** = CustomerApp · **Ad** = AdminPortal · **Ve** = VendorPortal · **GHA** = GitHub Actions · **DNS** = Cloudflare.
 
 ### Data plane
 
 | Key | Value format | Source | Consumer | Rotates |
 |---|---|---|---|---|
-| `ConnectionStrings__DefaultConnection` | `Host=...;Database=flowershop_iot;Username=...;Password=...;SslMode=Require` | Aiven service URI (converted Npgsql format) | A | on credential rotation |
-| `ConnectionStrings__ReadConnection` | same as above (or read replica if promoted) | Aiven | A | same |
-| `ConnectionStrings__Redis` | `rediss://default:<pwd>@<host>:<port>` | Upstash | A | on Upstash rotation |
-| `RabbitMQ__ConnectionString` | `amqps://<user>:<pwd>@<host>/<vhost>` | CloudAMQP | A | on CloudAMQP rotation |
+| `ConnectionStrings__DefaultConnection` | `Host=flower-shop-postgres.flycast;Database=flower_shop_backend_core;Username=...;Password=...` | Fly Postgres (`flower-shop-postgres`, PG 17) | A | on credential rotation |
+| `ConnectionStrings__ReadConnection` | same as above (or read replica if promoted) | Fly Postgres | A | same |
+| `ConnectionStrings__Redis` | *(unset in prod — Redis not provisioned; falls back to in-memory)* | — | A | — |
+| `RabbitMQ__ConnectionString` | *(unset in prod — RabbitMQ not provisioned; `InMemoryEventBus` active)* | — | A | — |
 | `MQTT__BrokerHost` | `xxxxxx.s1.eu.hivemq.cloud` | HiveMQ cluster URL | A | — |
 | `MQTT__BrokerPort` | `8883` | constant | A | — |
 | `MQTT__UseTls` | `true` | constant | A | — |
@@ -40,8 +39,8 @@ Abbreviations in the "Consumer" column: **A** = `FlowerShop.API` · **K** = Keyc
 
 | Key | Value | Consumer |
 |---|---|---|
-| `KC_DB_URL` | `jdbc:postgresql://<aiven-host>:<port>/keycloak?sslmode=require` | K |
-| `KC_DB_USERNAME` | Aiven user (shared with app today — create a separate role in Aiven for prod) | K |
+| `KC_DB_URL` | `jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak` | K |
+| `KC_DB_USERNAME` | Fly Postgres user (shared with app today — create a separate role for prod isolation) | K |
 | `KC_DB_PASSWORD` | — | K |
 | `KEYCLOAK_ADMIN` | `admin` | K |
 | `KEYCLOAK_ADMIN_PASSWORD` | strong password, 20+ chars | K |
@@ -59,7 +58,7 @@ Abbreviations in the "Consumer" column: **A** = `FlowerShop.API` · **K** = Keyc
 | `Authentication__Authority` | same as API's Authority | C |
 | `Authentication__ClientId` | `flowershop-customer-app` | C |
 | `Authentication__ClientSecret` | from Keycloak client credentials tab | C |
-| `Authentication__PostLoginRedirectUri` | `https://app.findmyflowers.pl/` | C |
+| `Authentication__PostLoginRedirectUri` | `https://findmyflowers.pl/` | C |
 
 ### Stripe
 
@@ -74,29 +73,32 @@ Abbreviations in the "Consumer" column: **A** = `FlowerShop.API` · **K** = Keyc
 | Key | Value | Consumer |
 |---|---|---|
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` | `true` | A, C, Ad, Ve |
-| `Cors__AllowedOrigins__0` | `https://app.findmyflowers.pl` | A |
+| `Cors__AllowedOrigins__0` | `https://findmyflowers.pl` | A |
 | `Cors__AllowedOrigins__1` | `https://admin.findmyflowers.pl` | A |
-| `Cors__AllowedOrigins__2` | `https://vendor.findmyflowers.pl` | A |
+| `Cors__AllowedOrigins__2` | `https://vendors.findmyflowers.pl` | A |
 
-### Portals (Render env vars)
+### Portals (Fly secrets/env)
 
 | Key | Value | Service |
 |---|---|---|
 | `ASPNETCORE_URLS` | `http://+:8080` | Ad, Ve |
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` | `true` | Ad, Ve |
 | `ApiSettings__BaseUrl` | `https://api.findmyflowers.pl` | Ad, Ve |
+| `Authentication__KeycloakBaseUrl` | `https://auth.findmyflowers.pl` | Ad, Ve |
 
-VendorPortal additionally uses Keycloak for vendor login (confidential client `flowershop-vendor-portal`). Set `Authentication__Authority`, `Authentication__ClientId`, `Authentication__ClientSecret` the same way as CustomerApp, but with the vendor-portal client.
+AdminPortal and VendorPortal authenticate through the **`flowershop-api` client via password grant** — there is **no** dedicated `flowershop-vendor-portal` OIDC client. Only the CustomerApp uses OIDC (with the `flowershop-customer-app` client, above).
 
-### Photo storage (post-EP-15)
+### Photo storage (EP-15)
 
 | Key | Value | Consumer |
 |---|---|---|
-| `ObjectStorage__Provider` | `CloudflareR2` | A |
-| `ObjectStorage__AccessKeyId` | R2 API token key | A |
-| `ObjectStorage__SecretAccessKey` | R2 API token secret | A |
-| `ObjectStorage__BucketName` | `flowershop-photos` | A |
-| `ObjectStorage__PublicUrlPrefix` | `https://<bucket-id>.r2.cloudflarestorage.com` or Cloudflare public URL | A |
+| `FileStorage__R2__Provider` (config `FileStorage:R2:Provider`) | `R2` | A |
+| `FileStorage__R2__AccessKeyId` | R2 API token key (Fly secret) | A |
+| `FileStorage__R2__SecretAccessKey` | R2 API token secret (Fly secret) | A |
+| `FileStorage__R2__BucketName` | `flowershop-bouquets` | A |
+| `FileStorage__R2__PublicUrl` | `https://img.findmyflowers.pl` | A |
+
+Account ID + bucket + public URL live in `appsettings.Production.json`; only the two credentials are Fly secrets.
 
 ---
 
@@ -104,20 +106,22 @@ VendorPortal additionally uses Keycloak for vendor login (confidential client `f
 
 These drive the deploy workflows under `.github/workflows/`.
 
+There are 8 workflow files: 5 deploy workflows (`deploy-api`, `deploy-admin-portal`, `deploy-vendor-portal`, `deploy-customer-app`, `deploy-keycloak`) plus `db-backup`, `docs`, and one disabled `ci-cd.yml.disabled`.
+
 | Secret | Source | Used by |
 |---|---|---|
-| `FLY_API_TOKEN` | `fly tokens create deploy -x 999999h` | `deploy-api`, `deploy-keycloak`, `deploy-customer-app` |
-| `RENDER_API_KEY` | Render → Account → API keys | `deploy-admin-portal`, `deploy-vendor-portal` |
-| `RENDER_ADMIN_SERVICE_ID` | Render dashboard URL (`srv-xxxxx`) | `deploy-admin-portal` |
-| `RENDER_VENDOR_SERVICE_ID` | Render dashboard URL | `deploy-vendor-portal` |
+| `FLY_API_TOKEN` | `fly tokens create deploy -x 999999h` | all 5 `deploy-*` workflows |
+| `PG_PASSWORD` | Fly Postgres password | `db-backup` (via `flyctl proxy`) |
+| `R2_ACCESS_KEY_ID` | R2 API token key | `db-backup` (upload dumps) |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret | `db-backup` |
+| `R2_ENDPOINT` | `https://<account>.r2.cloudflarestorage.com` | `db-backup` |
+| `R2_BACKUP_BUCKET` | R2 bucket for backups | `db-backup` |
+| `DOCS_DEPLOY_TOKEN` | PAT with push access to the docs gh-pages repo | `docs` |
 | `CLOUDFLARE_API_TOKEN` *(optional)* | Cloudflare → My profile → API Tokens → "Zone / DNS / Edit" | Any DNS automation workflow |
-| `GITHUB_TOKEN` *(auto)* | Built-in | Push images to GHCR |
+| `GITHUB_TOKEN` *(auto)* | Built-in | GHA default token |
 
 The following are optional GHA secrets used only during bootstrap (to `fly secrets set` in an ad-hoc workflow, instead of from your laptop). After bootstrap they can be deleted from GHA:
 
-- `AIVEN_PG_CONNECTION`
-- `UPSTASH_REDIS_URL`
-- `CLOUDAMQP_URL`
 - `HIVEMQ_HOST`, `HIVEMQ_USER`, `HIVEMQ_PASS`
 - `KEYCLOAK_ADMIN_PASSWORD`
 - `KEYCLOAK_CLIENT_SECRET_API`, `KEYCLOAK_CLIENT_SECRET_CUSTOMER`
@@ -125,22 +129,14 @@ The following are optional GHA secrets used only during bootstrap (to `fly secre
 
 ---
 
-## Converting an Aiven URI to Npgsql format
+## Fly Postgres connection string
 
-Aiven gives you `postgres://user:pass@host:12345/defaultdb?sslmode=require`.
-.NET Npgsql wants `Host=host;Port=12345;Database=defaultdb;Username=user;Password=pass;SslMode=Require`.
+The API and Keycloak reach Fly Postgres over the private `.flycast` network:
 
-```bash
-aiven_uri_to_npgsql() {
-  python3 - <<PY
-from urllib.parse import urlparse, unquote
-u = urlparse("$1")
-print(f"Host={u.hostname};Port={u.port};Database={u.path.lstrip('/')};Username={unquote(u.username)};Password={unquote(u.password)};SslMode=Require")
-PY
-}
+- **API (Npgsql):** `Host=flower-shop-postgres.flycast;Database=flower_shop_backend_core;Username=<user>;Password=<pwd>`
+- **Keycloak (JDBC):** `jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak`
 
-aiven_uri_to_npgsql "postgres://avnadmin:xxx@xxx.aivencloud.com:12345/flowershop_iot?sslmode=require"
-```
+From a laptop, reach it via a tunnel: `flyctl proxy 5433:5432 -a flower-shop-postgres`, then connect to `localhost:5433`.
 
 ---
 
@@ -148,12 +144,11 @@ aiven_uri_to_npgsql "postgres://avnadmin:xxx@xxx.aivencloud.com:12345/flowershop
 
 Any compromised value, rotate in this order:
 
-1. **Rotate at the source** (Keycloak client secret regen / Stripe key roll / Upstash password reset).
+1. **Rotate at the source** (Keycloak client secret regen / Stripe key roll / R2 token reset).
 2. Update the value in every consumer's secret store (see Consumer column above).
 3. For Fly apps: `fly secrets set ...` auto-rolls the machine.
-4. For Render services: a redeploy picks up new env vars (`curl -X POST ...deploys` from the workflow is enough).
-5. For GitHub Actions: overwrite the secret, then rerun the last deploy of every consumer workflow so the value is live.
-6. Audit — `fly secrets list --app <name>` shows fingerprints; confirm they changed.
+4. For GitHub Actions: overwrite the secret, then rerun the last deploy of every consumer workflow so the value is live.
+5. Audit — `fly secrets list --app <name>` shows fingerprints; confirm they changed.
 
 **Do not** delete the old value until the new one has been verified in prod — a rollback may need it.
 

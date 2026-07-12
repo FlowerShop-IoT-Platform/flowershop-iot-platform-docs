@@ -770,7 +770,7 @@
   <tbody>
     <tr>
       <td>API URL</td>
-      <td>https://flower-shop-backend-core.fly.dev</td>
+      <td>https://api.findmyflowers.pl (also https://flower-shop-backend-core.fly.dev)</td>
     </tr>
     <tr>
       <td>Fly app name</td>
@@ -782,11 +782,11 @@
     </tr>
     <tr>
       <td>Region</td>
-      <td><code class="language-plaintext highlighter-rouge">iad</code> (Virginia) — target <code class="language-plaintext highlighter-rouge">fra</code> (Frankfurt) on next machine resize</td>
+      <td><code class="language-plaintext highlighter-rouge">fra</code> (Frankfurt)</td>
     </tr>
     <tr>
       <td>Deployed from</td>
-      <td><code class="language-plaintext highlighter-rouge">main</code> branch via GitHub integration</td>
+      <td><code class="language-plaintext highlighter-rouge">main</code> branch via <code class="language-plaintext highlighter-rouge">.github/workflows/deploy-api.yml</code> (<code class="language-plaintext highlighter-rouge">flyctl deploy --config fly.toml</code>)</td>
     </tr>
   </tbody>
 </table>
@@ -807,25 +807,25 @@
   <tbody>
     <tr>
       <td>VM size</td>
-      <td>shared-1x-cpu @ 1 GB RAM (256 MB until next redeploy — see note)</td>
+      <td>shared-1x-cpu @ 1 GB RAM</td>
     </tr>
     <tr>
       <td>Machines</td>
-      <td>2</td>
-    </tr>
-    <tr>
-      <td>Auto-stop</td>
-      <td>Yes (scales to zero when idle, wakes on first request)</td>
+      <td>Always-on (<code class="language-plaintext highlighter-rouge">auto_stop_machines = false</code>, <code class="language-plaintext highlighter-rouge">min_machines_running = 1</code>)</td>
     </tr>
     <tr>
       <td>HTTPS</td>
       <td>Enforced (<code class="language-plaintext highlighter-rouge">force_https = true</code>)</td>
     </tr>
+    <tr>
+      <td>Config</td>
+      <td><code class="language-plaintext highlighter-rouge">fly.toml</code></td>
+    </tr>
   </tbody>
 </table>
 
 <blockquote>
-  <p><strong>Note:</strong> The machines were provisioned before the <code class="language-plaintext highlighter-rouge">fly.toml</code> memory fix (PR #8) was merged. They will pick up <code class="language-plaintext highlighter-rouge">memory = '1gb'</code> on the next triggered redeploy.</p>
+  <p><strong>Note:</strong> <code class="language-plaintext highlighter-rouge">fly.api.toml</code> (app <code class="language-plaintext highlighter-rouge">flowershop-api</code>, region <code class="language-plaintext highlighter-rouge">waw</code>) is a stale, unused orphan config left over from an earlier plan. The live API deploys from <code class="language-plaintext highlighter-rouge">fly.toml</code> (app <code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code>, region <code class="language-plaintext highlighter-rouge">fra</code>).</p>
 </blockquote>
 
 <h3 id="postgresql">PostgreSQL</h3>
@@ -953,7 +953,15 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak</code></td>
-      <td><code class="language-plaintext highlighter-rouge">false</code> — Keycloak stubbed out, dev-token auth active</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code> — real Keycloak auth live at <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Stripe__SecretKey</code> / <code class="language-plaintext highlighter-rouge">Stripe__WebhookSecret</code></td>
+      <td>Stripe payments (wired)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FileStorage__R2__AccessKeyId</code> / <code class="language-plaintext highlighter-rouge">FileStorage__R2__SecretAccessKey</code></td>
+      <td>Cloudflare R2 photo storage</td>
     </tr>
   </tbody>
 </table>
@@ -986,7 +994,7 @@
 
 <hr />
 
-<h2 id="services-not-yet-deployed">Services Not Yet Deployed</h2>
+<h2 id="companion-services">Companion Services</h2>
 
 <table>
   <thead>
@@ -998,39 +1006,49 @@
   </thead>
   <tbody>
     <tr>
-      <td>MQTT broker</td>
-      <td>Not deployed</td>
-      <td>App retries in background, non-fatal</td>
-    </tr>
-    <tr>
-      <td>Redis</td>
-      <td>Not deployed</td>
-      <td>Falls back to in-memory cache</td>
-    </tr>
-    <tr>
-      <td>RabbitMQ</td>
-      <td>Not deployed</td>
-      <td>Using <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code></td>
-    </tr>
-    <tr>
       <td>Keycloak</td>
-      <td>Not deployed</td>
-      <td><code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak=false</code> — dev-token auth active</td>
+      <td>✅ Deployed</td>
+      <td>Fly app <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code> at <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code>; <code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak=true</code></td>
+    </tr>
+    <tr>
+      <td>MQTT broker</td>
+      <td>✅ Deployed</td>
+      <td>HiveMQ Cloud, TLS port 8883 (replaces dev-only Mosquitto)</td>
     </tr>
     <tr>
       <td>Admin Portal</td>
-      <td>Not deployed</td>
-      <td>Separate app needed (EP-11)</td>
+      <td>✅ Deployed</td>
+      <td>Fly app <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code> at <code class="language-plaintext highlighter-rouge">admin.findmyflowers.pl</code> (<code class="language-plaintext highlighter-rouge">fly.admin-portal.toml</code>)</td>
     </tr>
     <tr>
       <td>Vendor Portal</td>
-      <td>Not deployed</td>
-      <td>Separate app needed (EP-12)</td>
+      <td>✅ Deployed</td>
+      <td>Fly app <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code> at <code class="language-plaintext highlighter-rouge">vendors.findmyflowers.pl</code> (<code class="language-plaintext highlighter-rouge">fly.vendor-portal.toml</code>)</td>
     </tr>
     <tr>
       <td>Customer App</td>
-      <td>Not deployed</td>
-      <td>Separate app needed (EP-13)</td>
+      <td>✅ Deployed</td>
+      <td>Fly app <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> at <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> (<code class="language-plaintext highlighter-rouge">fly.customer-app.toml</code>)</td>
+    </tr>
+    <tr>
+      <td>Cloudflare R2</td>
+      <td>✅ Wired</td>
+      <td>Bouquet photos, bucket <code class="language-plaintext highlighter-rouge">flowershop-bouquets</code>, served from <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code></td>
+    </tr>
+    <tr>
+      <td>Stripe</td>
+      <td>✅ Wired</td>
+      <td><code class="language-plaintext highlighter-rouge">Stripe__SecretKey</code> / <code class="language-plaintext highlighter-rouge">Stripe__WebhookSecret</code> via Fly secrets</td>
+    </tr>
+    <tr>
+      <td>Redis</td>
+      <td>Not provisioned in prod</td>
+      <td>Falls back to in-memory distributed cache (dev-only in <code class="language-plaintext highlighter-rouge">docker-compose.dev.yml</code>)</td>
+    </tr>
+    <tr>
+      <td>RabbitMQ</td>
+      <td>Not provisioned in prod</td>
+      <td>Using <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> (dev-only in <code class="language-plaintext highlighter-rouge">docker-compose.dev.yml</code>)</td>
     </tr>
   </tbody>
 </table>

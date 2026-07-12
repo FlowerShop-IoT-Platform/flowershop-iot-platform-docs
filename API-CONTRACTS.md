@@ -13,10 +13,9 @@ This document defines the REST API endpoints, WebSocket events, and request/resp
 | Environment | URL |
 |---|---|
 | Development | `http://localhost:8080` |
-| Staging | `https://api-staging.bloomplatform.pl` |
-| Production | `https://api.bloomplatform.pl` |
+| Production | `https://api.findmyflowers.pl` |
 
-All REST endpoints are prefixed with `/api`. Dates use ISO 8601 UTC format. Monetary amounts are decimals with 2 fractional digits.
+All REST endpoints are prefixed with `/api/v1` (the API is versioned — controllers route on `api/v{version:apiVersion}/...` with the current version `1.0`). Dates use ISO 8601 UTC format. Monetary amounts are decimals with 2 fractional digits.
 
 ---
 
@@ -43,8 +42,7 @@ Tokens are issued by Keycloak. FMF uses **OIDC Authorization Code + PKCE** flow.
 | Environment | Keycloak Base URL |
 |---|---|
 | Development | `http://localhost:8090` |
-| Staging | `https://auth-staging.bloomplatform.pl` |
-| Production | `https://auth.bloomplatform.pl` |
+| Production | `https://auth.findmyflowers.pl` |
 
 ### OIDC Client Configuration
 
@@ -104,7 +102,7 @@ grant_type=refresh_token
 
 The mobile app must perform the following steps on sign-out (PRF-07):
 
-1. **Unregister device** — `DELETE /api/notifications/device` with the current FCM/APNs token.
+1. **Unregister device** — `DELETE /api/v1/notifications/devices/{deviceToken}` with the current FCM/APNs token in the path.
 2. **End Keycloak session** — redirect to Keycloak End Session endpoint with `id_token_hint` and `post_logout_redirect_uri`.
 3. **Clear local state** — remove access token, refresh token, and ID token from memory and secure storage. Clear any cached data.
 
@@ -118,22 +116,22 @@ GET {keycloakBase}/realms/flowershop/protocol/openid-connect/logout
 
 ## 1. Auth & Registration Endpoints
 
-### POST /api/auth/register
+### POST /api/v1/customers/register
 
-Creates a new customer account. The account is created in Keycloak, which sends a verification email. The user can log in immediately but will see a reminder banner until email is verified.
+Creates a new customer account atomically (Keycloak user + local `Customer`/`User` record) and returns a JWT so the app can proceed without a separate login. The account can be used immediately; email verification is handled by Keycloak out-of-band (see below).
 
 **Auth:** None
 
-**Request Body:**
+**Request Body (`CustomerRegisterRequest`):**
 
 ```json
 {
+  "username": "jan.kowalski",
   "email": "jan@example.com",
   "password": "SecureP@ss1",
-  "firstName": "Jan",
-  "lastName": "Kowalski",
-  "acceptedTermsVersion": "1.0",
-  "acceptedPrivacyPolicyVersion": "1.0"
+  "customerName": "Jan Kowalski",
+  "preferredVendorType": "shop",
+  "phoneNumber": "+48123456789"
 }
 ```
 
@@ -141,44 +139,45 @@ Creates a new customer account. The account is created in Keycloak, which sends 
 
 | Field | Rules |
 |---|---|
+| `username` | Required, unique |
 | `email` | Valid email, unique, max 255 chars |
 | `password` | Min 8 chars, at least 1 uppercase, 1 lowercase, 1 digit, 1 special char |
-| `firstName` | Required, 1–100 chars |
-| `lastName` | Required, 1–100 chars |
-| `acceptedTermsVersion` | Required |
-| `acceptedPrivacyPolicyVersion` | Required |
+| `customerName` | Required — customer display name |
+| `preferredVendorType` | Optional — `shop` or `freelance` |
+| `phoneNumber` | Optional |
 
-**Response 201:**
+**Response 201 (`AuthResponse`):**
 
 ```json
 {
-  "userId": "a1b2c3d4-...",
-  "email": "jan@example.com",
-  "emailVerified": false,
-  "message": "Account created. A verification email has been sent."
+  "token": "eyJhbGciOi...",
+  "tokenType": "Bearer",
+  "expiresIn": 86400,
+  "username": "jan.kowalski"
 }
 ```
 
-**Response 409:** Email already registered.
+**Response 400:** Registration failed (e.g. username/email already registered) — returned as a Problem Details object.
 
 **Email Verification:** Handled entirely by Keycloak. The verification link in the email points to Keycloak, which marks the account as verified. The mobile app checks `email_verified` in the JWT claims and displays a reminder banner if `false`. No custom verify endpoint is needed.
 
 ---
 
-### POST /api/auth/resend-verification
+### POST /api/v1/auth/resend-verification
 
-Triggers Keycloak to resend the email verification link. Rate-limited to prevent abuse.
+Triggers Keycloak to resend the email verification link. Rate-limited (policy `auth-email`) to prevent abuse.
 
 **Auth:** Required (user must be logged in but unverified)
 
-**Response 202:** Verification email sent (always returned; does not reveal internal state).
+**Response 202:** Verification email queued by Keycloak.
+**Response 204:** No content — the user is already verified (treated as an idempotent success).
 **Response 429:** Rate limited — max 1 request per 60 seconds.
 
 ---
 
-### POST /api/auth/password-reset/request
+### POST /api/v1/auth/password-reset/request
 
-Initiates a password reset flow. Keycloak sends the reset email.
+Initiates a password reset flow. Keycloak sends the reset email; the user completes the reset on Keycloak's hosted page (there is no backend `confirm` endpoint). Rate-limited (policy `auth-email`).
 
 **Auth:** None
 
@@ -194,55 +193,46 @@ Initiates a password reset flow. Keycloak sends the reset email.
 
 ---
 
-### POST /api/auth/password-reset/confirm
+### POST /api/v1/auth/logout
 
-Completes the password reset using the token from the email link.
+Revokes the caller's current JWT so it cannot be reused after logout. The token's `jti` claim is added to a server-side blacklist until the token's natural expiry.
 
-**Auth:** None
+**Auth:** Required
 
-**Request Body:**
-
-```json
-{
-  "token": "reset-token-from-email",
-  "newPassword": "NewSecureP@ss2"
-}
-```
-
-**Response 200:** Password updated.
-**Response 400:** Token invalid or expired.
+**Response 204:** Token revoked.
+**Response 400:** Token has no `jti` claim.
 
 ---
 
 ## 2. App Configuration Endpoint
 
-### GET /api/config
+### GET /api/v1/config
 
 Returns environment-specific configuration the mobile app needs at startup. Called once on app launch and cached for the session.
 
 **Auth:** None
 
-**Response 200:**
+**Response 200 (`AppConfigDto`):**
 
 ```json
 {
   "stripePublishableKey": "pk_live_...",
-  "mapTileProvider": "google",
   "supportEmail": "support@bloomplatform.pl",
   "termsUrl": "https://bloomplatform.pl/terms",
   "privacyPolicyUrl": "https://bloomplatform.pl/privacy",
-  "minAppVersion": "1.0.0"
+  "minAppVersion": "1.0.0",
+  "forceUpdate": false
 }
 ```
 
 | Field | Description |
 |---|---|
 | `stripePublishableKey` | Stripe publishable key for PaymentSheet initialization |
-| `mapTileProvider` | Map provider hint (reserved for future use) |
 | `supportEmail` | Customer support contact |
 | `termsUrl` | Link to current Terms of Service |
 | `privacyPolicyUrl` | Link to current Privacy Policy |
-| `minAppVersion` | Minimum supported app version; app should show a force-update prompt if current version is lower |
+| `minAppVersion` | Minimum supported app version; app should show an update prompt if current version is lower |
+| `forceUpdate` | When `true`, the app must block usage until updated (hard force-update); when `false`, the update prompt is advisory |
 
 ---
 
@@ -262,7 +252,7 @@ All bouquet-related endpoints use the following `status` field values:
 
 ---
 
-### GET /api/bouquets/nearby
+### GET /api/v1/bouquets/nearby
 
 Returns bouquets available within a radius of the given location.
 
@@ -324,9 +314,9 @@ Returns bouquets available within a radius of the given location.
 
 ---
 
-### GET /api/bouquets/{id}
+### GET /api/v1/bouquets/{id}/detail
 
-Returns full detail for a single bouquet.
+Returns full detail for a single bouquet (customer-facing `BouquetDetailDto`). Note the `/detail` suffix — the plain `GET /api/v1/bouquets/{id}` route is the **vendor** endpoint and returns a different DTO; the mobile client must use `/detail`.
 
 **Auth:** Optional
 
@@ -381,7 +371,7 @@ Returns full detail for a single bouquet.
 
 ---
 
-### GET /api/bouquets/qr/{code}
+### GET /api/v1/bouquets/qr/{code}
 
 Resolves a bouquet from a scanned QR code.
 
@@ -389,9 +379,15 @@ Resolves a bouquet from a scanned QR code.
 
 **Path Parameters:** `code` — 8-character alphanumeric short code (e.g., `A3F8K2M1`) or full UUID. Both formats are accepted.
 
-QR codes displayed on smart vases encode the URL `https://fmf.bloomplatform.pl/b/{code}`. The mobile app intercepts this deep link and extracts `{code}` to call this endpoint.
+**QR payload format:** Smart vases now display a **full URL** built by the backend (`VaseQrUrl.ForBouquet`), not a short `/b/{code}` link:
 
-**Response 200:** Same schema as `GET /api/bouquets/{id}`
+```
+{CustomerApp:BaseUrl}/Bouquets/Details/{bouquetId}?addToCart=true&vaseId={deviceId}
+```
+
+Scanning it opens the **customer web app** bouquet Details page (image + price + Add-to-Cart), which auto-adds the bouquet to the cart because of `addToCart=true`. The `{CustomerApp:BaseUrl}` comes from backend config so the domain can change without reflashing devices. The mobile app can still resolve a bouquet programmatically by extracting the `{bouquetId}` (or a short code) and calling this endpoint, which returns `BouquetDetailDto`.
+
+**Response 200 (`BouquetDetailDto`):** Same schema as `GET /api/v1/bouquets/{id}/detail`
 **Response 404:** Code not found or expired.
 **Response 410:** Bouquet was available but is now sold/reserved.
 
@@ -410,7 +406,7 @@ All images are served via CDN with `Cache-Control: public, max-age=604800` (7 da
 
 ## 4. Favourites Endpoints
 
-### GET /api/favourites
+### GET /api/v1/favourites
 
 Returns all favourited bouquets for the authenticated customer.
 
@@ -464,19 +460,19 @@ Returns all favourited bouquets for the authenticated customer.
 
 ---
 
-### POST /api/favourites/{bouquetId}
+### POST /api/v1/favourites/{bouquetId}
 
-Adds a bouquet to the customer's favourites.
+Adds a bouquet to the customer's favourites. **Idempotent** — favouriting an already-favourited bouquet succeeds.
 
 **Auth:** Required
-**Response 201:** No content.
-**Response 409:** Already favourited.
+**Response 204:** No content (added, or already present).
+**Response 404:** Bouquet does not exist.
 
 ---
 
-### DELETE /api/favourites/{bouquetId}
+### DELETE /api/v1/favourites/{bouquetId}
 
-Removes a bouquet from the customer's favourites.
+Removes a bouquet from the customer's favourites. Idempotent — removing a non-existent favourite succeeds.
 
 **Auth:** Required
 **Response 204:** No content.
@@ -485,7 +481,7 @@ Removes a bouquet from the customer's favourites.
 
 ## 5. Order Endpoints
 
-### POST /api/orders/preview
+### POST /api/v1/orders/preview
 
 Returns cost breakdown for a potential order **without** creating the order or reserving the bouquet. Used to display the order summary screen (CHK-06) before the customer commits.
 
@@ -569,13 +565,13 @@ Returns cost breakdown for a potential order **without** creating the order or r
 **Response 400/422:** See the delivery error table at the end of this section.
 
 **Notes:**
-- This endpoint does NOT reserve the bouquet. Reservation happens only on `POST /api/orders`.
+- This endpoint does NOT reserve the bouquet. Reservation happens only on `POST /api/v1/orders`.
 - `deliveryFee` is `0.00` when `deliveryMethod` is `pickup`; flat `25.00 PLN` when delivery falls within the vendor's 10 km service radius.
 - `deliveryDistanceKm` and `resolvedDeliveryAddress` are present only on delivery previews. The server geocodes the address via Nominatim (cached for 10 minutes per address) and returns the resolved latitude/longitude so the client can surface a map preview.
 
 ---
 
-### POST /api/orders
+### POST /api/v1/orders
 
 Creates a new order and reserves the bouquet. The bouquet is locked for 10 minutes. If payment is not confirmed within that window, the reservation is released automatically.
 
@@ -629,7 +625,7 @@ Creates a new order and reserves the bouquet. The bouquet is locked for 10 minut
 **Stripe Integration Notes:**
 - Use `stripeClientSecret` with the Stripe Mobile SDK PaymentSheet.
 - `stripeEphemeralKey` and `stripeCustomerId` are needed for the PaymentSheet configuration.
-- The Stripe publishable key is obtained from `GET /api/config` (`stripePublishableKey` field).
+- The Stripe publishable key is obtained from `GET /api/v1/config` (`stripePublishableKey` field).
 - The app never handles raw card data (SEC-05).
 - Supported payment methods: card, Apple Pay, Google Pay.
 
@@ -676,44 +672,51 @@ All error responses use the shape `{ "error": "<code>" }`.
 
 ---
 
-### POST /api/orders/{id}/confirm-payment
+### POST /api/v1/orders/{id}/confirm-payment
 
 Confirms that the Stripe payment succeeded. Called after Stripe SDK reports success on the client. The server also receives a Stripe webhook independently; this endpoint ensures the order transitions promptly without waiting for the webhook.
 
 **Auth:** Required
-**Idempotent:** Yes — safe to retry. Duplicate confirmations for an already-paid order return 200 with the same response.
+**Idempotent:** Yes — safe to retry. Duplicate confirmations for an already-paid order return 204.
 
-**Request Body:**
-
-```json
-{
-  "paymentIntentId": "pi_stripe_..."
-}
-```
-
-**Response 200:**
+**Request Body (`ConfirmPaymentRequest`):**
 
 ```json
 {
-  "orderId": "ord-8821",
-  "status": "paid",
-  "paidAt": "2025-04-10T10:11:00Z"
+  "paymentIntentId": "pi_stripe_...",
+  "stripeCustomerId": "cus_..."
 }
 ```
 
-**Response 402:** Payment failed or was declined.
-**Response 404:** Order not found.
-**Response 409:** Order already cancelled.
+| Field | Rules |
+|---|---|
+| `paymentIntentId` | Required — the Stripe PaymentIntent id |
+| `stripeCustomerId` | Optional — the Stripe customer id, used to persist the saved card / customer association |
+
+**Response 204:** Payment confirmed (order transitions to `paid`). No response body.
+**Response 400:** Payment failed/declined, order not found, or order not in a confirmable state.
 
 ---
 
-### POST /api/orders/{id}/cancel
+### POST /api/v1/orders/{id}/cancel
 
 Cancels an order. Only allowed while the order is in a cancellable state.
 
 **Auth:** Required
 
-**Response 200:**
+**Request Body (`CancelOrderRequest`):**
+
+```json
+{
+  "reason": "Changed my mind"
+}
+```
+
+| Field | Rules |
+|---|---|
+| `reason` | Required — free-text cancellation reason |
+
+**Response 200 (`CancelOrderResponseDto`):**
 
 ```json
 {
@@ -746,7 +749,58 @@ Cancels an order. Only allowed while the order is in a cancellable state.
 
 ---
 
-### GET /api/orders
+### POST /api/v1/orders/{id}/confirm-delivery
+
+Customer confirms they received the delivery, completing the order (transitions to `delivered`).
+
+**Auth:** Required
+**Request Body:** None.
+
+**Response 204:** Delivery confirmed.
+**Response 400:** Order not found, not owned by the customer, or not in a state that can be confirmed.
+
+---
+
+### POST /api/v1/orders/{orderId}/lines/{bouquetId}/feedback
+
+Submits feedback (1–5 star rating + optional comment) for a single bouquet line in a **delivered** order.
+
+**Auth:** Required
+
+**Request Body (`SubmitFeedbackRequest`):**
+
+```json
+{
+  "rating": 5,
+  "comment": "Beautiful and fresh!",
+  "isAnonymous": false
+}
+```
+
+| Field | Rules |
+|---|---|
+| `rating` | Required — integer 1–5 |
+| `comment` | Optional free text |
+| `isAnonymous` | If `true`, the vendor does not see the customer identity |
+
+**Response 201:** Feedback recorded — body `{ "id": "<feedbackId>" }`.
+**Response 404:** `order-not-found` or `bouquet-not-in-order`.
+**Response 409:** `order-not-delivered` or `feedback-already-exists`.
+**Response 400:** Validation error (e.g. rating out of range).
+
+---
+
+### GET /api/v1/orders/me/pending-feedback
+
+Returns delivered order lines the customer has not yet reviewed, so the app can prompt for ratings.
+
+**Auth:** Required
+
+**Response 200:** Array of `PendingFeedbackDto`.
+
+---
+
+### GET /api/v1/orders
 
 Returns all orders for the authenticated customer.
 
@@ -792,7 +846,7 @@ Returns all orders for the authenticated customer.
 
 ---
 
-### GET /api/orders/{id}
+### GET /api/v1/orders/{id}
 
 Returns full detail of a single order.
 
@@ -898,7 +952,7 @@ Returns full detail of a single order.
 
 ---
 
-### POST /api/orders/{id}/report-issue
+### POST /api/v1/orders/{id}/report-issue
 
 Reports an issue with a delivered order (TRK-08). **Reserved for post-MVP.**
 
@@ -935,7 +989,7 @@ Reports an issue with a delivered order (TRK-08). **Reserved for post-MVP.**
 
 ## 6. Subscription Endpoints
 
-### GET /api/subscriptions
+### GET /api/v1/subscriptions
 
 Returns all subscriptions for the authenticated customer.
 
@@ -959,7 +1013,7 @@ Returns all subscriptions for the authenticated customer.
       "isActive": true,
       "shopId": "vend-42",
       "shopName": "Flora Elegance",
-      "notificationFrequency": "immediate",
+      "frequency": "instant",
       "createdAt": "2025-03-01T10:00:00Z"
     },
     {
@@ -968,8 +1022,10 @@ Returns all subscriptions for the authenticated customer.
       "isActive": true,
       "flowerType": "rose",
       "flowerTypeLabel": "Roses",
+      "centerLatitude": 52.2297,
+      "centerLongitude": 21.0122,
       "radiusKm": 5,
-      "notificationFrequency": "daily",
+      "frequency": "daily",
       "createdAt": "2025-03-15T14:30:00Z"
     },
     {
@@ -978,8 +1034,10 @@ Returns all subscriptions for the authenticated customer.
       "isActive": true,
       "maxPrice": 50.00,
       "currency": "PLN",
+      "centerLatitude": 52.2297,
+      "centerLongitude": 21.0122,
       "radiusKm": 10,
-      "notificationFrequency": "weekly",
+      "frequency": "weekly",
       "createdAt": "2025-03-20T08:00:00Z"
     },
     {
@@ -990,8 +1048,10 @@ Returns all subscriptions for the authenticated customer.
       "flowerTypeLabel": "Roses",
       "maxPrice": 60.00,
       "currency": "PLN",
+      "centerLatitude": 52.2297,
+      "centerLongitude": 21.0122,
       "radiusKm": 5,
-      "notificationFrequency": "immediate",
+      "frequency": "instant",
       "createdAt": "2025-03-25T10:00:00Z"
     }
   ],
@@ -1001,21 +1061,25 @@ Returns all subscriptions for the authenticated customer.
 }
 ```
 
+**Notes:**
+- The notification cadence field is `frequency` (values `instant`, `daily`, `weekly`).
+- Geo-scoped subscription types carry `centerLatitude` + `centerLongitude` (the search origin) plus `radiusKm`.
+
 ---
 
-### GET /api/subscriptions/{id}
+### GET /api/v1/subscriptions/{id}
 
 Returns a single subscription by ID.
 
 **Auth:** Required
 
-**Response 200:** Single subscription object (same schema as items in `GET /api/subscriptions`).
+**Response 200:** Single subscription object (same schema as items in `GET /api/v1/subscriptions`).
 
 **Response 404:** Subscription not found or does not belong to the customer.
 
 ---
 
-### POST /api/subscriptions
+### POST /api/v1/subscriptions
 
 Creates a new subscription.
 
@@ -1027,7 +1091,7 @@ Shop subscription:
 {
   "type": "shop",
   "shopId": "vend-42",
-  "notificationFrequency": "immediate"
+  "frequency": "instant"
 }
 ```
 
@@ -1036,8 +1100,10 @@ Flower type subscription:
 {
   "type": "flower_type",
   "flowerType": "rose",
+  "centerLatitude": 52.2297,
+  "centerLongitude": 21.0122,
   "radiusKm": 5,
-  "notificationFrequency": "immediate"
+  "frequency": "instant"
 }
 ```
 
@@ -1046,8 +1112,10 @@ Price range subscription:
 {
   "type": "price_range",
   "maxPrice": 50.00,
+  "centerLatitude": 52.2297,
+  "centerLongitude": 21.0122,
   "radiusKm": 10,
-  "notificationFrequency": "weekly"
+  "frequency": "weekly"
 }
 ```
 
@@ -1057,28 +1125,32 @@ Combined subscription (flower type + price range):
   "type": "combined",
   "flowerType": "rose",
   "maxPrice": 60.00,
+  "centerLatitude": 52.2297,
+  "centerLongitude": 21.0122,
   "radiusKm": 5,
-  "notificationFrequency": "immediate"
+  "frequency": "instant"
 }
 ```
 
 | Field | Rules |
 |---|---|
 | `type` | `shop`, `flower_type`, `price_range`, `combined` |
-| `notificationFrequency` | `immediate`, `daily`, `weekly` |
-| `radiusKm` | `5`, `10`, or `15` (required for `flower_type`, `price_range`, `combined`) |
-| `flowerType` | Required for `flower_type` and `combined` — use values from `GET /api/reference/flower-types` |
+| `frequency` | `instant` (default), `daily`, `weekly` |
+| `centerLatitude` / `centerLongitude` | Search origin for geo-scoped types (`flower_type`, `price_range`, `combined`) |
+| `radiusKm` | Search radius (required for `flower_type`, `price_range`, `combined`) |
+| `flowerType` | Required for `flower_type` and `combined` — use values from `GET /api/v1/reference/flower-types` |
 | `shopId` | Required for `shop` |
 | `maxPrice` | Required for `price_range` and `combined` |
+| `currency` | Optional currency for `maxPrice` |
 
 **Response 201:** Full subscription object (same as GET schema)
-**Response 400:** Invalid parameters or missing required fields.
+**Response 400:** Invalid parameters or missing required fields (e.g. unknown `frequency`).
 
 ---
 
-### PUT /api/subscriptions/{id}
+### PUT /api/v1/subscriptions/{id}
 
-Updates an existing subscription (toggle active, change frequency).
+Updates an existing subscription (toggle active, change frequency or criteria).
 
 **Auth:** Required
 **Request Body:** Partial subscription object (only changed fields required)
@@ -1086,45 +1158,38 @@ Updates an existing subscription (toggle active, change frequency).
 ```json
 {
   "isActive": false,
-  "notificationFrequency": "daily"
+  "frequency": "daily"
 }
 ```
 
-**Response 200:** Updated subscription object
-**Response 404:** Subscription not found or does not belong to the customer.
+**Response 204:** Subscription updated.
+**Response 400:** Invalid parameters.
 
 ---
 
-### PUT /api/subscriptions/disable-all
+### PUT /api/v1/subscriptions/disable-all
 
 Deactivates all subscriptions for the authenticated customer. Sets `isActive: false` on every subscription without deleting them (SUB-09).
 
 **Auth:** Required
 
-**Response 200:**
-
-```json
-{
-  "disabledCount": 4,
-  "message": "All subscriptions have been deactivated."
-}
-```
+**Response 204:** All active subscriptions deactivated. No response body.
 
 ---
 
-### DELETE /api/subscriptions/{id}
+### DELETE /api/v1/subscriptions/{id}
 
 Deletes a subscription.
 
 **Auth:** Required
 **Response 204:** No content
-**Response 404:** Subscription not found or does not belong to the customer.
+**Response 400:** Subscription not found or does not belong to the customer.
 
 ---
 
 ## 7. Vendor Endpoints
 
-### GET /api/vendors/{id}
+### GET /api/v1/vendors/{id}
 
 Returns public vendor profile.
 
@@ -1159,7 +1224,7 @@ Returns public vendor profile.
 
 ---
 
-### GET /api/vendors/{id}/bouquets
+### GET /api/v1/vendors/{id}/bouquets
 
 Returns all currently available bouquets for a specific vendor.
 
@@ -1172,7 +1237,7 @@ Returns all currently available bouquets for a specific vendor.
 | `page` | int | No | Page number (default: `1`) |
 | `pageSize` | int | No | Items per page (default: `20`, max: `50`) |
 
-**Response 200:** Same paginated schema as `GET /api/bouquets/nearby` items.
+**Response 200:** Same paginated schema as `GET /api/v1/bouquets/nearby` items.
 
 ---
 
@@ -1264,7 +1329,7 @@ Resets the vendor's pricing strategy to the platform default (Standard 3-day sch
 
 ## 8. Customer Profile Endpoints
 
-### GET /api/profile
+### GET /api/v1/profile
 
 Returns the authenticated customer's profile.
 
@@ -1297,27 +1362,33 @@ Returns the authenticated customer's profile.
 
 ---
 
-### PUT /api/profile
+### PUT /api/v1/profile
 
 Updates the customer's profile.
 
 **Auth:** Required
 
-**Request Body:** Partial object — only changed fields required.
+**Request Body (`UpdateProfileRequest`):** Partial object — only changed fields required.
 
 ```json
 {
-  "firstName": "Jan",
-  "lastName": "Kowalski",
+  "name": "Jan Kowalski",
+  "phoneNumber": "+48123456789",
   "preferredFlowerTypes": ["rose", "tulip", "peony"]
 }
 ```
 
-**Response 200:** Updated profile object.
+| Field | Rules |
+|---|---|
+| `name` | Optional — single display name (there is no separate first/last name) |
+| `phoneNumber` | Optional |
+| `preferredFlowerTypes` | Optional — array of flower type keys |
+
+**Response 204:** Profile updated. No response body.
 
 ---
 
-### PUT /api/profile/notification-settings
+### PUT /api/v1/profile/notification-settings
 
 Updates notification preferences.
 
@@ -1333,15 +1404,54 @@ Updates notification preferences.
 }
 ```
 
-**Response 200:** Updated notification settings object.
+**Response 204:** Notification settings updated. No response body.
 
 **Notes:**
-- Setting `pushEnabled: false` stops all push notifications from being delivered to the device but does **not** deactivate individual subscriptions. To deactivate all subscriptions, use `PUT /api/subscriptions/disable-all`.
-- Setting `subscriptionDigestEnabled: false` stops daily/weekly digest emails for subscriptions with `notificationFrequency` set to `daily` or `weekly`.
+- Setting `pushEnabled: false` stops all push notifications from being delivered to the device but does **not** deactivate individual subscriptions. To deactivate all subscriptions, use `PUT /api/v1/subscriptions/disable-all`.
+- Setting `subscriptionDigestEnabled: false` stops daily/weekly digest emails for subscriptions with `frequency` set to `daily` or `weekly`.
 
 ---
 
-### DELETE /api/profile
+### POST /api/v1/profile/phone/send-code
+
+Sends an SMS verification code to the supplied phone number. Stores the phone on the customer, resets its verified flag, then dispatches the code via the SMS provider. Rate-limited (policy `phone-verify`).
+
+**Auth:** Required
+
+**Request Body (`SendPhoneCodeRequest`):**
+
+```json
+{
+  "phoneNumber": "+48123456789"
+}
+```
+
+**Response 202:** Code dispatched.
+**Response 400:** `invalid-phone-format` (or other validation error).
+**Response 502:** `sms-send-failed` — the SMS provider rejected the send.
+
+---
+
+### POST /api/v1/profile/phone/verify-code
+
+Verifies the 6-digit code sent by `send-code`. On success the customer's `PhoneVerified` flag is set.
+
+**Auth:** Required
+
+**Request Body (`VerifyPhoneCodeRequest`):**
+
+```json
+{
+  "code": "123456"
+}
+```
+
+**Response 204:** Phone verified.
+**Response 400:** Code invalid or expired.
+
+---
+
+### DELETE /api/v1/profile
 
 Requests account deletion (GDPR). Marks the account for deletion; completed within 30 days.
 
@@ -1370,7 +1480,7 @@ Requests account deletion (GDPR). Marks the account for deletion; completed with
 
 Saved addresses are a small, bounded collection (practical limit: 10 per customer). They return a plain array, not the paginated envelope.
 
-### GET /api/profile/addresses
+### GET /api/v1/profile/addresses
 
 Returns the customer's saved delivery addresses.
 
@@ -1394,7 +1504,7 @@ Returns the customer's saved delivery addresses.
 
 ---
 
-### POST /api/profile/addresses
+### POST /api/v1/profile/addresses
 
 Creates a new saved address. Maximum 10 addresses per customer.
 
@@ -1418,17 +1528,17 @@ Creates a new saved address. Maximum 10 addresses per customer.
 
 ---
 
-### PUT /api/profile/addresses/{id}
+### PUT /api/v1/profile/addresses/{id}
 
 Updates a saved address.
 
 **Auth:** Required
 **Request Body:** Partial address object.
-**Response 200:** Updated address object.
+**Response 204:** Address updated. No response body.
 
 ---
 
-### DELETE /api/profile/addresses/{id}
+### DELETE /api/v1/profile/addresses/{id}
 
 Deletes a saved address.
 
@@ -1439,13 +1549,13 @@ Deletes a saved address.
 
 ## 10. Push Notifications Endpoints
 
-### POST /api/notifications/device
+### POST /api/v1/notifications/devices
 
-Registers a device for push notifications (Firebase Cloud Messaging for Android, APNs for iOS).
+Registers a device for push notifications (Firebase Cloud Messaging for Android, APNs for iOS). Upserts by device token.
 
 **Auth:** Required
 
-**Request Body:**
+**Request Body (`RegisterDeviceRequest`):**
 
 ```json
 {
@@ -1459,30 +1569,23 @@ Registers a device for push notifications (Firebase Cloud Messaging for Android,
 |---|---|
 | `platform` | `android` or `ios` |
 | `deviceToken` | Required, FCM registration token or APNs device token |
+| `appVersion` | Optional |
 
-**Response 200:** Device registered / updated.
+**Response 204:** Device registered / updated. No response body.
 
 ---
 
-### DELETE /api/notifications/device
+### DELETE /api/v1/notifications/devices/{deviceToken}
 
-Unregisters the current device from push notifications (e.g., on sign-out).
+Unregisters the current device from push notifications (e.g., on sign-out). The token is passed in the path — there is no request body.
 
 **Auth:** Required
-
-**Request Body:**
-
-```json
-{
-  "deviceToken": "firebase-or-apns-token-..."
-}
-```
 
 **Response 204:** No content.
 
 ---
 
-### GET /api/notifications
+### GET /api/v1/notifications
 
 Returns the in-app notification feed for the authenticated customer.
 
@@ -1591,7 +1694,7 @@ Push notifications sent to the device include a `data` payload for deep linking 
 
 ---
 
-### PUT /api/notifications/{id}/read
+### PUT /api/v1/notifications/{id}/read
 
 Marks a notification as read.
 
@@ -1600,7 +1703,7 @@ Marks a notification as read.
 
 ---
 
-### PUT /api/notifications/read-all
+### PUT /api/v1/notifications/read-all
 
 Marks all notifications as read.
 
@@ -1611,7 +1714,7 @@ Marks all notifications as read.
 
 ## 11. Reference Data Endpoints
 
-### GET /api/reference/flower-types
+### GET /api/v1/reference/flower-types
 
 Returns the list of supported flower types for subscriptions and filtering.
 
@@ -1637,7 +1740,7 @@ Returns the list of supported flower types for subscriptions and filtering.
 
 ---
 
-### GET /api/reference/freshness-labels
+### GET /api/v1/reference/freshness-labels
 
 Returns freshness score ranges and their display labels.
 
@@ -1660,9 +1763,9 @@ Returns freshness score ranges and their display labels.
 
 ## 12. Health Check Endpoint
 
-### GET /api/health
+### GET /health
 
-Returns backend health status. Useful for mobile app to detect connectivity issues.
+Returns backend health status. Useful for mobile app to detect connectivity issues. (Health checks are mapped at the unversioned root: `/health`, plus `/health/ready` and `/health/live` — they are **not** under the `/api/v1` prefix.)
 
 **Auth:** None
 
@@ -1690,10 +1793,10 @@ The SignalR hub supports both authenticated and anonymous connections:
 
 | Connection type | How to connect | Available groups |
 |---|---|---|
-| **Authenticated** | Pass `access_token` query string param | Radius groups, order groups |
-| **Anonymous** | Connect without token | Radius groups only |
+| **Authenticated** | Pass `access_token` query string param | Customers group, radius groups, order groups |
+| **Anonymous** | Connect without token | Customers group, radius groups |
 
-Anonymous connections can subscribe to `JoinRadiusGroup` to receive real-time bouquet availability updates (AUTH-04, DISC-04). Order-related groups (`JoinOrderGroup`) require authentication.
+Anonymous connections can subscribe to `JoinCustomersGroup` (or `JoinRadiusGroup`) to receive real-time bouquet availability updates (AUTH-04, DISC-04). Note that bouquet availability broadcasts (`BouquetBecameAvailable` / `BouquetBecameUnavailable` / `FreshnessUpdated`) are currently emitted to the flat `customers` group; radius groups still exist for geo-scoped subscriptions. Order-related groups (`JoinOrderGroup`) require authentication.
 
 ### Connection Setup (.NET MAUI)
 
@@ -1743,10 +1846,10 @@ await connection.InvokeAsync("JoinRadiusGroup", latitude, longitude, radiusKm);
 
 #### LeaveRadiusGroup
 
-Unsubscribe from radius updates.
+Unsubscribe from radius updates. Takes the same `(lat, lng, radiusKm)` arguments used to join — the group name is derived from them, so they must match.
 
 ```csharp
-await connection.InvokeAsync("LeaveRadiusGroup");
+await connection.InvokeAsync("LeaveRadiusGroup", latitude, longitude, radiusKm);
 ```
 
 #### JoinOrderGroup
@@ -1765,41 +1868,65 @@ Unsubscribe from order updates.
 await connection.InvokeAsync("LeaveOrderGroup", orderId);
 ```
 
+#### JoinCustomersGroup / LeaveCustomersGroup
+
+Join (or leave) the flat `customers` broadcast group used by the web map and mobile clients to receive `BouquetBecameAvailable` / `BouquetBecameUnavailable` / `FreshnessUpdated` / price / view-count broadcasts. No arguments. On joining, the server also pushes the current offline-vase state so stale markers can be hidden immediately.
+
+```csharp
+await connection.InvokeAsync("JoinCustomersGroup");
+await connection.InvokeAsync("LeaveCustomersGroup");
+```
+
+#### JoinCustomerGroup
+
+Join a per-customer group (`customer-{customerId}`) and the flat `customers` group.
+
+```csharp
+await connection.InvokeAsync("JoinCustomerGroup", customerId);
+```
+
+#### JoinVendorGroup
+
+Vendor-portal subscription. Joins `vendor-{vendorId}` and `vendortype-{vendorType}`. If the JWT carries a `vendor_id` claim it must match `vendorId`.
+
+```csharp
+await connection.InvokeAsync("JoinVendorGroup", vendorId, vendorType);
+```
+
+#### StartViewingBouquet / StopViewingBouquet
+
+Increment / decrement the real-time view counter for a bouquet (drives `BouquetViewCountChanged`).
+
+```csharp
+await connection.InvokeAsync("StartViewingBouquet", bouquetId);
+await connection.InvokeAsync("StopViewingBouquet", bouquetId);
+```
+
 ---
 
 ### Server → Client
 
 #### BouquetBecameAvailable
 
-A new bouquet is available within the subscribed radius. Payload matches the nearby endpoint item schema so the app can add a map pin without an extra REST call.
+A bouquet became available. Broadcast to the flat `customers` group (not per-radius). The payload is **flat and minimal** — the client should fetch full detail via REST if it needs location, freshness, distance, etc.
 
 ```json
 {
   "bouquetId": "b3f1a2c4-...",
-  "vaseId": "v-001",
   "vendorId": "vend-42",
-  "vendorName": "Flora Elegance",
   "vendorType": "shop",
+  "status": "available",
   "price": 89.00,
   "currency": "PLN",
-  "status": "available",
-  "freshnessScore": 84,
-  "freshnessLabel": "Very Fresh",
-  "thumbnailUrl": "https://cdn.bloomplatform.pl/...",
-  "location": {
-    "latitude": 52.2297,
-    "longitude": 21.0122,
-    "displayAddress": "Śródmieście, Warsaw",
-    "exactAddressHidden": false
-  },
-  "distanceKm": 0.8,
-  "availableFrom": "2025-04-10T09:15:00Z"
+  "imageUrl": "https://cdn.bloomplatform.pl/...",
+  "timestamp": "2025-04-10T09:15:00Z"
 }
 ```
 
 **Notes:**
-- `distanceKm` is computed using the coordinates the client sent in `JoinRadiusGroup`.
-- The event uses the same nested `location` structure as the REST response.
+- Not all fields are present on every emission — a status-transition emission may carry only `bouquetId`, `vendorId`, `vendorType`, `status`, `timestamp`, while a newly-published bouquet also carries `price`, `currency`, `imageUrl`.
+- There is no nested `location`, `distanceKm`, `freshnessScore`, `vendorName`, `vaseId`, or `availableFrom` on this event — fetch `GET /api/v1/bouquets/{id}/detail` for those.
+- The client subscribes via `JoinCustomersGroup` (web map) / `JoinCustomerGroup` (authenticated).
 
 #### BouquetBecameUnavailable
 
@@ -1820,13 +1947,14 @@ A bouquet is no longer available (sold, reserved, vase offline).
 
 #### FreshnessUpdated
 
-A bouquet's freshness score has changed (pushed periodically by the vase sensors).
+A bouquet's freshness score has changed (pushed periodically by the vase sensors). Broadcast to the `customers` group and the owning `vendor-{vendorId}` group.
 
 ```json
 {
   "bouquetId": "b3f1a2c4-...",
   "freshnessScore": 78,
-  "freshnessLabel": "Fresh"
+  "freshnessLabel": "Fresh",
+  "timestamp": "2025-04-10T09:15:00Z"
 }
 ```
 
@@ -1844,6 +1972,8 @@ An order's status has changed.
 ```
 
 #### DeliveryLocationUpdated
+
+> **Not yet implemented** (planned EP-07). Documented here for the mobile client to code against; the backend does not currently emit this event.
 
 Real-time delivery courier location update (sent while order status is `in_delivery`).
 
@@ -1892,7 +2022,7 @@ For 400 validation errors, the response includes field-level details:
 
 ### Price Changed Error Extension
 
-For 409 price-changed errors (on `POST /api/orders`), the response includes the current price:
+For 409 price-changed errors (on `POST /api/v1/orders`), the response includes the current price:
 
 ```json
 {
@@ -1986,7 +2116,7 @@ Used for small, bounded collections where pagination is unnecessary:
 | `Accept-Language` | Optional | `pl-PL` (default) or `en-US` |
 | `X-App-Version` | Recommended | Mobile app version, e.g. `1.0.0` |
 | `X-Platform` | Recommended | `android` or `ios` |
-| `Idempotency-Key` | For POST /api/orders | Client-generated UUID v4 |
+| `Idempotency-Key` | For POST /api/v1/orders | Client-generated UUID v4 |
 
 ### Response Headers
 
@@ -2007,16 +2137,16 @@ Non-idempotent `POST` endpoints that create resources or have side effects requi
 
 | Endpoint | Idempotent | Retry Safe | Notes |
 |---|---|---|---|
-| `POST /api/auth/register` | No | No | Duplicate returns 409 naturally |
-| `POST /api/auth/resend-verification` | Yes | Yes | Rate-limited; no side effects on repeat |
-| `POST /api/orders/preview` | Yes | Yes | Read-only, no side effects |
-| `POST /api/orders` | No | **Yes with `Idempotency-Key`** | Same key returns cached 201 response |
-| `POST /api/orders/{id}/confirm-payment` | Yes | Yes | Duplicate confirmation returns same 200 |
-| `POST /api/orders/{id}/cancel` | Yes | Yes | Duplicate cancellation returns 409 harmlessly |
-| `POST /api/subscriptions` | No | No | Duplicate returns 409 if identical |
-| `POST /api/favourites/{id}` | Yes | Yes | Duplicate returns 409 harmlessly |
-| `POST /api/profile/addresses` | No | No | May create duplicates — client should check |
-| `POST /api/notifications/device` | Yes | Yes | Upserts by device token |
+| `POST /api/v1/customers/register` | No | No | Duplicate returns 400 naturally |
+| `POST /api/v1/auth/resend-verification` | Yes | Yes | Rate-limited; no side effects on repeat |
+| `POST /api/v1/orders/preview` | Yes | Yes | Read-only, no side effects |
+| `POST /api/v1/orders` | No | **Yes with `Idempotency-Key`** | Same key returns cached 201 response |
+| `POST /api/v1/orders/{id}/confirm-payment` | Yes | Yes | Duplicate confirmation returns 204 |
+| `POST /api/v1/orders/{id}/cancel` | Yes | Yes | Duplicate cancellation returns 409 harmlessly |
+| `POST /api/v1/subscriptions` | No | No | Duplicate returns 400 if identical |
+| `POST /api/v1/favourites/{id}` | Yes | Yes | Idempotent — duplicate returns 204 |
+| `POST /api/v1/profile/addresses` | No | No | May create duplicates — client should check |
+| `POST /api/v1/notifications/devices` | Yes | Yes | Upserts by device token |
 | All `GET` endpoints | Yes | Yes | Always safe |
 | All `PUT` endpoints | Yes | Yes | Same payload produces same result |
 | All `DELETE` endpoints | Yes | Yes | Deleting already-deleted returns 204/404 |
@@ -2024,7 +2154,7 @@ Non-idempotent `POST` endpoints that create resources or have side effects requi
 **Usage:**
 
 ```
-POST /api/orders
+POST /api/v1/orders
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 ```
@@ -2041,16 +2171,16 @@ The backend includes caching headers to support offline mode (REL-01) and perfor
 
 | Endpoint | `Cache-Control` | `ETag` | Offline Strategy |
 |---|---|---|---|
-| `GET /api/config` | `public, max-age=3600` | No | Cache for 1h; serve stale if offline |
-| `GET /api/reference/flower-types` | `public, max-age=86400` | Yes | Cache for 24h; serve stale if offline |
-| `GET /api/reference/freshness-labels` | `public, max-age=86400` | Yes | Cache for 24h; serve stale if offline |
-| `GET /api/vendors/{id}` | `public, max-age=3600` | Yes | Cache for 1h; serve stale if offline |
-| `GET /api/bouquets/{id}` | `private, max-age=60` | Yes | Short cache; show stale with banner if offline |
-| `GET /api/bouquets/nearby` | `private, no-cache` | No | Cache last result; show with "May be outdated" banner |
-| `GET /api/orders` | `private, no-cache` | No | Cache last result for offline viewing |
-| `GET /api/orders/{id}` | `private, max-age=30` | Yes | Short cache; show stale with banner |
-| `GET /api/profile` | `private, max-age=300` | Yes | Cache for 5 min |
-| `GET /api/health` | `no-store` | No | Never cache |
+| `GET /api/v1/config` | `public, max-age=3600` | No | Cache for 1h; serve stale if offline |
+| `GET /api/v1/reference/flower-types` | `public, max-age=86400` | Yes | Cache for 24h; serve stale if offline |
+| `GET /api/v1/reference/freshness-labels` | `public, max-age=86400` | Yes | Cache for 24h; serve stale if offline |
+| `GET /api/v1/vendors/{id}` | `public, max-age=3600` | Yes | Cache for 1h; serve stale if offline |
+| `GET /api/v1/bouquets/{id}/detail` | `private, max-age=60` | Yes | Short cache; show stale with banner if offline |
+| `GET /api/v1/bouquets/nearby` | `private, no-cache` | No | Cache last result; show with "May be outdated" banner |
+| `GET /api/v1/orders` | `private, no-cache` | No | Cache last result for offline viewing |
+| `GET /api/v1/orders/{id}` | `private, max-age=30` | Yes | Short cache; show stale with banner |
+| `GET /api/v1/profile` | `private, max-age=300` | Yes | Cache for 5 min |
+| `GET /health` | `no-store` | No | Never cache |
 | CDN images (`thumbnailUrl`, `imageUrl`) | `public, max-age=604800` | No | Cache for 7 days |
 
 ### Conditional Requests
@@ -2058,7 +2188,7 @@ The backend includes caching headers to support offline mode (REL-01) and perfor
 For endpoints that return `ETag`, the mobile app should send `If-None-Match` on subsequent requests:
 
 ```
-GET /api/bouquets/b3f1a2c4-...
+GET /api/v1/bouquets/b3f1a2c4-.../detail
 If-None-Match: "abc123"
 ```
 

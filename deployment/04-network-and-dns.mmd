@@ -1,26 +1,25 @@
 flowchart LR
-    subgraph PUB["Public edge - HTTPS auto-cert"]
+    subgraph PUB["Public edge - Cloudflare + HTTPS auto-cert"]
         d1["api.findmyflowers.pl"]
-        d2["app.findmyflowers.pl"]
+        d2["findmyflowers.pl (apex)"]
         d3["admin.findmyflowers.pl"]
-        d4["vendor.findmyflowers.pl"]
+        d4["vendors.findmyflowers.pl"]
         d5["auth.findmyflowers.pl"]
         d6["*.hivemq.cloud:8883"]
+        d7["docs.findmyflowers.pl"]
     end
 
-    subgraph COMPUTE["Compute"]
+    subgraph COMPUTE["Compute - Fly.io (region fra, always-on)"]
         direction TB
-        F1["Fly - API<br/>always-on"]
-        F2["Fly - Keycloak<br/>always-on"]
-        R1["Render - CustomerApp<br/>sleeps + cron ping"]
-        R2["Render - AdminPortal<br/>sleeps"]
-        R3["Render - VendorPortal<br/>sleeps"]
+        F1["Fly - API<br/>flower-shop-backend-core"]
+        F2["Fly - Keycloak<br/>flowershop-keycloak"]
+        R1["Fly - CustomerApp<br/>flowershop-customer-app"]
+        R2["Fly - AdminPortal<br/>flowershop-admin-portal"]
+        R3["Fly - VendorPortal<br/>flowershop-vendor-portal"]
     end
 
-    subgraph DATAPLANE["Data plane - TLS, IP allow-list where supported"]
-        AV[("Aiven PG")]
-        UP[("Upstash Redis")]
-        CAM["CloudAMQP"]
+    subgraph DATAPLANE["Data plane - TLS"]
+        AV[("Fly Postgres 17")]
         CF["Cloudflare R2"]
     end
 
@@ -29,6 +28,7 @@ flowchart LR
     d2 --> R1
     d3 --> R2
     d4 --> R3
+    d7 -.-> GH["GitHub Pages"]
 
     R1 -->|server-side API calls| F1
     R2 -->|server-side API calls| F1
@@ -37,12 +37,8 @@ flowchart LR
 
     F1 --> AV
     F2 --> AV
-    F1 --> UP
-    F1 --> CAM
     F1 --> CF
     F1 -. subscribe .-> d6
 
     classDef alwaysOn fill:#dff5e1,stroke:#2a8a3e
-    classDef sleeps fill:#fff3cd,stroke:#a07d00
-    class F1,F2 alwaysOn
-    class R1,R2,R3 sleeps
+    class F1,F2,R1,R2,R3 alwaysOn

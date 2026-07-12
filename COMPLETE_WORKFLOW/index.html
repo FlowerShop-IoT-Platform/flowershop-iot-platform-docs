@@ -758,13 +758,22 @@
     <div class="content">
       <p># Complete FlowerShop IoT Platform Workflow</p>
 
+<blockquote>
+  <p><strong>Legacy / hardware-free testing walkthrough.</strong> This describes the end-to-end flow using the
+<strong>mock vase service</strong> (in-memory image storage) for testing without physical hardware. In
+production, bouquet photos upload to <code class="language-plaintext highlighter-rouge">POST /api/v1/bouquets/{id}/photo</code> and are stored in
+<strong>Cloudflare R2</strong> (served from <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code>), and vases communicate over <strong>MQTT/TLS
+(HiveMQ Cloud)</strong>. Use this document only for the no-hardware demo path.</p>
+</blockquote>
+
 <h2 id="services-overview">Services Overview</h2>
 
 <table>
   <thead>
     <tr>
       <th>Service</th>
-      <th>URL</th>
+      <th>Local URL</th>
+      <th>Prod URL</th>
       <th>Purpose</th>
     </tr>
   </thead>
@@ -772,21 +781,25 @@
     <tr>
       <td><strong>API Backend</strong></td>
       <td>http://localhost:8080</td>
+      <td>https://api.findmyflowers.pl</td>
       <td>Core business logic, data persistence</td>
     </tr>
     <tr>
       <td><strong>Admin Portal</strong></td>
-      <td>http://localhost:5113</td>
+      <td>http://localhost:5001</td>
+      <td>https://admin.findmyflowers.pl</td>
       <td>Platform administration, vendor/vase management</td>
     </tr>
     <tr>
       <td><strong>Vendor Portal</strong></td>
-      <td>http://localhost:5186</td>
+      <td>http://localhost:5002</td>
+      <td>https://vendors.findmyflowers.pl</td>
       <td>Vendor dashboard, bouquet/vase management</td>
     </tr>
     <tr>
-      <td><strong>Customer Portal</strong></td>
-      <td>http://localhost:5283</td>
+      <td><strong>Customer App</strong></td>
+      <td>http://localhost:5003</td>
+      <td>https://app.findmyflowers.pl</td>
       <td>Customer browsing, bouquet discovery</td>
     </tr>
   </tbody>
@@ -796,7 +809,7 @@
 
 <h3 id="1-admin-creates-vendor-admin-portal">1. <strong>Admin Creates Vendor</strong> (Admin Portal)</h3>
 <ul>
-  <li>Navigate to: http://localhost:5113/Vendors/Create</li>
+  <li>Navigate to: http://localhost:5001/Vendors/Create</li>
   <li>Create a vendor (FlowerShop or FreelanceFlorist)</li>
   <li>Set vendor location with address and coordinates</li>
   <li><strong>Result</strong>: Vendor registered and active</li>
@@ -804,7 +817,7 @@
 
 <h3 id="2-admin-registers-smartvase-admin-portal">2. <strong>Admin Registers SmartVase</strong> (Admin Portal)</h3>
 <ul>
-  <li>Navigate to: http://localhost:5113/Vases/Register</li>
+  <li>Navigate to: http://localhost:5001/Vases/Register</li>
   <li>Enter Device ID (format: ESP32-XXXXXX)</li>
   <li>Select vendor from list</li>
   <li><strong>Result</strong>: Vase assigned to vendor at vendor’s location</li>
@@ -814,7 +827,7 @@
 
 <p><strong>Option A: Admin Portal</strong></p>
 <ul>
-  <li>Navigate to: http://localhost:5113/Vases/Details/{vaseId}</li>
+  <li>Navigate to: http://localhost:5001/Vases/Details/{vaseId}</li>
   <li>Click “Upload Image”</li>
   <li>Select bouquet photo</li>
   <li><strong>Result</strong>: Image stored in mock vase service</li>
@@ -822,7 +835,7 @@
 
 <p><strong>Option B: Vendor Portal</strong></p>
 <ul>
-  <li>Navigate to: http://localhost:5186/Vases</li>
+  <li>Navigate to: http://localhost:5002/Vases</li>
   <li>Click eye icon on any vase</li>
   <li>Upload bouquet photo</li>
   <li><strong>Result</strong>: Image stored AND bouquet entity created automatically</li>
@@ -838,7 +851,7 @@
 
 <h3 id="5-customer-views-bouquet-customer-portal">5. <strong>Customer Views Bouquet</strong> (Customer Portal)</h3>
 <ul>
-  <li>Navigate to: http://localhost:5283</li>
+  <li>Navigate to: http://localhost:5003</li>
   <li>See bouquets on map within 2km radius (default)</li>
   <li><strong>Map Marker</strong>: Round 50px circular icon with bouquet image</li>
   <li><strong>Click Marker</strong>: Popup shows full image, price, vendor, distance</li>
@@ -927,7 +940,7 @@ Customer Sees Beautiful Bouquet Photos!
   </li>
   <li><strong>Upload Bouquet Images</strong> (Vendor Portal):
     <ul>
-      <li>Login to http://localhost:5186</li>
+      <li>Login to http://localhost:5002</li>
       <li>Go to “My Vases”</li>
       <li>Click eye icon on ESP32-234567</li>
       <li>Upload a beautiful bouquet photo</li>
@@ -942,7 +955,7 @@ Customer Sees Beautiful Bouquet Photos!
   </li>
   <li><strong>View on Customer Portal</strong>:
     <ul>
-      <li>Go to http://localhost:5283</li>
+      <li>Go to http://localhost:5003</li>
       <li>See 2 round bouquet image markers on map</li>
       <li>Click each to see full image and details</li>
     </ul>
@@ -953,9 +966,8 @@ Customer Sees Beautiful Bouquet Photos!
 
 <h3 id="image-persistence">Image Persistence</h3>
 <ul>
-  <li>Images stored <strong>in-memory</strong> (ConcurrentDictionary)</li>
-  <li><strong>Cleared on API restart</strong></li>
-  <li>Production: Use Azure Blob Storage or AWS S3</li>
+  <li>In this mock/testing path, images are stored <strong>in-memory</strong> (ConcurrentDictionary) and <strong>cleared on API restart</strong></li>
+  <li><strong>Production path</strong>: bouquet photos upload to <code class="language-plaintext highlighter-rouge">POST /api/v1/bouquets/{id}/photo</code> and are stored durably in <strong>Cloudflare R2</strong> (served from <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code>) via <code class="language-plaintext highlighter-rouge">IFileStorageService</code>; local disk in dev</li>
 </ul>
 
 <h3 id="vendor-location">Vendor Location</h3>

@@ -759,7 +759,7 @@
       <h1 id="secrets--environment-variables--source-of-truth">Secrets &amp; Environment Variables — Source of Truth</h1>
 
 <blockquote>
-  <p><strong>Scope</strong>: every secret, credential, and configuration value needed across Fly, Render, GitHub Actions, Cloudflare, Stripe and the four SaaS providers.
+  <p><strong>Scope</strong>: every secret, credential, and configuration value needed across Fly (API, Keycloak, all 3 portals, Postgres), GitHub Actions, Cloudflare (DNS + R2), Stripe and HiveMQ.
 <strong>Rule #1</strong>: secrets never live in the repo. <code class="language-plaintext highlighter-rouge">appsettings.*.json</code> may contain <em>defaults</em> but never production values.
 <strong>Rule #2</strong>: rotate anything listed here if it ever lands in a chat log, screenshot, ticket, or PR diff.</p>
 </blockquote>
@@ -777,17 +777,12 @@
   <tbody>
     <tr>
       <td><strong>Fly secrets</strong> (per app)</td>
-      <td>Runtime config for <code class="language-plaintext highlighter-rouge">FlowerShop.API</code>, <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code></td>
+      <td>Runtime config for <code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code> (API), <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>, <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code>, <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code></td>
       <td><code class="language-plaintext highlighter-rouge">fly secrets set KEY=value --app &lt;name&gt;</code> — triggers a rolling restart</td>
     </tr>
     <tr>
-      <td><strong>Render env vars</strong> (per service)</td>
-      <td>Runtime config for admin + vendor portals</td>
-      <td>Dashboard → service → Environment</td>
-    </tr>
-    <tr>
       <td><strong>GitHub Actions secrets</strong></td>
-      <td>Build/deploy-time credentials (Fly token, Render API key, GHCR PAT if private)</td>
+      <td>Build/deploy-time credentials (Fly token, docs deploy token, backup creds)</td>
       <td><code class="language-plaintext highlighter-rouge">Settings → Secrets and variables → Actions</code></td>
     </tr>
     <tr>
@@ -809,7 +804,7 @@
 
 <h2 id="master-table--every-value-where-it-comes-from-who-consumes-it">Master table — every value, where it comes from, who consumes it</h2>
 
-<p>Abbreviations in the “Consumer” column: <strong>A</strong> = <code class="language-plaintext highlighter-rouge">FlowerShop.API</code> · <strong>K</strong> = Keycloak · <strong>C</strong> = CustomerApp · <strong>Ad</strong> = AdminPortal · <strong>Ve</strong> = VendorPortal · <strong>GHA</strong> = GitHub Actions · <strong>DNS</strong> = Cloudflare.</p>
+<p>Abbreviations in the “Consumer” column: <strong>A</strong> = <code class="language-plaintext highlighter-rouge">FlowerShop.API</code> (<code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code>) · <strong>K</strong> = Keycloak · <strong>C</strong> = CustomerApp · <strong>Ad</strong> = AdminPortal · <strong>Ve</strong> = VendorPortal · <strong>GHA</strong> = GitHub Actions · <strong>DNS</strong> = Cloudflare.</p>
 
 <h3 id="data-plane">Data plane</h3>
 
@@ -826,31 +821,31 @@
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__DefaultConnection</code></td>
-      <td><code class="language-plaintext highlighter-rouge">Host=...;Database=flowershop_iot;Username=...;Password=...;SslMode=Require</code></td>
-      <td>Aiven service URI (converted Npgsql format)</td>
+      <td><code class="language-plaintext highlighter-rouge">Host=flower-shop-postgres.flycast;Database=flower_shop_backend_core;Username=...;Password=...</code></td>
+      <td>Fly Postgres (<code class="language-plaintext highlighter-rouge">flower-shop-postgres</code>, PG 17)</td>
       <td>A</td>
       <td>on credential rotation</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__ReadConnection</code></td>
       <td>same as above (or read replica if promoted)</td>
-      <td>Aiven</td>
+      <td>Fly Postgres</td>
       <td>A</td>
       <td>same</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ConnectionStrings__Redis</code></td>
-      <td><code class="language-plaintext highlighter-rouge">rediss://default:&lt;pwd&gt;@&lt;host&gt;:&lt;port&gt;</code></td>
-      <td>Upstash</td>
+      <td><em>(unset in prod — Redis not provisioned; falls back to in-memory)</em></td>
+      <td>—</td>
       <td>A</td>
-      <td>on Upstash rotation</td>
+      <td>—</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">RabbitMQ__ConnectionString</code></td>
-      <td><code class="language-plaintext highlighter-rouge">amqps://&lt;user&gt;:&lt;pwd&gt;@&lt;host&gt;/&lt;vhost&gt;</code></td>
-      <td>CloudAMQP</td>
+      <td><em>(unset in prod — RabbitMQ not provisioned; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> active)</em></td>
+      <td>—</td>
       <td>A</td>
-      <td>on CloudAMQP rotation</td>
+      <td>—</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">MQTT__BrokerHost</code></td>
@@ -903,12 +898,12 @@
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">KC_DB_URL</code></td>
-      <td><code class="language-plaintext highlighter-rouge">jdbc:postgresql://&lt;aiven-host&gt;:&lt;port&gt;/keycloak?sslmode=require</code></td>
+      <td><code class="language-plaintext highlighter-rouge">jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak</code></td>
       <td>K</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">KC_DB_USERNAME</code></td>
-      <td>Aiven user (shared with app today — create a separate role in Aiven for prod)</td>
+      <td>Fly Postgres user (shared with app today — create a separate role for prod isolation)</td>
       <td>K</td>
     </tr>
     <tr>
@@ -987,7 +982,7 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Authentication__PostLoginRedirectUri</code></td>
-      <td><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://findmyflowers.pl/</code></td>
       <td>C</td>
     </tr>
   </tbody>
@@ -1040,7 +1035,7 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Cors__AllowedOrigins__0</code></td>
-      <td><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://findmyflowers.pl</code></td>
       <td>A</td>
     </tr>
     <tr>
@@ -1050,13 +1045,13 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Cors__AllowedOrigins__2</code></td>
-      <td><code class="language-plaintext highlighter-rouge">https://vendor.findmyflowers.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://vendors.findmyflowers.pl</code></td>
       <td>A</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="portals-render-env-vars">Portals (Render env vars)</h3>
+<h3 id="portals-fly-secretsenv">Portals (Fly secrets/env)</h3>
 
 <table>
   <thead>
@@ -1082,12 +1077,17 @@
       <td><code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl</code></td>
       <td>Ad, Ve</td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Authentication__KeycloakBaseUrl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://auth.findmyflowers.pl</code></td>
+      <td>Ad, Ve</td>
+    </tr>
   </tbody>
 </table>
 
-<p>VendorPortal additionally uses Keycloak for vendor login (confidential client <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code>). Set <code class="language-plaintext highlighter-rouge">Authentication__Authority</code>, <code class="language-plaintext highlighter-rouge">Authentication__ClientId</code>, <code class="language-plaintext highlighter-rouge">Authentication__ClientSecret</code> the same way as CustomerApp, but with the vendor-portal client.</p>
+<p>AdminPortal and VendorPortal authenticate through the <strong><code class="language-plaintext highlighter-rouge">flowershop-api</code> client via password grant</strong> — there is <strong>no</strong> dedicated <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code> OIDC client. Only the CustomerApp uses OIDC (with the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> client, above).</p>
 
-<h3 id="photo-storage-post-ep-15">Photo storage (post-EP-15)</h3>
+<h3 id="photo-storage-ep-15">Photo storage (EP-15)</h3>
 
 <table>
   <thead>
@@ -1099,38 +1099,42 @@
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ObjectStorage__Provider</code></td>
-      <td><code class="language-plaintext highlighter-rouge">CloudflareR2</code></td>
+      <td><code class="language-plaintext highlighter-rouge">FileStorage__R2__Provider</code> (config <code class="language-plaintext highlighter-rouge">FileStorage:R2:Provider</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">R2</code></td>
       <td>A</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ObjectStorage__AccessKeyId</code></td>
-      <td>R2 API token key</td>
+      <td><code class="language-plaintext highlighter-rouge">FileStorage__R2__AccessKeyId</code></td>
+      <td>R2 API token key (Fly secret)</td>
       <td>A</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ObjectStorage__SecretAccessKey</code></td>
-      <td>R2 API token secret</td>
+      <td><code class="language-plaintext highlighter-rouge">FileStorage__R2__SecretAccessKey</code></td>
+      <td>R2 API token secret (Fly secret)</td>
       <td>A</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ObjectStorage__BucketName</code></td>
-      <td><code class="language-plaintext highlighter-rouge">flowershop-photos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">FileStorage__R2__BucketName</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flowershop-bouquets</code></td>
       <td>A</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ObjectStorage__PublicUrlPrefix</code></td>
-      <td><code class="language-plaintext highlighter-rouge">https://&lt;bucket-id&gt;.r2.cloudflarestorage.com</code> or Cloudflare public URL</td>
+      <td><code class="language-plaintext highlighter-rouge">FileStorage__R2__PublicUrl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://img.findmyflowers.pl</code></td>
       <td>A</td>
     </tr>
   </tbody>
 </table>
+
+<p>Account ID + bucket + public URL live in <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code>; only the two credentials are Fly secrets.</p>
 
 <hr />
 
 <h2 id="github-actions-secrets">GitHub Actions secrets</h2>
 
 <p>These drive the deploy workflows under <code class="language-plaintext highlighter-rouge">.github/workflows/</code>.</p>
+
+<p>There are 8 workflow files: 5 deploy workflows (<code class="language-plaintext highlighter-rouge">deploy-api</code>, <code class="language-plaintext highlighter-rouge">deploy-admin-portal</code>, <code class="language-plaintext highlighter-rouge">deploy-vendor-portal</code>, <code class="language-plaintext highlighter-rouge">deploy-customer-app</code>, <code class="language-plaintext highlighter-rouge">deploy-keycloak</code>) plus <code class="language-plaintext highlighter-rouge">db-backup</code>, <code class="language-plaintext highlighter-rouge">docs</code>, and one disabled <code class="language-plaintext highlighter-rouge">ci-cd.yml.disabled</code>.</p>
 
 <table>
   <thead>
@@ -1144,22 +1148,37 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FLY_API_TOKEN</code></td>
       <td><code class="language-plaintext highlighter-rouge">fly tokens create deploy -x 999999h</code></td>
-      <td><code class="language-plaintext highlighter-rouge">deploy-api</code>, <code class="language-plaintext highlighter-rouge">deploy-keycloak</code>, <code class="language-plaintext highlighter-rouge">deploy-customer-app</code></td>
+      <td>all 5 <code class="language-plaintext highlighter-rouge">deploy-*</code> workflows</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RENDER_API_KEY</code></td>
-      <td>Render → Account → API keys</td>
-      <td><code class="language-plaintext highlighter-rouge">deploy-admin-portal</code>, <code class="language-plaintext highlighter-rouge">deploy-vendor-portal</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PG_PASSWORD</code></td>
+      <td>Fly Postgres password</td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup</code> (via <code class="language-plaintext highlighter-rouge">flyctl proxy</code>)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RENDER_ADMIN_SERVICE_ID</code></td>
-      <td>Render dashboard URL (<code class="language-plaintext highlighter-rouge">srv-xxxxx</code>)</td>
-      <td><code class="language-plaintext highlighter-rouge">deploy-admin-portal</code></td>
+      <td><code class="language-plaintext highlighter-rouge">R2_ACCESS_KEY_ID</code></td>
+      <td>R2 API token key</td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup</code> (upload dumps)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RENDER_VENDOR_SERVICE_ID</code></td>
-      <td>Render dashboard URL</td>
-      <td><code class="language-plaintext highlighter-rouge">deploy-vendor-portal</code></td>
+      <td><code class="language-plaintext highlighter-rouge">R2_SECRET_ACCESS_KEY</code></td>
+      <td>R2 API token secret</td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">R2_ENDPOINT</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://&lt;account&gt;.r2.cloudflarestorage.com</code></td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">R2_BACKUP_BUCKET</code></td>
+      <td>R2 bucket for backups</td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">DOCS_DEPLOY_TOKEN</code></td>
+      <td>PAT with push access to the docs gh-pages repo</td>
+      <td><code class="language-plaintext highlighter-rouge">docs</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">CLOUDFLARE_API_TOKEN</code> <em>(optional)</em></td>
@@ -1169,7 +1188,7 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code> <em>(auto)</em></td>
       <td>Built-in</td>
-      <td>Push images to GHCR</td>
+      <td>GHA default token</td>
     </tr>
   </tbody>
 </table>
@@ -1177,9 +1196,6 @@
 <p>The following are optional GHA secrets used only during bootstrap (to <code class="language-plaintext highlighter-rouge">fly secrets set</code> in an ad-hoc workflow, instead of from your laptop). After bootstrap they can be deleted from GHA:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">AIVEN_PG_CONNECTION</code></li>
-  <li><code class="language-plaintext highlighter-rouge">UPSTASH_REDIS_URL</code></li>
-  <li><code class="language-plaintext highlighter-rouge">CLOUDAMQP_URL</code></li>
   <li><code class="language-plaintext highlighter-rouge">HIVEMQ_HOST</code>, <code class="language-plaintext highlighter-rouge">HIVEMQ_USER</code>, <code class="language-plaintext highlighter-rouge">HIVEMQ_PASS</code></li>
   <li><code class="language-plaintext highlighter-rouge">KEYCLOAK_ADMIN_PASSWORD</code></li>
   <li><code class="language-plaintext highlighter-rouge">KEYCLOAK_CLIENT_SECRET_API</code>, <code class="language-plaintext highlighter-rouge">KEYCLOAK_CLIENT_SECRET_CUSTOMER</code></li>
@@ -1188,21 +1204,16 @@
 
 <hr />
 
-<h2 id="converting-an-aiven-uri-to-npgsql-format">Converting an Aiven URI to Npgsql format</h2>
+<h2 id="fly-postgres-connection-string">Fly Postgres connection string</h2>
 
-<p>Aiven gives you <code class="language-plaintext highlighter-rouge">postgres://user:pass@host:12345/defaultdb?sslmode=require</code>.
-.NET Npgsql wants <code class="language-plaintext highlighter-rouge">Host=host;Port=12345;Database=defaultdb;Username=user;Password=pass;SslMode=Require</code>.</p>
+<p>The API and Keycloak reach Fly Postgres over the private <code class="language-plaintext highlighter-rouge">.flycast</code> network:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aiven_uri_to_npgsql<span class="o">()</span> <span class="o">{</span>
-  python3 - <span class="o">&lt;&lt;</span><span class="no">PY</span><span class="sh">
-from urllib.parse import urlparse, unquote
-u = urlparse("</span><span class="nv">$1</span><span class="sh">")
-print(f"Host={u.hostname};Port={u.port};Database={u.path.lstrip('/')};Username={unquote(u.username)};Password={unquote(u.password)};SslMode=Require")
-</span><span class="no">PY
-</span><span class="o">}</span>
+<ul>
+  <li><strong>API (Npgsql):</strong> <code class="language-plaintext highlighter-rouge">Host=flower-shop-postgres.flycast;Database=flower_shop_backend_core;Username=&lt;user&gt;;Password=&lt;pwd&gt;</code></li>
+  <li><strong>Keycloak (JDBC):</strong> <code class="language-plaintext highlighter-rouge">jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak</code></li>
+</ul>
 
-aiven_uri_to_npgsql <span class="s2">"postgres://avnadmin:xxx@xxx.aivencloud.com:12345/flowershop_iot?sslmode=require"</span>
-</code></pre></div></div>
+<p>From a laptop, reach it via a tunnel: <code class="language-plaintext highlighter-rouge">flyctl proxy 5433:5432 -a flower-shop-postgres</code>, then connect to <code class="language-plaintext highlighter-rouge">localhost:5433</code>.</p>
 
 <hr />
 
@@ -1211,10 +1222,9 @@ aiven_uri_to_npgsql <span class="s2">"postgres://avnadmin:xxx@xxx.aivencloud.com
 <p>Any compromised value, rotate in this order:</p>
 
 <ol>
-  <li><strong>Rotate at the source</strong> (Keycloak client secret regen / Stripe key roll / Upstash password reset).</li>
+  <li><strong>Rotate at the source</strong> (Keycloak client secret regen / Stripe key roll / R2 token reset).</li>
   <li>Update the value in every consumer’s secret store (see Consumer column above).</li>
   <li>For Fly apps: <code class="language-plaintext highlighter-rouge">fly secrets set ...</code> auto-rolls the machine.</li>
-  <li>For Render services: a redeploy picks up new env vars (<code class="language-plaintext highlighter-rouge">curl -X POST ...deploys</code> from the workflow is enough).</li>
   <li>For GitHub Actions: overwrite the secret, then rerun the last deploy of every consumer workflow so the value is live.</li>
   <li>Audit — <code class="language-plaintext highlighter-rouge">fly secrets list --app &lt;name&gt;</code> shows fingerprints; confirm they changed.</li>
 </ol>

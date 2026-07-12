@@ -30,8 +30,7 @@
 
 | Topic | Direction | QoS | Retain | Payload Schema | Owner | Status | File |
 |-------|-----------|-----|--------|----------------|-------|--------|------|
-| `smartvase/{vendorId}/{deviceId}/commands` | **Publish** | 1 | false | `{ "command": string, "timestamp": long, "correlation_id"?: string }` | This repo | Active | `Infrastructure/Services/MqttService.cs` |
-| `smartvase/{vendorId}/{deviceId}/display` | **Publish** | 1 | false | `{ "command": "updateDisplay", "timestamp": long, "payload": { "status": string, "price": decimal, "currency": string, "bouquetId": string, "qrCode": string, "message": string } }` | This repo | Active | `Infrastructure/Services/MqttService.cs` |
+| `smartvase/{vendorId}/{deviceId}/commands` | **Publish** | 1 | false | See command payload variants below | This repo | Active | `Infrastructure/Services/MqttService.cs`, `Application/EventHandlers/OrderPaidVaseNotificationHandler.cs` |
 | `smartvase/{vendorId}/{deviceId}/wifi` | **Publish** | TBD | false | `{ "ssid": string, "password": string, "securityType": string, "isHidden": bool, "priority": int }` | This repo | **STUB — not implemented** | `Application/Services/IMqttService.cs` |
 | `smartvase/{vendorId}/{deviceId}/config` | **Publish** | 1 | false | `{ "sensor_interval": ulong, "heartbeat_interval": ulong }` | This repo | **DISABLED** — firmware ESP32 const-variable bug | `Infrastructure/IoT/MqttDeviceCommunicationService.cs` |
 | `devices/{deviceId}/display` | **Publish** | 1 | false | `{ "status": string, "price": decimal, "qr_code": string, "freshness_score": int, "custom_message": string, "theme": string, "timestamp": long }` | This repo | Active (legacy format) | `Infrastructure/IoT/MqttDeviceCommunicationService.cs` |
@@ -42,6 +41,52 @@
 **`theme` enum values**: `default`, `elegant`, `modern`, `rustic`
 **`type` (alert) enum values**: `low_battery`, `connection_issue`, `sensor_malfunction`, `maintenance_required`
 **`severity` enum values**: `low`, `medium`, `high`, `critical`
+
+#### `smartvase/{vendorId}/{deviceId}/commands` payload variants
+
+All command payloads share `command` (string) and `timestamp` (long). There is **no separate `/display` topic** — display updates ride the `commands` topic.
+
+> ⚠️ **Timestamp units differ:** the **display** command (`SendVaseDisplayCommandAsync`) uses `timestamp` in **seconds** (`ToUnixTimeSeconds`); all **generic** commands (`SendVaseCommandAsync`, e.g. `prepare_delivery`) use `timestamp` in **milliseconds** (`ToUnixTimeMilliseconds`).
+
+**1. Display update** (`command: "updateDisplay"`) — nested `payload` object, timestamp in **seconds**:
+
+```json
+{
+  "command": "updateDisplay",
+  "timestamp": 1712745600,
+  "payload": {
+    "status": "AVAILABLE",
+    "price": 89.00,
+    "currency": "PLN",
+    "bouquetId": "b3f1a2c4-...",
+    "qrCode": "https://app.findmyflowers.pl/Bouquets/Details/{bouquetId}?addToCart=true&vaseId={deviceId}",
+    "message": "..."
+  }
+}
+```
+
+**2. Generic command** (flat payload; optional `correlation_id`; params merged at top level; timestamp in **milliseconds**):
+
+```json
+{ "command": "restart|ping|configure|...", "timestamp": 1712745600000, "correlation_id": "..." }
+```
+
+**3. Order-driven `prepare_delivery`** (from `OrderPaidVaseNotificationHandler` on `OrderPaidEvent`; flat params, timestamp in **milliseconds**):
+
+```json
+{
+  "command": "prepare_delivery",
+  "timestamp": 1712745600000,
+  "display_mode": "delivery",
+  "delivery_qr": "geo:<lat>,<lon>?q=<url-encoded-address>",
+  "delivery_status": "PREPARING",
+  "delivery_address": "<street>, <postalCode> <city>",
+  "order_info": "ORDER #A1B2C3D4",
+  "customer_id": "<customerId>"
+}
+```
+
+`display_mode` / `delivery_qr` / `delivery_status` / `delivery_address` are present only for delivery orders that have a generated delivery QR code; `order_info` and `customer_id` are always present.
 
 ### 1b. Device → Backend (Subscribe)
 
@@ -90,7 +135,7 @@
 
 ## 2. REST API Endpoints
 
-**Base URL**: `http://localhost:8080` (dev) — `https://api.flowershop.io` (prod)
+**Base URL**: `http://localhost:8080` (dev) — `https://api.findmyflowers.pl` (prod)
 **API version prefix**: `/api/v1/`
 **Counterpart repos**: `flower-shop-mobile` (mobile app), portals (served from this repo), firmware heartbeat endpoint
 
@@ -100,8 +145,12 @@
 |--------|------|------|-------------|----------|-------------|
 | POST | `/api/v1/auth/dev-token` | None | `{ username, vendorId?, vendorType?, role? }` | `{ token, tokenType, expiresIn, username, vendorId?, vendorType? }` | Dev tooling |
 | POST | `/api/v1/admin-accounts/register` | None | `{ username, email, password, firstName?, lastName?, masterKey? }` | `{ userId, username, email, role, token, expiresIn, message }` | Admin bootstrap |
-| POST | `/api/v1/vendor-accounts/register-with-admin` | None | `{ vendorType, businessName, description?, contactEmail, contactPhone?, latitude, longitude, fullAddress?, adminUsername, adminPassword }` | `{ vendorId, vendorType, adminUsername, token, expiresIn }` | Admin Portal |
-| POST | `/api/v1/customers/register` | None | `{ username, email, password, customerName, preferredVendorType? }` | `{ token, tokenType, expiresIn, username }` | Mobile App |
+| POST | `/api/v1/vendor-accounts/register-with-admin` | None | `{ vendorType, businessName, description?, contactEmail, contactPhone?, latitude, longitude, fullAddress?, adminUsername, adminPassword, onlineAddress?, billingAddress?{street,city,postalCode,country}, acceptedTerms?, termsVersion? }` (EP-19 billing/T&C fields) | `{ vendorId, vendorType, adminUsername, stripeCustomerId?, token, expiresIn }` | Admin Portal, Vendor Portal sign-up |
+| POST | `/api/v1/vendor-accounts/setup-intent` | None | `{ vendorId }` | `{ clientSecret }` (Stripe SetupIntent — EP-19; 404 if vendor unknown, 400 if no Stripe customer) | Vendor Portal sign-up wizard |
+| POST | `/api/v1/customers/register` | None | `{ username, email, password, customerName, preferredVendorType?, phoneNumber? }` | `AuthResponse` `{ token, tokenType, expiresIn, username }` 201 | Mobile App |
+| POST | `/api/v1/auth/password-reset/request` | None | `{ email }` | 202 (always; reset completes on Keycloak hosted page — no `/confirm` endpoint) | Mobile App |
+| POST | `/api/v1/auth/resend-verification` | Bearer (any authenticated) | — | 202 queued / 204 already-verified / 429 (rate-limit `auth-email`) | Mobile App |
+| POST | `/api/v1/auth/logout` | Bearer (any authenticated) | — | 204 (jti blacklisted until expiry) / 400 no-jti | Mobile App |
 | GET | `/api/v1/bouquets/nearby` | None | Query: `lat, lng, radiusKm, search?, vendorType?, flowerType?, maxPrice?, sortBy, page, pageSize` | `NearbyBouquetsResult` | Mobile App |
 | GET | `/api/v1/bouquets/{id}` | None | — | `BouquetDetailDto` | Mobile App, Portals |
 | GET | `/api/v1/bouquets/qr/{code}` | None | Query: `lat?, lng?` | `BouquetDetailDto` | Mobile App (QR scan) |
@@ -128,7 +177,10 @@
 | POST | `/api/v1/orders/preview` | `{ bouquetIds[], deliveryMethod, street?, city?, postalCode?, notes? }` | `OrderPreviewDto` | Mobile App |
 | POST | `/api/v1/orders` | `{ bouquetIds[], deliveryMethod, expectedTotalAmount, street?, city?, postalCode?, notes? }` + `Idempotency-Key` header | `OrderCreatedDto` | Mobile App |
 | POST | `/api/v1/orders/{id}/confirm-payment` | `{ paymentIntentId, stripeCustomerId? }` | 204 | Mobile App (Stripe) |
-| POST | `/api/v1/orders/{id}/cancel` | `{ reason }` | 204 | Mobile App |
+| POST | `/api/v1/orders/{id}/cancel` | `{ reason }` | `CancelOrderResponseDto` (200) | Mobile App |
+| POST | `/api/v1/orders/{id}/confirm-delivery` | — | 204 | Mobile App |
+| POST | `/api/v1/orders/{orderId}/lines/{bouquetId}/feedback` | `{ rating, comment?, isAnonymous }` | `{ id }` 201 | Mobile App |
+| GET | `/api/v1/orders/me/pending-feedback` | — | `IReadOnlyList<PendingFeedbackDto>` | Mobile App |
 | GET | `/api/v1/orders` | Query: `status?, page, pageSize` | `OrderListResult` | Mobile App |
 | GET | `/api/v1/orders/{id}` | — | `OrderDetailDto` | Mobile App |
 | GET | `/api/v1/favourites` | Query: `page, pageSize` | `FavouritesResult` | Mobile App |
@@ -148,6 +200,8 @@
 | GET | `/api/v1/profile` | — | `CustomerProfileDto` | Mobile App |
 | PUT | `/api/v1/profile` | `{ name?, phoneNumber?, preferredFlowerTypes[]? }` | 204 | Mobile App |
 | PUT | `/api/v1/profile/notification-settings` | `{ pushEnabled, emailEnabled, subscriptionDigestEnabled }` | 204 | Mobile App |
+| POST | `/api/v1/profile/phone/send-code` | `{ phoneNumber }` | 202 (400 `invalid-phone-format`, 502 `sms-send-failed`) | Mobile App |
+| POST | `/api/v1/profile/phone/verify-code` | `{ code }` | 204 (400 invalid/expired) | Mobile App |
 | DELETE | `/api/v1/profile` | — | 204 | Mobile App |
 | GET | `/api/v1/profile/addresses` | — | `List<SavedAddressDto>` | Mobile App |
 | POST | `/api/v1/profile/addresses` | `{ label, street, city, postalCode, notes?, isDefault }` | `SavedAddressDto` | Mobile App |
@@ -178,6 +232,8 @@
 | PUT | `/api/v1/vendors/{vendorId}/employees/{employeeId}/role` | `{ newRole, additionalPermissions[]? }` | 200 | Vendor Portal |
 | DELETE | `/api/v1/vendors/{vendorId}/employees/{employeeId}` | `{ reason, notifyEmployee }` | 200 | Vendor Portal |
 | GET | `/api/v1/vendors/{vendorId}/employees/{employeeId}/activity` | Query: `pageNumber, pageSize` | `PagedResult<EmployeeActivityDto>` | Vendor Portal |
+| GET | `/api/v1/vendor/payments` | Query: `filter?, page, pageSize` | `VendorPaymentListResult` (EP-18) — tenant-scoped, no Stripe-internal ids | Vendor Portal (payments dashboard) |
+| GET | `/api/v1/vendor/payments/metrics` | Query: `fromDate?, toDate?` | `VendorPaymentMetricsDto` (EP-18) | Vendor Portal (payments dashboard) |
 | GET | `/api/v1/vendor-accounts/debug/token-claims` | — | Token claims | Dev tooling |
 
 ### 2d. Platform Admin Endpoints (Policy: `PlatformAdmin`)
@@ -231,6 +287,8 @@
 | `LeaveOrderGroup` | Yes | `orderId: string` | — | Unsubscribe from order group |
 | `JoinVendorGroup` | Internal check | `vendorId: string, vendorType: string` | `vendor-{vendorId}`, `vendortype-{vendorType}` | Vendor portal subscription |
 | `JoinCustomerGroup` | No | `customerId: string` | `customer-{customerId}`, `customers` | Customer portal subscription |
+| `JoinCustomersGroup` | No | — | `customers` | Anonymous web-map subscription; on join server also pushes current offline-vase `BouquetBecameUnavailable` state |
+| `LeaveCustomersGroup` | No | — | — | Leave the flat customers group |
 | `StartViewingBouquet` | No | `bouquetId: string` | — | Increment real-time view counter |
 | `StopViewingBouquet` | No | `bouquetId: string` | — | Decrement real-time view counter |
 
@@ -238,7 +296,7 @@
 
 | Event Name | Target Group(s) | Payload Schema | Status | Trigger |
 |------------|----------------|----------------|--------|---------|
-| `BouquetBecameAvailable` | `customers` (all), radius groups | `{ bouquetId, vendorId, vendorType, status, price, currency, imageUrl, timestamp }` | Active | Bouquet created/released from cart |
+| `BouquetBecameAvailable` | `customers` (all) | `{ bouquetId, vendorId, vendorType, status, price, currency, imageUrl, timestamp }` | Active | Bouquet created/released from cart |
 | `BouquetBecameUnavailable` | `customers` (all) | `{ bouquetId, vendorType, reason, timestamp }` | Active | Sold / reserved / vase offline |
 | `BouquetPriceChanged` | `customers`, `vendor-{vendorId}` | `{ bouquetId, price, currency, timestamp }` | Active | Vendor updates price |
 | `BouquetViewCountChanged` | `customers` | `{ bouquetId, viewCount, timestamp }` | Active | View counter incremented/decremented |
@@ -246,7 +304,7 @@
 | `BouquetDeleted` | `vendor-{vendorId}`, `customers` | `{ bouquetId, reason, timestamp }` | Active | Vendor deletes bouquet |
 | `OrderStatusChanged` | `order-{orderId}`, `customer-{customerId}`, `vendor-{vendorId}` | `{ orderId, status, label, timestamp, estimatedDeliveryAt? }` | Active | Order lifecycle transitions |
 | `VaseStatusChanged` | `vendor-{vendorId}` | `{ vaseId, status, timestamp }` | Active | Vase heartbeat monitor detects change |
-| `FreshnessUpdated` | radius groups | `{ bouquetId, freshnessScore, freshnessLabel, timestamp }` | **Defined, NOT yet triggered** | MQTT sensor data → freshness calc |
+| `FreshnessUpdated` | `customers`, `vendor-{vendorId}` | `{ bouquetId, freshnessScore, freshnessLabel, timestamp }` | Active | MQTT sensor data → freshness calc (`RealTimeNotificationService.NotifyFreshnessUpdate`) |
 | `DeliveryLocationUpdated` | `order-{orderId}` | `{ orderId, courierLatitude, courierLongitude, estimatedMinutesRemaining, timestamp }` | **Not implemented** (EP-07) | Courier location update |
 
 **`status` values for `OrderStatusChanged`**: `created`, `paid`, `preparing`, `ready_for_pickup`, `in_delivery`, `delivered`, `cancelled`
@@ -367,6 +425,17 @@
 | Realm Name | `flowershop` |
 
 > **External repos must configure the same realm name, client ID, and custom claim mappers** (`vendor_id`, `vendor_type`, `customer_id`) in Keycloak.
+
+### 5d. Google SSO / Just-In-Time Customer Provisioning
+
+Customers may sign in with Google (configured as an Identity Provider in the `flowershop` realm; committed export `docker/keycloak/flowershop-realm.json`). On a first Google login the Keycloak user exists but the platform DB does not, and the token carries **no `customer_id` claim**. `TenantResolutionMiddleware` detects this case (token has `email`, no `vendor_id`, no existing `customer_id`, not an admin) and calls `CustomerProvisioningService.EnsureCustomerProvisionedAsync`, which:
+
+1. Reads `email`, `given_name`, `family_name` from the validated token.
+2. Creates a local `Customer` + `User` (idempotently — reuses an existing user matched by Keycloak id or email).
+3. Writes `customer_id` back to Keycloak via `KeycloakAdminClient.SetUserAttributesAsync`, and assigns the `User` realm role — so subsequent tokens carry the claim natively.
+4. **Injects the `customer_id` claim into the current request principal**, so the very first request is authorized without requiring a re-login.
+
+Consequently: `customer_id` may be **absent on the first Google token** and is populated mid-request; Google emails are treated as verified (no separate email-verification step); a Google login auto-links to any existing account with the same verified email.
 
 ---
 
@@ -515,7 +584,6 @@ The three portals (served from this repo) consume the REST API above. This secti
 | `AnalyticsController` uses `VendorId.New()` — all analytics return wrong tenant data | High | EP-10 T-10-001 |
 | `CacheService` uses `IMemoryCache` not Redis | Medium | EP-09 T-09-003 |
 | `IStripeService` not wired — `CreateOrderCommandHandler` never calls Stripe | High | EP-04 |
-| `FreshnessUpdated` SignalR event defined but never triggered | Medium | EP-08 |
 | `DeliveryLocationUpdated` SignalR event in API contract but not implemented | Low | EP-07 |
 | MQTT config sending disabled (`smartvase/+/+/config`) — firmware bug | Low | firmware fix needed |
 | Customer App portal cart path mismatch vs current API | Medium | EP-13 |

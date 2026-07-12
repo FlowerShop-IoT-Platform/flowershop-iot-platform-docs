@@ -801,7 +801,7 @@
 </code></pre>
 
 <blockquote>
-  <p>⚠️ <strong>Known gap (EP-10):</strong> <code class="language-plaintext highlighter-rouge">AnalyticsController</code> currently calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code> (random GUID) in 4 actions instead of reading from tenant context. All per-vendor analytics return incorrect data. Fix planned in EP-10 T-10-001.</p>
+  <p><strong>Note:</strong> Per-vendor analytics now read the vendor from tenant context (the earlier <code class="language-plaintext highlighter-rouge">VendorId.New()</code> bug is fixed). One <code class="language-plaintext highlighter-rouge">VendorId.New()</code> fallback remains in the benchmark handler in <code class="language-plaintext highlighter-rouge">AnalyticsHandlers.cs</code> only.</p>
 </blockquote>
 
 <h2 id="4-customer-management">4. Customer Management</h2>

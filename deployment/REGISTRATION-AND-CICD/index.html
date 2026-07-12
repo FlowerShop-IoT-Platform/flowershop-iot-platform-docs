@@ -781,7 +781,6 @@
       <th>Public URL</th>
       <th>Host</th>
       <th>Plan / Machine</th>
-      <th>Monthly cost</th>
       <th>What you register</th>
     </tr>
   </thead>
@@ -791,17 +790,15 @@
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code> (.NET 8, REST + SignalR + MQTT client + 5 hosted services + Stripe webhook)</td>
       <td><code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl</code></td>
       <td><strong>Fly.io</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">shared-cpu-1x</code> 1 GB, always-on, region <code class="language-plaintext highlighter-rouge">waw</code></td>
-      <td><strong>~$5.70/mo</strong> (offset by $5 Hobby credit)</td>
-      <td>Fly.io Hobby account + app <code class="language-plaintext highlighter-rouge">flowershop-api</code></td>
+      <td><code class="language-plaintext highlighter-rouge">shared-cpu-1x</code> 1 GB, always-on, region <code class="language-plaintext highlighter-rouge">fra</code></td>
+      <td>Fly.io Hobby account + app <code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code> (config <code class="language-plaintext highlighter-rouge">fly.toml</code>)</td>
     </tr>
     <tr>
       <td>2</td>
       <td>Keycloak 23 (OIDC + admin API)</td>
       <td><code class="language-plaintext highlighter-rouge">https://auth.findmyflowers.pl</code></td>
       <td><strong>Fly.io</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">shared-cpu-1x</code> 1 GB, always-on, region <code class="language-plaintext highlighter-rouge">waw</code></td>
-      <td><strong>~$5.70/mo</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">shared-cpu-1x</code> 1 GB, always-on, region <code class="language-plaintext highlighter-rouge">fra</code></td>
       <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code></td>
     </tr>
     <tr>
@@ -809,104 +806,85 @@
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.CustomerApp</code> (MVC + OIDC)</td>
       <td><code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl</code></td>
       <td><strong>Fly.io</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">shared-cpu-1x</code> 512 MB, <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, region <code class="language-plaintext highlighter-rouge">waw</code></td>
-      <td><strong>~$3.89/mo</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, region <code class="language-plaintext highlighter-rouge">fra</code></td>
       <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code></td>
     </tr>
     <tr>
       <td>4</td>
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.AdminPortal</code> (Razor)</td>
       <td><code class="language-plaintext highlighter-rouge">https://admin.findmyflowers.pl</code></td>
-      <td><strong>Render free</strong></td>
-      <td>Docker web service, 512 MB, sleeps after 15 min</td>
-      <td><strong>$0</strong></td>
-      <td>Render account + service <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code></td>
+      <td><strong>Fly.io</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, region <code class="language-plaintext highlighter-rouge">fra</code></td>
+      <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code></td>
     </tr>
     <tr>
       <td>5</td>
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.VendorPortal</code> (Razor)</td>
-      <td><code class="language-plaintext highlighter-rouge">https://vendor.findmyflowers.pl</code></td>
-      <td><strong>Render free</strong></td>
-      <td>Docker web service, 512 MB, sleeps after 15 min</td>
-      <td><strong>$0</strong></td>
-      <td>Render service <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://vendors.findmyflowers.pl</code> (plural)</td>
+      <td><strong>Fly.io</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, region <code class="language-plaintext highlighter-rouge">fra</code></td>
+      <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code></td>
     </tr>
     <tr>
       <td>6</td>
-      <td>PostgreSQL (DBs: <code class="language-plaintext highlighter-rouge">flowershop_iot</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>)</td>
-      <td>internal — Aiven host</td>
-      <td><strong>Aiven</strong></td>
-      <td>Free PG-1, Frankfurt (<code class="language-plaintext highlighter-rouge">aws-eu-central-1</code>), 5 GB disk / 1 GB RAM</td>
-      <td><strong>$0</strong></td>
-      <td>Aiven account + service <code class="language-plaintext highlighter-rouge">flowershop-pg</code></td>
+      <td>PostgreSQL (DBs: <code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>)</td>
+      <td>internal — <code class="language-plaintext highlighter-rouge">flower-shop-postgres.flycast</code></td>
+      <td><strong>Fly.io Postgres</strong></td>
+      <td>PostgreSQL 17, region <code class="language-plaintext highlighter-rouge">fra</code></td>
+      <td>Fly Postgres app <code class="language-plaintext highlighter-rouge">flower-shop-postgres</code></td>
     </tr>
     <tr>
       <td>7</td>
       <td>Redis cache</td>
-      <td>internal — Upstash REST/TCP</td>
-      <td><strong>Upstash</strong></td>
-      <td>Free serverless, 500k cmd/mo, 256 MB</td>
-      <td><strong>$0</strong></td>
-      <td>Upstash account + DB <code class="language-plaintext highlighter-rouge">flowershop-cache</code></td>
+      <td><em>(not provisioned in prod)</em></td>
+      <td>—</td>
+      <td>dev-only in <code class="language-plaintext highlighter-rouge">docker-compose.dev.yml</code></td>
+      <td>—</td>
     </tr>
     <tr>
       <td>8</td>
       <td>RabbitMQ (event bus)</td>
-      <td>internal — CloudAMQP</td>
-      <td><strong>CloudAMQP</strong></td>
-      <td>Little Lemur (free), 1M msg/mo, 20 conn</td>
-      <td><strong>$0</strong></td>
-      <td>CloudAMQP account + instance <code class="language-plaintext highlighter-rouge">flowershop-bus</code></td>
+      <td><em>(not provisioned in prod)</em></td>
+      <td>—</td>
+      <td>dev-only in <code class="language-plaintext highlighter-rouge">docker-compose.dev.yml</code></td>
+      <td>—</td>
     </tr>
     <tr>
       <td>9</td>
       <td>MQTT broker</td>
       <td><code class="language-plaintext highlighter-rouge">&lt;cluster&gt;.hivemq.cloud:8883</code></td>
       <td><strong>HiveMQ Cloud</strong></td>
-      <td>Serverless free, 100 conn, 10 GB/mo</td>
-      <td><strong>$0</strong></td>
-      <td>HiveMQ Cloud account + cluster <code class="language-plaintext highlighter-rouge">flowershop-mqtt</code></td>
+      <td>Serverless free, 100 conn, 10 GB/mo, TLS</td>
+      <td>HiveMQ Cloud account + cluster</td>
     </tr>
     <tr>
       <td>10</td>
       <td>Bouquet photo storage</td>
-      <td>internal — R2 API</td>
+      <td><code class="language-plaintext highlighter-rouge">https://img.findmyflowers.pl</code></td>
       <td><strong>Cloudflare R2</strong></td>
       <td>10 GB free, zero egress</td>
-      <td><strong>$0</strong></td>
-      <td>Cloudflare account + R2 bucket <code class="language-plaintext highlighter-rouge">flowershop-photos</code></td>
+      <td>Cloudflare account + R2 bucket <code class="language-plaintext highlighter-rouge">flowershop-bouquets</code></td>
     </tr>
     <tr>
       <td>11</td>
       <td>Domain <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code></td>
       <td>DNS zone</td>
-      <td><strong>OVHcloud</strong></td>
+      <td><strong>OVHcloud</strong> (registrar) + <strong>Cloudflare</strong> (DNS)</td>
       <td>.pl registration</td>
-      <td><strong>~10 PLN y1 / ~65 PLN renew</strong> (~€15/y)</td>
-      <td>OVHcloud account + domain</td>
+      <td>OVHcloud account + domain; Cloudflare zone</td>
     </tr>
     <tr>
       <td>12</td>
-      <td>Keep-warm cron (ping Render portals every 10 min)</td>
-      <td>—</td>
-      <td><strong>cron-job.org</strong></td>
+      <td>Docs site <code class="language-plaintext highlighter-rouge">docs.findmyflowers.pl</code></td>
+      <td>Jekyll → gh-pages</td>
+      <td><strong>GitHub Pages</strong></td>
       <td>Free</td>
-      <td><strong>$0</strong></td>
-      <td>cron-job.org account + 2 jobs</td>
-    </tr>
-    <tr>
-      <td>13</td>
-      <td>Container registry</td>
-      <td><code class="language-plaintext highlighter-rouge">ghcr.io/&lt;owner&gt;/&lt;image&gt;</code></td>
-      <td><strong>GitHub Container Registry</strong></td>
-      <td>Free for public repos / 500 MB for private</td>
-      <td><strong>$0</strong></td>
-      <td>Already part of your GitHub org</td>
+      <td><code class="language-plaintext highlighter-rouge">docs.yml</code> workflow + <code class="language-plaintext highlighter-rouge">docs/CNAME</code></td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Totals</strong>: <strong>~$15.30/mo</strong> Fly-side <strong>− $5 Hobby credit = ~$10.30/mo cash</strong> + <strong>~€15/yr</strong> domain. Everything else: $0.</p>
+<p>All five Fly apps run <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, so there is <strong>no keep-warm cron</strong> — Fly keeps them awake.</p>
 
 <hr />
 
@@ -923,7 +901,7 @@
   <li>Add site <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code> (even before you’ve bought it — Cloudflare will give you two nameservers).</li>
   <li><strong>Noted for later</strong>: you’ll paste these NS at OVH.</li>
   <li>While here: create API token (scoped to Zone → DNS → Edit) for the GHA workflow that sets DNS records. Store as <code class="language-plaintext highlighter-rouge">CLOUDFLARE_API_TOKEN</code>.</li>
-  <li>(Later, after R2 is needed) Enable R2, create bucket <code class="language-plaintext highlighter-rouge">flowershop-photos</code>.</li>
+  <li>(Later, after R2 is needed) Enable R2, create bucket <code class="language-plaintext highlighter-rouge">flowershop-bouquets</code>, connect the custom domain <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code>.</li>
 </ol>
 
 <h3 id="23-domain--ovhcloud">2.3 Domain — OVHcloud</h3>
@@ -934,31 +912,23 @@
   <li>Propagation: 15 min – 2 h.</li>
 </ol>
 
-<h3 id="24-aiven-postgresql">2.4 Aiven (PostgreSQL)</h3>
+<h3 id="24-postgresql--fly-postgres">2.4 PostgreSQL — Fly Postgres</h3>
 <ol>
-  <li>Sign up at https://console.aiven.io.</li>
-  <li>Create service → PostgreSQL → <strong>Free plan</strong> → cloud <code class="language-plaintext highlighter-rouge">AWS</code>, region <code class="language-plaintext highlighter-rouge">eu-central-1</code> (Frankfurt).</li>
-  <li>Service name: <code class="language-plaintext highlighter-rouge">flowershop-pg</code>.</li>
-  <li>Wait ~5 min for <code class="language-plaintext highlighter-rouge">RUNNING</code>.</li>
-  <li>On the service page, <strong>Databases</strong> tab → add second database named <code class="language-plaintext highlighter-rouge">keycloak</code> (the default one <code class="language-plaintext highlighter-rouge">defaultdb</code> will be for the app; create a third named <code class="language-plaintext highlighter-rouge">flowershop_iot</code> if you prefer symmetric naming).</li>
-  <li>Grab the <strong>service URI</strong> (looks like <code class="language-plaintext highlighter-rouge">postgres://avnadmin:xxx@xxx.aivencloud.com:12345/defaultdb?sslmode=require</code>).</li>
-  <li>Create two users if you want isolation (<code class="language-plaintext highlighter-rouge">flowershop_user</code>, <code class="language-plaintext highlighter-rouge">keycloak_user</code>) — not required for demo.</li>
+  <li><code class="language-plaintext highlighter-rouge">fly postgres create --name flower-shop-postgres --region fra</code> (PostgreSQL 17).</li>
+  <li>Once running, create the second database:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly postgres connect <span class="nt">-a</span> flower-shop-postgres
+<span class="c"># in psql:</span>
+CREATE DATABASE keycloak<span class="p">;</span>   <span class="nt">--</span> the app DB flower_shop_backend_core already exists
+<span class="se">\q</span>
+</code></pre></div>    </div>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">fly postgres attach flower-shop-postgres -a flower-shop-backend-core</code> sets <code class="language-plaintext highlighter-rouge">DATABASE_URL</code> on the API.</li>
+  <li>Both DBs (<code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code>, <code class="language-plaintext highlighter-rouge">keycloak</code>) live on this one cluster, reachable in-cluster at <code class="language-plaintext highlighter-rouge">flower-shop-postgres.flycast:5432</code>.</li>
 </ol>
 
-<h3 id="25-upstash-redis">2.5 Upstash (Redis)</h3>
-<ol>
-  <li>Sign up at https://console.upstash.com.</li>
-  <li>Create database <code class="language-plaintext highlighter-rouge">flowershop-cache</code>, region <code class="language-plaintext highlighter-rouge">eu-central-1</code>, TLS enabled.</li>
-  <li>Copy the <code class="language-plaintext highlighter-rouge">rediss://...</code> connection string.</li>
-</ol>
-
-<h3 id="26-cloudamqp-rabbitmq">2.6 CloudAMQP (RabbitMQ)</h3>
-<ol>
-  <li>Sign up at https://www.cloudamqp.com.</li>
-  <li>Create instance → <strong>Little Lemur (Free)</strong> → region <code class="language-plaintext highlighter-rouge">EU-West-1</code> (Ireland) or <code class="language-plaintext highlighter-rouge">EU-Central-1</code>.</li>
-  <li>Instance name: <code class="language-plaintext highlighter-rouge">flowershop-bus</code>.</li>
-  <li>Copy the <code class="language-plaintext highlighter-rouge">amqps://...</code> URL from the instance details page.</li>
-</ol>
+<h3 id="25-redis--rabbitmq--not-provisioned-in-prod">2.5 Redis / RabbitMQ — not provisioned in prod</h3>
+<p>Redis and RabbitMQ only run in <code class="language-plaintext highlighter-rouge">docker-compose.dev.yml</code>. In prod the code falls back to in-memory
+cache (<code class="language-plaintext highlighter-rouge">RedisCacheService</code> → <code class="language-plaintext highlighter-rouge">AddDistributedMemoryCache()</code>) and <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code>. Nothing to register.</p>
 
 <h3 id="27-hivemq-cloud-mqtt">2.7 HiveMQ Cloud (MQTT)</h3>
 <ol>
@@ -966,7 +936,7 @@
   <li>Create <strong>Serverless</strong> cluster, region EU.</li>
   <li>Cluster name: <code class="language-plaintext highlighter-rouge">flowershop-mqtt</code>.</li>
   <li>In <strong>Access Management</strong>, create a credential for the backend (<code class="language-plaintext highlighter-rouge">flowershop-backend</code>) and one per vase (or one shared for demo).</li>
-  <li>Copy cluster URL (e.g. <code class="language-plaintext highlighter-rouge">xxx.s1.eu.hivemq.cloud</code>), port <code class="language-plaintext highlighter-rouge">8883</code>.</li>
+  <li>Copy cluster URL (e.g. <code class="language-plaintext highlighter-rouge">xxx.s1.eu.hivemq.cloud</code>), port <code class="language-plaintext highlighter-rouge">8883</code> (TLS). Replaces dev-only Mosquitto.</li>
 </ol>
 
 <h3 id="28-flyio">2.8 Fly.io</h3>
@@ -975,24 +945,17 @@
   <li>Install <code class="language-plaintext highlighter-rouge">flyctl</code> locally: https://fly.io/docs/flyctl/install/.</li>
   <li><code class="language-plaintext highlighter-rouge">fly auth login</code>.</li>
   <li>Generate a deploy token: <code class="language-plaintext highlighter-rouge">fly tokens create deploy -x 999999h</code> → store as GitHub secret <code class="language-plaintext highlighter-rouge">FLY_API_TOKEN</code>.</li>
-  <li>Don’t create apps manually — the GHA workflows do it with <code class="language-plaintext highlighter-rouge">fly launch --copy-config --no-deploy</code> on first run.</li>
+  <li>Create the five Fly apps (<code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code>, <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>, <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code>, <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code>), then let the GHA workflows deploy on push.</li>
 </ol>
 
-<h3 id="29-render">2.9 Render</h3>
-<ol>
-  <li>Sign up at https://render.com (GitHub OAuth).</li>
-  <li>In <strong>Account Settings → API Keys</strong>, create key → store as GitHub secret <code class="language-plaintext highlighter-rouge">RENDER_API_KEY</code>.</li>
-  <li>Don’t create services manually. The GHA workflow creates them via API on first run, or you can create them once through the dashboard and then let GHA deploy on push — see §4.2 for both options. The dashboard path is simpler; pick that unless you want full IaC.</li>
-</ol>
+<h3 id="29-portals-also-run-on-fly--no-separate-provider">2.9 (Portals also run on Fly — no separate provider)</h3>
+<p>All three Razor/MVC portals are Fly apps (see §2.8). There is no Render account anywhere.</p>
 
-<h3 id="210-cron-joborg">2.10 cron-job.org</h3>
-<ol>
-  <li>Sign up at https://cron-job.org.</li>
-  <li>After portals are live, add two jobs pinging <code class="language-plaintext highlighter-rouge">https://admin.findmyflowers.pl/health</code> and <code class="language-plaintext highlighter-rouge">https://vendor.findmyflowers.pl/health</code> every 10 min. (CustomerApp stays warm via Fly’s <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>.)</li>
-</ol>
+<h3 id="210-keep-warm">2.10 Keep-warm</h3>
+<p>Not needed — every Fly app runs <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, so nothing sleeps.</p>
 
 <h3 id="211-github-secrets-to-set-one-place">2.11 GitHub secrets to set (one place)</h3>
-<p>After 2.1–2.9, go to <code class="language-plaintext highlighter-rouge">Settings → Secrets and variables → Actions</code> and set:</p>
+<p>Go to <code class="language-plaintext highlighter-rouge">Settings → Secrets and variables → Actions</code> and set:</p>
 
 <table>
   <thead>
@@ -1006,22 +969,22 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FLY_API_TOKEN</code></td>
       <td>§2.8</td>
-      <td>API, Keycloak, CustomerApp workflows</td>
+      <td>all 5 <code class="language-plaintext highlighter-rouge">deploy-*</code> workflows</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RENDER_API_KEY</code></td>
-      <td>§2.9</td>
-      <td>AdminPortal, VendorPortal workflows</td>
+      <td><code class="language-plaintext highlighter-rouge">PG_PASSWORD</code></td>
+      <td>Fly Postgres</td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup.yml</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RENDER_ADMIN_SERVICE_ID</code></td>
-      <td>Render dashboard after creating service</td>
-      <td>AdminPortal workflow</td>
+      <td><code class="language-plaintext highlighter-rouge">R2_ACCESS_KEY_ID</code>, <code class="language-plaintext highlighter-rouge">R2_SECRET_ACCESS_KEY</code>, <code class="language-plaintext highlighter-rouge">R2_ENDPOINT</code>, <code class="language-plaintext highlighter-rouge">R2_BACKUP_BUCKET</code></td>
+      <td>Cloudflare R2</td>
+      <td><code class="language-plaintext highlighter-rouge">db-backup.yml</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RENDER_VENDOR_SERVICE_ID</code></td>
-      <td>Render dashboard after creating service</td>
-      <td>VendorPortal workflow</td>
+      <td><code class="language-plaintext highlighter-rouge">DOCS_DEPLOY_TOKEN</code></td>
+      <td>PAT for the docs gh-pages repo</td>
+      <td><code class="language-plaintext highlighter-rouge">docs.yml</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">CLOUDFLARE_API_TOKEN</code></td>
@@ -1029,24 +992,9 @@
       <td>DNS workflow (optional)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">AIVEN_PG_CONNECTION</code></td>
-      <td>§2.4, paste URI</td>
-      <td>Fly <code class="language-plaintext highlighter-rouge">secrets set</code> bootstrap</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">UPSTASH_REDIS_URL</code></td>
-      <td>§2.5</td>
-      <td>Fly secrets</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">CLOUDAMQP_URL</code></td>
-      <td>§2.6</td>
-      <td>Fly secrets</td>
-    </tr>
-    <tr>
       <td><code class="language-plaintext highlighter-rouge">HIVEMQ_HOST</code>, <code class="language-plaintext highlighter-rouge">HIVEMQ_USER</code>, <code class="language-plaintext highlighter-rouge">HIVEMQ_PASS</code></td>
       <td>§2.7</td>
-      <td>Fly secrets</td>
+      <td>Fly secrets bootstrap</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">KEYCLOAK_ADMIN_PASSWORD</code></td>
@@ -1074,6 +1022,8 @@
 
 <h3 id="31-path-filters-per-component">3.1 Path filters per component</h3>
 
+<p>There are <strong>8 workflow files</strong>: 5 deploy workflows + <code class="language-plaintext highlighter-rouge">db-backup.yml</code> + <code class="language-plaintext highlighter-rouge">docs.yml</code> + one disabled <code class="language-plaintext highlighter-rouge">ci-cd.yml.disabled</code>.</p>
+
 <table>
   <thead>
     <tr>
@@ -1084,7 +1034,7 @@
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-api.yml</code></td>
-      <td><code class="language-plaintext highlighter-rouge">src/backend/**</code>, <code class="language-plaintext highlighter-rouge">Dockerfile</code>, <code class="language-plaintext highlighter-rouge">.github/workflows/deploy-api.yml</code></td>
+      <td><code class="language-plaintext highlighter-rouge">src/backend/**</code>, <code class="language-plaintext highlighter-rouge">Dockerfile</code>, <code class="language-plaintext highlighter-rouge">fly.toml</code>, <code class="language-plaintext highlighter-rouge">.github/workflows/deploy-api.yml</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-admin-portal.yml</code></td>
@@ -1100,7 +1050,15 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-keycloak.yml</code></td>
-      <td><code class="language-plaintext highlighter-rouge">infra/keycloak/**</code> (realm exports, Dockerfile), <code class="language-plaintext highlighter-rouge">.github/workflows/deploy-keycloak.yml</code></td>
+      <td><code class="language-plaintext highlighter-rouge">docker/keycloak/**</code> (realm export, Dockerfile), <code class="language-plaintext highlighter-rouge">.github/workflows/deploy-keycloak.yml</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">db-backup.yml</code></td>
+      <td>scheduled (Mondays 03:17 UTC) + <code class="language-plaintext highlighter-rouge">workflow_dispatch</code> — <code class="language-plaintext highlighter-rouge">pg_dump -F c</code> of both DBs → R2</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">docs.yml</code></td>
+      <td><code class="language-plaintext highlighter-rouge">docs/**</code> — Jekyll build → gh-pages repo → <code class="language-plaintext highlighter-rouge">docs.findmyflowers.pl</code></td>
     </tr>
   </tbody>
 </table>
@@ -1123,7 +1081,7 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-api.yml</code></td>
       <td>~4–6 min</td>
-      <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-api</code></td>
+      <td>Fly.io app <code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-keycloak.yml</code></td>
@@ -1138,17 +1096,17 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-admin-portal.yml</code></td>
       <td>~2–3 min</td>
-      <td>Render service <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code></td>
+      <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></td>
       <td>~2–3 min</td>
-      <td>Render service <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code></td>
+      <td>Fly.io app <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code></td>
     </tr>
   </tbody>
 </table>
 
-<p>Fly uses <code class="language-plaintext highlighter-rouge">--remote-only</code> (build on Fly’s builders); Render pulls from GHCR image.</p>
+<p>All five run <code class="language-plaintext highlighter-rouge">flyctl deploy --config &lt;app&gt;.fly.toml</code> (the API uses <code class="language-plaintext highlighter-rouge">fly.toml</code>).</p>
 
 <hr />
 
@@ -1157,47 +1115,34 @@
 <p>Run once, then CI takes over.</p>
 
 <h3 id="41-fly-apps">4.1 Fly apps</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># For each of: flowershop-api, flowershop-keycloak, flowershop-customer-app</span>
-fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-api <span class="nt">--region</span> waw
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># API — app flower-shop-backend-core, region fra (config fly.toml)</span>
+fly apps create flower-shop-backend-core
 fly secrets <span class="nb">set</span> <span class="se">\</span>
-  <span class="nv">ConnectionStrings__DefaultConnection</span><span class="o">=</span><span class="s2">"</span><span class="nv">$AIVEN_PG_CONNECTION</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">ConnectionStrings__Redis</span><span class="o">=</span><span class="s2">"</span><span class="nv">$UPSTASH_REDIS_URL</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">RabbitMQ__ConnectionString</span><span class="o">=</span><span class="s2">"</span><span class="nv">$CLOUDAMQP_URL</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">MQTT__BrokerHost</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HIVEMQ_HOST</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">MQTT__Username</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HIVEMQ_USER</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">MQTT__Password</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HIVEMQ_PASS</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nv">Authentication__UseKeycloak</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
   <span class="nv">Authentication__Keycloak__ClientSecret</span><span class="o">=</span><span class="s2">"</span><span class="nv">$KEYCLOAK_CLIENT_SECRET</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">Stripe__SecretKey</span><span class="o">=</span><span class="s2">"</span><span class="nv">$STRIPE_SECRET_KEY</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">Stripe__WebhookSecret</span><span class="o">=</span><span class="s2">"</span><span class="nv">$STRIPE_WEBHOOK_SECRET</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nt">--app</span> flowershop-api
+  <span class="nv">FileStorage__R2__AccessKeyId</span><span class="o">=</span><span class="s2">"</span><span class="nv">$R2_ACCESS_KEY_ID</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nv">FileStorage__R2__SecretAccessKey</span><span class="o">=</span><span class="s2">"</span><span class="nv">$R2_SECRET_ACCESS_KEY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--app</span> flower-shop-backend-core
+<span class="c"># DB connection comes from `fly postgres attach` (§2.4). Redis/RabbitMQ are unset in prod.</span>
 
-fly certs add api.findmyflowers.pl <span class="nt">--app</span> flowershop-api
-<span class="c"># Repeat pattern for keycloak and customer-app with the right secrets</span>
+fly certs add api.findmyflowers.pl <span class="nt">--app</span> flower-shop-backend-core
+<span class="c"># Repeat pattern for keycloak, customer-app, admin-portal, vendor-portal (region fra) with the right secrets</span>
 </code></pre></div></div>
 
-<p>Add DNS CNAMEs in Cloudflare: <code class="language-plaintext highlighter-rouge">api</code>, <code class="language-plaintext highlighter-rouge">auth</code>, <code class="language-plaintext highlighter-rouge">app</code> → <code class="language-plaintext highlighter-rouge">&lt;app&gt;.fly.dev</code>.</p>
+<p>Add DNS CNAMEs in Cloudflare: <code class="language-plaintext highlighter-rouge">api</code>, <code class="language-plaintext highlighter-rouge">auth</code>, <code class="language-plaintext highlighter-rouge">admin</code>, <code class="language-plaintext highlighter-rouge">vendors</code>, <code class="language-plaintext highlighter-rouge">app</code> → <code class="language-plaintext highlighter-rouge">&lt;app&gt;.fly.dev</code> (<code class="language-plaintext highlighter-rouge">app</code> → <code class="language-plaintext highlighter-rouge">flowershop-customer-app.fly.dev</code>).</p>
 
-<h3 id="42-render-services-dashboard-path--recommended">4.2 Render services (dashboard path — recommended)</h3>
-<ol>
-  <li>New → <strong>Web Service</strong> → connect repo → select <code class="language-plaintext highlighter-rouge">src/portals/FlowerShop.AdminPortal/Dockerfile</code>, root dir <code class="language-plaintext highlighter-rouge">.</code> (build context is repo root).</li>
-  <li>Plan: Free. Region: Frankfurt.</li>
-  <li>Environment vars:
-    <ul>
-      <li><code class="language-plaintext highlighter-rouge">ASPNETCORE_URLS=http://+:8080</code></li>
-      <li><code class="language-plaintext highlighter-rouge">ASPNETCORE_FORWARDEDHEADERS_ENABLED=true</code></li>
-      <li><code class="language-plaintext highlighter-rouge">ApiSettings__BaseUrl=https://api.findmyflowers.pl</code></li>
-    </ul>
-  </li>
-  <li>Custom domain: <code class="language-plaintext highlighter-rouge">admin.findmyflowers.pl</code>.</li>
-  <li>Once created, copy the service ID from the URL (e.g. <code class="language-plaintext highlighter-rouge">srv-xxxxx</code>) → set as <code class="language-plaintext highlighter-rouge">RENDER_ADMIN_SERVICE_ID</code> in GitHub secrets.</li>
-  <li>Disable <strong>Auto-Deploy</strong> in Render dashboard — GHA will trigger deploys via API so path filtering works. Render’s own auto-deploy fires on any push, which defeats the point.</li>
-  <li>Repeat for VendorPortal.</li>
-</ol>
+<h3 id="42-portal-fly-apps">4.2 Portal Fly apps</h3>
+<p>Each portal has a committed Fly config (<code class="language-plaintext highlighter-rouge">fly.admin-portal.toml</code>, <code class="language-plaintext highlighter-rouge">fly.vendor-portal.toml</code>, <code class="language-plaintext highlighter-rouge">fly.customer-app.toml</code>, all region <code class="language-plaintext highlighter-rouge">fra</code>, <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>). Create the app, set the common env (<code class="language-plaintext highlighter-rouge">ASPNETCORE_URLS</code>, <code class="language-plaintext highlighter-rouge">ASPNETCORE_FORWARDEDHEADERS_ENABLED</code>, <code class="language-plaintext highlighter-rouge">ApiSettings__BaseUrl=https://api.findmyflowers.pl</code>, and for the portals <code class="language-plaintext highlighter-rouge">Authentication__KeycloakBaseUrl=https://auth.findmyflowers.pl</code>), add the custom domain via <code class="language-plaintext highlighter-rouge">fly certs add</code>, then let the matching <code class="language-plaintext highlighter-rouge">deploy-*.yml</code> workflow deploy on push. The portals authenticate through the <code class="language-plaintext highlighter-rouge">flowershop-api</code> client (password grant) — there is no dedicated portal OIDC client.</p>
 
 <h3 id="43-keycloak-realm-bootstrap">4.3 Keycloak realm bootstrap</h3>
 <ol>
   <li>After first <code class="language-plaintext highlighter-rouge">deploy-keycloak.yml</code> run, <code class="language-plaintext highlighter-rouge">fly ssh console -a flowershop-keycloak</code>.</li>
-  <li>Import the realm: upload <code class="language-plaintext highlighter-rouge">infra/keycloak/flowershop-realm.json</code> via admin UI at <code class="language-plaintext highlighter-rouge">https://auth.findmyflowers.pl</code>, or pre-mount via <code class="language-plaintext highlighter-rouge">KC_IMPORT_REALM=true</code> + <code class="language-plaintext highlighter-rouge">start --import-realm</code>.</li>
+  <li>The realm is committed at <code class="language-plaintext highlighter-rouge">docker/keycloak/flowershop-realm.json</code> and mounted into <code class="language-plaintext highlighter-rouge">/opt/keycloak/data/import</code>; boot with <code class="language-plaintext highlighter-rouge">start --optimized --import-realm</code>.</li>
   <li>After import, read the <code class="language-plaintext highlighter-rouge">flowershop-api</code> client secret from Credentials tab → set as <code class="language-plaintext highlighter-rouge">KEYCLOAK_CLIENT_SECRET</code> in GitHub secrets → re-run API + CustomerApp workflows to pick it up.</li>
 </ol>
 
@@ -1211,14 +1156,14 @@ fly certs add api.findmyflowers.pl <span class="nt">--app</span> flowershop-api
   <li><a href="../../.github/workflows/deploy-customer-app.yml"><code class="language-plaintext highlighter-rouge">deploy-customer-app.yml</code></a></li>
   <li><a href="../../.github/workflows/deploy-admin-portal.yml"><code class="language-plaintext highlighter-rouge">deploy-admin-portal.yml</code></a></li>
   <li><a href="../../.github/workflows/deploy-vendor-portal.yml"><code class="language-plaintext highlighter-rouge">deploy-vendor-portal.yml</code></a></li>
+  <li><a href="../../.github/workflows/db-backup.yml"><code class="language-plaintext highlighter-rouge">db-backup.yml</code></a></li>
+  <li><a href="../../.github/workflows/docs.yml"><code class="language-plaintext highlighter-rouge">docs.yml</code></a></li>
 </ul>
 
-<p>Each one:</p>
+<p>Each deploy workflow:</p>
 <ol>
   <li>Checks out the repo</li>
-  <li>(Render portals) Builds the Docker image and pushes to GHCR</li>
-  <li>(Fly apps) Runs <code class="language-plaintext highlighter-rouge">flyctl deploy --remote-only --config &lt;app&gt;.fly.toml</code></li>
-  <li>(Render portals) Triggers Render deploy via <code class="language-plaintext highlighter-rouge">POST https://api.render.com/v1/services/{id}/deploys</code></li>
+  <li>Runs <code class="language-plaintext highlighter-rouge">flyctl deploy --config &lt;app&gt;.fly.toml</code> (the API uses <code class="language-plaintext highlighter-rouge">fly.toml</code>)</li>
   <li>Waits for health check</li>
 </ol>
 
@@ -1229,19 +1174,14 @@ fly certs add api.findmyflowers.pl <span class="nt">--app</span> flowershop-api
 <ul class="task-list">
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Register domain at OVH (§2.3)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create Cloudflare account + add zone (§2.2)</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create Aiven PG (§2.4)</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create Upstash Redis (§2.5)</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create CloudAMQP instance (§2.6)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create Fly Postgres <code class="language-plaintext highlighter-rouge">flower-shop-postgres</code> + <code class="language-plaintext highlighter-rouge">keycloak</code> DB (§2.4)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create HiveMQ cluster (§2.7)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create Fly.io account, install flyctl, generate token (§2.8)</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create Render account, generate API key (§2.9)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Set all GitHub secrets (§2.11)</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Commit the 5 workflow files + <code class="language-plaintext highlighter-rouge">fly.*.toml</code> configs</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Run <code class="language-plaintext highlighter-rouge">fly launch</code> for each of 3 Fly apps (§4.1)</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create 2 Render services via dashboard + copy service IDs (§4.2)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Commit the workflow files + <code class="language-plaintext highlighter-rouge">fly.*.toml</code> configs</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Create the 5 Fly apps + set secrets (§4.1–4.2)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Push a change → watch path-filtered workflow deploy only the affected component</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add Cloudflare CNAMEs for all 5 subdomains</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add cron-job.org pings for admin + vendor portals (§2.10)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Add Cloudflare records for all subdomains (<code class="language-plaintext highlighter-rouge">api</code>, <code class="language-plaintext highlighter-rouge">auth</code>, <code class="language-plaintext highlighter-rouge">admin</code>, <code class="language-plaintext highlighter-rouge">vendors</code>, <code class="language-plaintext highlighter-rouge">app</code>)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Bootstrap Keycloak realm (§4.3)</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Smoke test: login via CustomerApp, list bouquets, place a test order with Stripe test key</li>
 </ul>

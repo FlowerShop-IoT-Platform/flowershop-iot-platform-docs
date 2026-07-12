@@ -781,17 +781,13 @@
       <td><code class="language-plaintext highlighter-rouge">http://localhost:8080</code></td>
     </tr>
     <tr>
-      <td>Staging</td>
-      <td><code class="language-plaintext highlighter-rouge">https://api-staging.bloomplatform.pl</code></td>
-    </tr>
-    <tr>
       <td>Production</td>
-      <td><code class="language-plaintext highlighter-rouge">https://api.bloomplatform.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl</code></td>
     </tr>
   </tbody>
 </table>
 
-<p>All REST endpoints are prefixed with <code class="language-plaintext highlighter-rouge">/api</code>. Dates use ISO 8601 UTC format. Monetary amounts are decimals with 2 fractional digits.</p>
+<p>All REST endpoints are prefixed with <code class="language-plaintext highlighter-rouge">/api/v1</code> (the API is versioned — controllers route on <code class="language-plaintext highlighter-rouge">api/v{version:apiVersion}/...</code> with the current version <code class="language-plaintext highlighter-rouge">1.0</code>). Dates use ISO 8601 UTC format. Monetary amounts are decimals with 2 fractional digits.</p>
 
 <hr />
 
@@ -850,12 +846,8 @@
       <td><code class="language-plaintext highlighter-rouge">http://localhost:8090</code></td>
     </tr>
     <tr>
-      <td>Staging</td>
-      <td><code class="language-plaintext highlighter-rouge">https://auth-staging.bloomplatform.pl</code></td>
-    </tr>
-    <tr>
       <td>Production</td>
-      <td><code class="language-plaintext highlighter-rouge">https://auth.bloomplatform.pl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">https://auth.findmyflowers.pl</code></td>
     </tr>
   </tbody>
 </table>
@@ -964,7 +956,7 @@ grant_type=refresh_token
 <p>The mobile app must perform the following steps on sign-out (PRF-07):</p>
 
 <ol>
-  <li><strong>Unregister device</strong> — <code class="language-plaintext highlighter-rouge">DELETE /api/notifications/device</code> with the current FCM/APNs token.</li>
+  <li><strong>Unregister device</strong> — <code class="language-plaintext highlighter-rouge">DELETE /api/v1/notifications/devices/{deviceToken}</code> with the current FCM/APNs token in the path.</li>
   <li><strong>End Keycloak session</strong> — redirect to Keycloak End Session endpoint with <code class="language-plaintext highlighter-rouge">id_token_hint</code> and <code class="language-plaintext highlighter-rouge">post_logout_redirect_uri</code>.</li>
   <li><strong>Clear local state</strong> — remove access token, refresh token, and ID token from memory and secure storage. Clear any cached data.</li>
 </ol>
@@ -978,21 +970,21 @@ grant_type=refresh_token
 
 <h2 id="1-auth--registration-endpoints">1. Auth &amp; Registration Endpoints</h2>
 
-<h3 id="post-apiauthregister">POST /api/auth/register</h3>
+<h3 id="post-apiv1customersregister">POST /api/v1/customers/register</h3>
 
-<p>Creates a new customer account. The account is created in Keycloak, which sends a verification email. The user can log in immediately but will see a reminder banner until email is verified.</p>
+<p>Creates a new customer account atomically (Keycloak user + local <code class="language-plaintext highlighter-rouge">Customer</code>/<code class="language-plaintext highlighter-rouge">User</code> record) and returns a JWT so the app can proceed without a separate login. The account can be used immediately; email verification is handled by Keycloak out-of-band (see below).</p>
 
 <p><strong>Auth:</strong> None</p>
 
-<p><strong>Request Body:</strong></p>
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">CustomerRegisterRequest</code>):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jan.kowalski"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jan@example.com"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SecureP@ss1"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"firstName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jan"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"lastName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Kowalski"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"acceptedTermsVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"acceptedPrivacyPolicyVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0"</span><span class="w">
+  </span><span class="nl">"customerName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jan Kowalski"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"preferredVendorType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shop"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"phoneNumber"</span><span class="p">:</span><span class="w"> </span><span class="s2">"+48123456789"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -1007,6 +999,10 @@ grant_type=refresh_token
   </thead>
   <tbody>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">username</code></td>
+      <td>Required, unique</td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">email</code></td>
       <td>Valid email, unique, max 255 chars</td>
     </tr>
@@ -1015,54 +1011,51 @@ grant_type=refresh_token
       <td>Min 8 chars, at least 1 uppercase, 1 lowercase, 1 digit, 1 special char</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">firstName</code></td>
-      <td>Required, 1–100 chars</td>
+      <td><code class="language-plaintext highlighter-rouge">customerName</code></td>
+      <td>Required — customer display name</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">lastName</code></td>
-      <td>Required, 1–100 chars</td>
+      <td><code class="language-plaintext highlighter-rouge">preferredVendorType</code></td>
+      <td>Optional — <code class="language-plaintext highlighter-rouge">shop</code> or <code class="language-plaintext highlighter-rouge">freelance</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">acceptedTermsVersion</code></td>
-      <td>Required</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">acceptedPrivacyPolicyVersion</code></td>
-      <td>Required</td>
+      <td><code class="language-plaintext highlighter-rouge">phoneNumber</code></td>
+      <td>Optional</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Response 201:</strong></p>
+<p><strong>Response 201 (<code class="language-plaintext highlighter-rouge">AuthResponse</code>):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"userId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4-..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jan@example.com"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"emailVerified"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Account created. A verification email has been sent."</span><span class="w">
+  </span><span class="nl">"token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"eyJhbGciOi..."</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"tokenType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bearer"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"expiresIn"</span><span class="p">:</span><span class="w"> </span><span class="mi">86400</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jan.kowalski"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Response 409:</strong> Email already registered.</p>
+<p><strong>Response 400:</strong> Registration failed (e.g. username/email already registered) — returned as a Problem Details object.</p>
 
 <p><strong>Email Verification:</strong> Handled entirely by Keycloak. The verification link in the email points to Keycloak, which marks the account as verified. The mobile app checks <code class="language-plaintext highlighter-rouge">email_verified</code> in the JWT claims and displays a reminder banner if <code class="language-plaintext highlighter-rouge">false</code>. No custom verify endpoint is needed.</p>
 
 <hr />
 
-<h3 id="post-apiauthresend-verification">POST /api/auth/resend-verification</h3>
+<h3 id="post-apiv1authresend-verification">POST /api/v1/auth/resend-verification</h3>
 
-<p>Triggers Keycloak to resend the email verification link. Rate-limited to prevent abuse.</p>
+<p>Triggers Keycloak to resend the email verification link. Rate-limited (policy <code class="language-plaintext highlighter-rouge">auth-email</code>) to prevent abuse.</p>
 
 <p><strong>Auth:</strong> Required (user must be logged in but unverified)</p>
 
-<p><strong>Response 202:</strong> Verification email sent (always returned; does not reveal internal state).
+<p><strong>Response 202:</strong> Verification email queued by Keycloak.
+<strong>Response 204:</strong> No content — the user is already verified (treated as an idempotent success).
 <strong>Response 429:</strong> Rate limited — max 1 request per 60 seconds.</p>
 
 <hr />
 
-<h3 id="post-apiauthpassword-resetrequest">POST /api/auth/password-reset/request</h3>
+<h3 id="post-apiv1authpassword-resetrequest">POST /api/v1/auth/password-reset/request</h3>
 
-<p>Initiates a password reset flow. Keycloak sends the reset email.</p>
+<p>Initiates a password reset flow. Keycloak sends the reset email; the user completes the reset on Keycloak’s hosted page (there is no backend <code class="language-plaintext highlighter-rouge">confirm</code> endpoint). Rate-limited (policy <code class="language-plaintext highlighter-rouge">auth-email</code>).</p>
 
 <p><strong>Auth:</strong> None</p>
 
@@ -1077,42 +1070,34 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="post-apiauthpassword-resetconfirm">POST /api/auth/password-reset/confirm</h3>
+<h3 id="post-apiv1authlogout">POST /api/v1/auth/logout</h3>
 
-<p>Completes the password reset using the token from the email link.</p>
+<p>Revokes the caller’s current JWT so it cannot be reused after logout. The token’s <code class="language-plaintext highlighter-rouge">jti</code> claim is added to a server-side blacklist until the token’s natural expiry.</p>
 
-<p><strong>Auth:</strong> None</p>
+<p><strong>Auth:</strong> Required</p>
 
-<p><strong>Request Body:</strong></p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"reset-token-from-email"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"newPassword"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NewSecureP@ss2"</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<p><strong>Response 200:</strong> Password updated.
-<strong>Response 400:</strong> Token invalid or expired.</p>
+<p><strong>Response 204:</strong> Token revoked.
+<strong>Response 400:</strong> Token has no <code class="language-plaintext highlighter-rouge">jti</code> claim.</p>
 
 <hr />
 
 <h2 id="2-app-configuration-endpoint">2. App Configuration Endpoint</h2>
 
-<h3 id="get-apiconfig">GET /api/config</h3>
+<h3 id="get-apiv1config">GET /api/v1/config</h3>
 
 <p>Returns environment-specific configuration the mobile app needs at startup. Called once on app launch and cached for the session.</p>
 
 <p><strong>Auth:</strong> None</p>
 
-<p><strong>Response 200:</strong></p>
+<p><strong>Response 200 (<code class="language-plaintext highlighter-rouge">AppConfigDto</code>):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"stripePublishableKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pk_live_..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"mapTileProvider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"google"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"supportEmail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"support@bloomplatform.pl"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"termsUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/terms"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"privacyPolicyUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/privacy"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"minAppVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.0"</span><span class="w">
+  </span><span class="nl">"minAppVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"forceUpdate"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -1129,10 +1114,6 @@ grant_type=refresh_token
       <td>Stripe publishable key for PaymentSheet initialization</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">mapTileProvider</code></td>
-      <td>Map provider hint (reserved for future use)</td>
-    </tr>
-    <tr>
       <td><code class="language-plaintext highlighter-rouge">supportEmail</code></td>
       <td>Customer support contact</td>
     </tr>
@@ -1146,7 +1127,11 @@ grant_type=refresh_token
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">minAppVersion</code></td>
-      <td>Minimum supported app version; app should show a force-update prompt if current version is lower</td>
+      <td>Minimum supported app version; app should show an update prompt if current version is lower</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">forceUpdate</code></td>
+      <td>When <code class="language-plaintext highlighter-rouge">true</code>, the app must block usage until updated (hard force-update); when <code class="language-plaintext highlighter-rouge">false</code>, the update prompt is advisory</td>
     </tr>
   </tbody>
 </table>
@@ -1198,7 +1183,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apibouquetsnearby">GET /api/bouquets/nearby</h3>
+<h3 id="get-apiv1bouquetsnearby">GET /api/v1/bouquets/nearby</h3>
 
 <p>Returns bouquets available within a radius of the given location.</p>
 
@@ -1306,9 +1291,9 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apibouquetsid">GET /api/bouquets/{id}</h3>
+<h3 id="get-apiv1bouquetsiddetail">GET /api/v1/bouquets/{id}/detail</h3>
 
-<p>Returns full detail for a single bouquet.</p>
+<p>Returns full detail for a single bouquet (customer-facing <code class="language-plaintext highlighter-rouge">BouquetDetailDto</code>). Note the <code class="language-plaintext highlighter-rouge">/detail</code> suffix — the plain <code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/{id}</code> route is the <strong>vendor</strong> endpoint and returns a different DTO; the mobile client must use <code class="language-plaintext highlighter-rouge">/detail</code>.</p>
 
 <p><strong>Auth:</strong> Optional</p>
 
@@ -1384,7 +1369,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apibouquetsqrcode">GET /api/bouquets/qr/{code}</h3>
+<h3 id="get-apiv1bouquetsqrcode">GET /api/v1/bouquets/qr/{code}</h3>
 
 <p>Resolves a bouquet from a scanned QR code.</p>
 
@@ -1392,9 +1377,14 @@ grant_type=refresh_token
 
 <p><strong>Path Parameters:</strong> <code class="language-plaintext highlighter-rouge">code</code> — 8-character alphanumeric short code (e.g., <code class="language-plaintext highlighter-rouge">A3F8K2M1</code>) or full UUID. Both formats are accepted.</p>
 
-<p>QR codes displayed on smart vases encode the URL <code class="language-plaintext highlighter-rouge">https://fmf.bloomplatform.pl/b/{code}</code>. The mobile app intercepts this deep link and extracts <code class="language-plaintext highlighter-rouge">{code}</code> to call this endpoint.</p>
+<p><strong>QR payload format:</strong> Smart vases now display a <strong>full URL</strong> built by the backend (<code class="language-plaintext highlighter-rouge">VaseQrUrl.ForBouquet</code>), not a short <code class="language-plaintext highlighter-rouge">/b/{code}</code> link:</p>
 
-<p><strong>Response 200:</strong> Same schema as <code class="language-plaintext highlighter-rouge">GET /api/bouquets/{id}</code>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{CustomerApp:BaseUrl}/Bouquets/Details/{bouquetId}?addToCart=true&amp;vaseId={deviceId}
+</code></pre></div></div>
+
+<p>Scanning it opens the <strong>customer web app</strong> bouquet Details page (image + price + Add-to-Cart), which auto-adds the bouquet to the cart because of <code class="language-plaintext highlighter-rouge">addToCart=true</code>. The <code class="language-plaintext highlighter-rouge">{CustomerApp:BaseUrl}</code> comes from backend config so the domain can change without reflashing devices. The mobile app can still resolve a bouquet programmatically by extracting the <code class="language-plaintext highlighter-rouge">{bouquetId}</code> (or a short code) and calling this endpoint, which returns <code class="language-plaintext highlighter-rouge">BouquetDetailDto</code>.</p>
+
+<p><strong>Response 200 (<code class="language-plaintext highlighter-rouge">BouquetDetailDto</code>):</strong> Same schema as <code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/{id}/detail</code>
 <strong>Response 404:</strong> Code not found or expired.
 <strong>Response 410:</strong> Bouquet was available but is now sold/reserved.</p>
 
@@ -1433,7 +1423,7 @@ grant_type=refresh_token
 
 <h2 id="4-favourites-endpoints">4. Favourites Endpoints</h2>
 
-<h3 id="get-apifavourites">GET /api/favourites</h3>
+<h3 id="get-apiv1favourites">GET /api/v1/favourites</h3>
 
 <p>Returns all favourited bouquets for the authenticated customer.</p>
 
@@ -1518,19 +1508,19 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="post-apifavouritesbouquetid">POST /api/favourites/{bouquetId}</h3>
+<h3 id="post-apiv1favouritesbouquetid">POST /api/v1/favourites/{bouquetId}</h3>
 
-<p>Adds a bouquet to the customer’s favourites.</p>
+<p>Adds a bouquet to the customer’s favourites. <strong>Idempotent</strong> — favouriting an already-favourited bouquet succeeds.</p>
 
 <p><strong>Auth:</strong> Required
-<strong>Response 201:</strong> No content.
-<strong>Response 409:</strong> Already favourited.</p>
+<strong>Response 204:</strong> No content (added, or already present).
+<strong>Response 404:</strong> Bouquet does not exist.</p>
 
 <hr />
 
-<h3 id="delete-apifavouritesbouquetid">DELETE /api/favourites/{bouquetId}</h3>
+<h3 id="delete-apiv1favouritesbouquetid">DELETE /api/v1/favourites/{bouquetId}</h3>
 
-<p>Removes a bouquet from the customer’s favourites.</p>
+<p>Removes a bouquet from the customer’s favourites. Idempotent — removing a non-existent favourite succeeds.</p>
 
 <p><strong>Auth:</strong> Required
 <strong>Response 204:</strong> No content.</p>
@@ -1539,7 +1529,7 @@ grant_type=refresh_token
 
 <h2 id="5-order-endpoints">5. Order Endpoints</h2>
 
-<h3 id="post-apiorderspreview">POST /api/orders/preview</h3>
+<h3 id="post-apiv1orderspreview">POST /api/v1/orders/preview</h3>
 
 <p>Returns cost breakdown for a potential order <strong>without</strong> creating the order or reserving the bouquet. Used to display the order summary screen (CHK-06) before the customer commits.</p>
 
@@ -1620,14 +1610,14 @@ grant_type=refresh_token
 
 <p><strong>Notes:</strong></p>
 <ul>
-  <li>This endpoint does NOT reserve the bouquet. Reservation happens only on <code class="language-plaintext highlighter-rouge">POST /api/orders</code>.</li>
+  <li>This endpoint does NOT reserve the bouquet. Reservation happens only on <code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code>.</li>
   <li><code class="language-plaintext highlighter-rouge">deliveryFee</code> is <code class="language-plaintext highlighter-rouge">0.00</code> when <code class="language-plaintext highlighter-rouge">deliveryMethod</code> is <code class="language-plaintext highlighter-rouge">pickup</code>; flat <code class="language-plaintext highlighter-rouge">25.00 PLN</code> when delivery falls within the vendor’s 10 km service radius.</li>
   <li><code class="language-plaintext highlighter-rouge">deliveryDistanceKm</code> and <code class="language-plaintext highlighter-rouge">resolvedDeliveryAddress</code> are present only on delivery previews. The server geocodes the address via Nominatim (cached for 10 minutes per address) and returns the resolved latitude/longitude so the client can surface a map preview.</li>
 </ul>
 
 <hr />
 
-<h3 id="post-apiorders">POST /api/orders</h3>
+<h3 id="post-apiv1orders">POST /api/v1/orders</h3>
 
 <p>Creates a new order and reserves the bouquet. The bouquet is locked for 10 minutes. If payment is not confirmed within that window, the reservation is released automatically.</p>
 
@@ -1713,7 +1703,7 @@ grant_type=refresh_token
 <ul>
   <li>Use <code class="language-plaintext highlighter-rouge">stripeClientSecret</code> with the Stripe Mobile SDK PaymentSheet.</li>
   <li><code class="language-plaintext highlighter-rouge">stripeEphemeralKey</code> and <code class="language-plaintext highlighter-rouge">stripeCustomerId</code> are needed for the PaymentSheet configuration.</li>
-  <li>The Stripe publishable key is obtained from <code class="language-plaintext highlighter-rouge">GET /api/config</code> (<code class="language-plaintext highlighter-rouge">stripePublishableKey</code> field).</li>
+  <li>The Stripe publishable key is obtained from <code class="language-plaintext highlighter-rouge">GET /api/v1/config</code> (<code class="language-plaintext highlighter-rouge">stripePublishableKey</code> field).</li>
   <li>The app never handles raw card data (SEC-05).</li>
   <li>Supported payment methods: card, Apple Pay, Google Pay.</li>
 </ul>
@@ -1786,42 +1776,74 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="post-apiordersidconfirm-payment">POST /api/orders/{id}/confirm-payment</h3>
+<h3 id="post-apiv1ordersidconfirm-payment">POST /api/v1/orders/{id}/confirm-payment</h3>
 
 <p>Confirms that the Stripe payment succeeded. Called after Stripe SDK reports success on the client. The server also receives a Stripe webhook independently; this endpoint ensures the order transitions promptly without waiting for the webhook.</p>
 
 <p><strong>Auth:</strong> Required
-<strong>Idempotent:</strong> Yes — safe to retry. Duplicate confirmations for an already-paid order return 200 with the same response.</p>
+<strong>Idempotent:</strong> Yes — safe to retry. Duplicate confirmations for an already-paid order return 204.</p>
 
-<p><strong>Request Body:</strong></p>
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">ConfirmPaymentRequest</code>):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"paymentIntentId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pi_stripe_..."</span><span class="w">
+  </span><span class="nl">"paymentIntentId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pi_stripe_..."</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"stripeCustomerId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cus_..."</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Response 200:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">paymentIntentId</code></td>
+      <td>Required — the Stripe PaymentIntent id</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stripeCustomerId</code></td>
+      <td>Optional — the Stripe customer id, used to persist the saved card / customer association</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ord-8821"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"paid"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"paidAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-04-10T10:11:00Z"</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<p><strong>Response 402:</strong> Payment failed or was declined.
-<strong>Response 404:</strong> Order not found.
-<strong>Response 409:</strong> Order already cancelled.</p>
+<p><strong>Response 204:</strong> Payment confirmed (order transitions to <code class="language-plaintext highlighter-rouge">paid</code>). No response body.
+<strong>Response 400:</strong> Payment failed/declined, order not found, or order not in a confirmable state.</p>
 
 <hr />
 
-<h3 id="post-apiordersidcancel">POST /api/orders/{id}/cancel</h3>
+<h3 id="post-apiv1ordersidcancel">POST /api/v1/orders/{id}/cancel</h3>
 
 <p>Cancels an order. Only allowed while the order is in a cancellable state.</p>
 
 <p><strong>Auth:</strong> Required</p>
 
-<p><strong>Response 200:</strong></p>
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">CancelOrderRequest</code>):</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Changed my mind"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reason</code></td>
+      <td>Required — free-text cancellation reason</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Response 200 (<code class="language-plaintext highlighter-rouge">CancelOrderResponseDto</code>):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ord-8821"</span><span class="p">,</span><span class="w">
@@ -1903,7 +1925,74 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apiorders">GET /api/orders</h3>
+<h3 id="post-apiv1ordersidconfirm-delivery">POST /api/v1/orders/{id}/confirm-delivery</h3>
+
+<p>Customer confirms they received the delivery, completing the order (transitions to <code class="language-plaintext highlighter-rouge">delivered</code>).</p>
+
+<p><strong>Auth:</strong> Required
+<strong>Request Body:</strong> None.</p>
+
+<p><strong>Response 204:</strong> Delivery confirmed.
+<strong>Response 400:</strong> Order not found, not owned by the customer, or not in a state that can be confirmed.</p>
+
+<hr />
+
+<h3 id="post-apiv1ordersorderidlinesbouquetidfeedback">POST /api/v1/orders/{orderId}/lines/{bouquetId}/feedback</h3>
+
+<p>Submits feedback (1–5 star rating + optional comment) for a single bouquet line in a <strong>delivered</strong> order.</p>
+
+<p><strong>Auth:</strong> Required</p>
+
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">SubmitFeedbackRequest</code>):</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"rating"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"comment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Beautiful and fresh!"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"isAnonymous"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rating</code></td>
+      <td>Required — integer 1–5</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">comment</code></td>
+      <td>Optional free text</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">isAnonymous</code></td>
+      <td>If <code class="language-plaintext highlighter-rouge">true</code>, the vendor does not see the customer identity</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Response 201:</strong> Feedback recorded — body <code class="language-plaintext highlighter-rouge">{ "id": "&lt;feedbackId&gt;" }</code>.
+<strong>Response 404:</strong> <code class="language-plaintext highlighter-rouge">order-not-found</code> or <code class="language-plaintext highlighter-rouge">bouquet-not-in-order</code>.
+<strong>Response 409:</strong> <code class="language-plaintext highlighter-rouge">order-not-delivered</code> or <code class="language-plaintext highlighter-rouge">feedback-already-exists</code>.
+<strong>Response 400:</strong> Validation error (e.g. rating out of range).</p>
+
+<hr />
+
+<h3 id="get-apiv1ordersmepending-feedback">GET /api/v1/orders/me/pending-feedback</h3>
+
+<p>Returns delivered order lines the customer has not yet reviewed, so the app can prompt for ratings.</p>
+
+<p><strong>Auth:</strong> Required</p>
+
+<p><strong>Response 200:</strong> Array of <code class="language-plaintext highlighter-rouge">PendingFeedbackDto</code>.</p>
+
+<hr />
+
+<h3 id="get-apiv1orders">GET /api/v1/orders</h3>
 
 <p>Returns all orders for the authenticated customer.</p>
 
@@ -1993,7 +2082,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apiordersid">GET /api/orders/{id}</h3>
+<h3 id="get-apiv1ordersid">GET /api/v1/orders/{id}</h3>
 
 <p>Returns full detail of a single order.</p>
 
@@ -2161,7 +2250,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="post-apiordersidreport-issue">POST /api/orders/{id}/report-issue</h3>
+<h3 id="post-apiv1ordersidreport-issue">POST /api/v1/orders/{id}/report-issue</h3>
 
 <p>Reports an issue with a delivered order (TRK-08). <strong>Reserved for post-MVP.</strong></p>
 
@@ -2198,7 +2287,7 @@ grant_type=refresh_token
 
 <h2 id="6-subscription-endpoints">6. Subscription Endpoints</h2>
 
-<h3 id="get-apisubscriptions">GET /api/subscriptions</h3>
+<h3 id="get-apiv1subscriptions">GET /api/v1/subscriptions</h3>
 
 <p>Returns all subscriptions for the authenticated customer.</p>
 
@@ -2241,7 +2330,7 @@ grant_type=refresh_token
       </span><span class="nl">"isActive"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
       </span><span class="nl">"shopId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vend-42"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"shopName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flora Elegance"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"immediate"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"instant"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-03-01T10:00:00Z"</span><span class="w">
     </span><span class="p">},</span><span class="w">
     </span><span class="p">{</span><span class="w">
@@ -2250,8 +2339,10 @@ grant_type=refresh_token
       </span><span class="nl">"isActive"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
       </span><span class="nl">"flowerType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rose"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"flowerTypeLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Roses"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"centerLatitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"centerLongitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
       </span><span class="nl">"radiusKm"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"daily"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"daily"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-03-15T14:30:00Z"</span><span class="w">
     </span><span class="p">},</span><span class="w">
     </span><span class="p">{</span><span class="w">
@@ -2260,8 +2351,10 @@ grant_type=refresh_token
       </span><span class="nl">"isActive"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
       </span><span class="nl">"maxPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">50.00</span><span class="p">,</span><span class="w">
       </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"centerLatitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"centerLongitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
       </span><span class="nl">"radiusKm"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weekly"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weekly"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-03-20T08:00:00Z"</span><span class="w">
     </span><span class="p">},</span><span class="w">
     </span><span class="p">{</span><span class="w">
@@ -2272,8 +2365,10 @@ grant_type=refresh_token
       </span><span class="nl">"flowerTypeLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Roses"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"maxPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">60.00</span><span class="p">,</span><span class="w">
       </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"centerLatitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"centerLongitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
       </span><span class="nl">"radiusKm"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"immediate"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"instant"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-03-25T10:00:00Z"</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">],</span><span class="w">
@@ -2283,21 +2378,27 @@ grant_type=refresh_token
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
+<p><strong>Notes:</strong></p>
+<ul>
+  <li>The notification cadence field is <code class="language-plaintext highlighter-rouge">frequency</code> (values <code class="language-plaintext highlighter-rouge">instant</code>, <code class="language-plaintext highlighter-rouge">daily</code>, <code class="language-plaintext highlighter-rouge">weekly</code>).</li>
+  <li>Geo-scoped subscription types carry <code class="language-plaintext highlighter-rouge">centerLatitude</code> + <code class="language-plaintext highlighter-rouge">centerLongitude</code> (the search origin) plus <code class="language-plaintext highlighter-rouge">radiusKm</code>.</li>
+</ul>
+
 <hr />
 
-<h3 id="get-apisubscriptionsid">GET /api/subscriptions/{id}</h3>
+<h3 id="get-apiv1subscriptionsid">GET /api/v1/subscriptions/{id}</h3>
 
 <p>Returns a single subscription by ID.</p>
 
 <p><strong>Auth:</strong> Required</p>
 
-<p><strong>Response 200:</strong> Single subscription object (same schema as items in <code class="language-plaintext highlighter-rouge">GET /api/subscriptions</code>).</p>
+<p><strong>Response 200:</strong> Single subscription object (same schema as items in <code class="language-plaintext highlighter-rouge">GET /api/v1/subscriptions</code>).</p>
 
 <p><strong>Response 404:</strong> Subscription not found or does not belong to the customer.</p>
 
 <hr />
 
-<h3 id="post-apisubscriptions">POST /api/subscriptions</h3>
+<h3 id="post-apiv1subscriptions">POST /api/v1/subscriptions</h3>
 
 <p>Creates a new subscription.</p>
 
@@ -2308,7 +2409,7 @@ grant_type=refresh_token
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shop"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"shopId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vend-42"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"immediate"</span><span class="w">
+  </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"instant"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -2316,8 +2417,10 @@ grant_type=refresh_token
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flower_type"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"flowerType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rose"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"centerLatitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"centerLongitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
   </span><span class="nl">"radiusKm"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"immediate"</span><span class="w">
+  </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"instant"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -2325,8 +2428,10 @@ grant_type=refresh_token
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"price_range"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"maxPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">50.00</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"centerLatitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"centerLongitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
   </span><span class="nl">"radiusKm"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weekly"</span><span class="w">
+  </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weekly"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -2335,8 +2440,10 @@ grant_type=refresh_token
   </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"combined"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"flowerType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rose"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"maxPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">60.00</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"centerLatitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"centerLongitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
   </span><span class="nl">"radiusKm"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"immediate"</span><span class="w">
+  </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"instant"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -2353,16 +2460,20 @@ grant_type=refresh_token
       <td><code class="language-plaintext highlighter-rouge">shop</code>, <code class="language-plaintext highlighter-rouge">flower_type</code>, <code class="language-plaintext highlighter-rouge">price_range</code>, <code class="language-plaintext highlighter-rouge">combined</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">notificationFrequency</code></td>
-      <td><code class="language-plaintext highlighter-rouge">immediate</code>, <code class="language-plaintext highlighter-rouge">daily</code>, <code class="language-plaintext highlighter-rouge">weekly</code></td>
+      <td><code class="language-plaintext highlighter-rouge">frequency</code></td>
+      <td><code class="language-plaintext highlighter-rouge">instant</code> (default), <code class="language-plaintext highlighter-rouge">daily</code>, <code class="language-plaintext highlighter-rouge">weekly</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">centerLatitude</code> / <code class="language-plaintext highlighter-rouge">centerLongitude</code></td>
+      <td>Search origin for geo-scoped types (<code class="language-plaintext highlighter-rouge">flower_type</code>, <code class="language-plaintext highlighter-rouge">price_range</code>, <code class="language-plaintext highlighter-rouge">combined</code>)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">radiusKm</code></td>
-      <td><code class="language-plaintext highlighter-rouge">5</code>, <code class="language-plaintext highlighter-rouge">10</code>, or <code class="language-plaintext highlighter-rouge">15</code> (required for <code class="language-plaintext highlighter-rouge">flower_type</code>, <code class="language-plaintext highlighter-rouge">price_range</code>, <code class="language-plaintext highlighter-rouge">combined</code>)</td>
+      <td>Search radius (required for <code class="language-plaintext highlighter-rouge">flower_type</code>, <code class="language-plaintext highlighter-rouge">price_range</code>, <code class="language-plaintext highlighter-rouge">combined</code>)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">flowerType</code></td>
-      <td>Required for <code class="language-plaintext highlighter-rouge">flower_type</code> and <code class="language-plaintext highlighter-rouge">combined</code> — use values from <code class="language-plaintext highlighter-rouge">GET /api/reference/flower-types</code></td>
+      <td>Required for <code class="language-plaintext highlighter-rouge">flower_type</code> and <code class="language-plaintext highlighter-rouge">combined</code> — use values from <code class="language-plaintext highlighter-rouge">GET /api/v1/reference/flower-types</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">shopId</code></td>
@@ -2372,61 +2483,59 @@ grant_type=refresh_token
       <td><code class="language-plaintext highlighter-rouge">maxPrice</code></td>
       <td>Required for <code class="language-plaintext highlighter-rouge">price_range</code> and <code class="language-plaintext highlighter-rouge">combined</code></td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">currency</code></td>
+      <td>Optional currency for <code class="language-plaintext highlighter-rouge">maxPrice</code></td>
+    </tr>
   </tbody>
 </table>
 
 <p><strong>Response 201:</strong> Full subscription object (same as GET schema)
-<strong>Response 400:</strong> Invalid parameters or missing required fields.</p>
+<strong>Response 400:</strong> Invalid parameters or missing required fields (e.g. unknown <code class="language-plaintext highlighter-rouge">frequency</code>).</p>
 
 <hr />
 
-<h3 id="put-apisubscriptionsid">PUT /api/subscriptions/{id}</h3>
+<h3 id="put-apiv1subscriptionsid">PUT /api/v1/subscriptions/{id}</h3>
 
-<p>Updates an existing subscription (toggle active, change frequency).</p>
+<p>Updates an existing subscription (toggle active, change frequency or criteria).</p>
 
 <p><strong>Auth:</strong> Required
 <strong>Request Body:</strong> Partial subscription object (only changed fields required)</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"isActive"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"notificationFrequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"daily"</span><span class="w">
+  </span><span class="nl">"frequency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"daily"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Response 200:</strong> Updated subscription object
-<strong>Response 404:</strong> Subscription not found or does not belong to the customer.</p>
+<p><strong>Response 204:</strong> Subscription updated.
+<strong>Response 400:</strong> Invalid parameters.</p>
 
 <hr />
 
-<h3 id="put-apisubscriptionsdisable-all">PUT /api/subscriptions/disable-all</h3>
+<h3 id="put-apiv1subscriptionsdisable-all">PUT /api/v1/subscriptions/disable-all</h3>
 
 <p>Deactivates all subscriptions for the authenticated customer. Sets <code class="language-plaintext highlighter-rouge">isActive: false</code> on every subscription without deleting them (SUB-09).</p>
 
 <p><strong>Auth:</strong> Required</p>
 
-<p><strong>Response 200:</strong></p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"disabledCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"All subscriptions have been deactivated."</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
+<p><strong>Response 204:</strong> All active subscriptions deactivated. No response body.</p>
 
 <hr />
 
-<h3 id="delete-apisubscriptionsid">DELETE /api/subscriptions/{id}</h3>
+<h3 id="delete-apiv1subscriptionsid">DELETE /api/v1/subscriptions/{id}</h3>
 
 <p>Deletes a subscription.</p>
 
 <p><strong>Auth:</strong> Required
 <strong>Response 204:</strong> No content
-<strong>Response 404:</strong> Subscription not found or does not belong to the customer.</p>
+<strong>Response 400:</strong> Subscription not found or does not belong to the customer.</p>
 
 <hr />
 
 <h2 id="7-vendor-endpoints">7. Vendor Endpoints</h2>
 
-<h3 id="get-apivendorsid">GET /api/vendors/{id}</h3>
+<h3 id="get-apiv1vendorsid">GET /api/v1/vendors/{id}</h3>
 
 <p>Returns public vendor profile.</p>
 
@@ -2462,7 +2571,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apivendorsidbouquets">GET /api/vendors/{id}/bouquets</h3>
+<h3 id="get-apiv1vendorsidbouquets">GET /api/v1/vendors/{id}/bouquets</h3>
 
 <p>Returns all currently available bouquets for a specific vendor.</p>
 
@@ -2495,7 +2604,7 @@ grant_type=refresh_token
   </tbody>
 </table>
 
-<p><strong>Response 200:</strong> Same paginated schema as <code class="language-plaintext highlighter-rouge">GET /api/bouquets/nearby</code> items.</p>
+<p><strong>Response 200:</strong> Same paginated schema as <code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/nearby</code> items.</p>
 
 <hr />
 
@@ -2617,7 +2726,7 @@ grant_type=refresh_token
 
 <h2 id="8-customer-profile-endpoints">8. Customer Profile Endpoints</h2>
 
-<h3 id="get-apiprofile">GET /api/profile</h3>
+<h3 id="get-apiv1profile">GET /api/v1/profile</h3>
 
 <p>Returns the authenticated customer’s profile.</p>
 
@@ -2649,26 +2758,49 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="put-apiprofile">PUT /api/profile</h3>
+<h3 id="put-apiv1profile">PUT /api/v1/profile</h3>
 
 <p>Updates the customer’s profile.</p>
 
 <p><strong>Auth:</strong> Required</p>
 
-<p><strong>Request Body:</strong> Partial object — only changed fields required.</p>
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">UpdateProfileRequest</code>):</strong> Partial object — only changed fields required.</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"firstName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jan"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"lastName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Kowalski"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jan Kowalski"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"phoneNumber"</span><span class="p">:</span><span class="w"> </span><span class="s2">"+48123456789"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"preferredFlowerTypes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"rose"</span><span class="p">,</span><span class="w"> </span><span class="s2">"tulip"</span><span class="p">,</span><span class="w"> </span><span class="s2">"peony"</span><span class="p">]</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Response 200:</strong> Updated profile object.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">name</code></td>
+      <td>Optional — single display name (there is no separate first/last name)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">phoneNumber</code></td>
+      <td>Optional</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">preferredFlowerTypes</code></td>
+      <td>Optional — array of flower type keys</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Response 204:</strong> Profile updated. No response body.</p>
 
 <hr />
 
-<h3 id="put-apiprofilenotification-settings">PUT /api/profile/notification-settings</h3>
+<h3 id="put-apiv1profilenotification-settings">PUT /api/v1/profile/notification-settings</h3>
 
 <p>Updates notification preferences.</p>
 
@@ -2683,17 +2815,54 @@ grant_type=refresh_token
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Response 200:</strong> Updated notification settings object.</p>
+<p><strong>Response 204:</strong> Notification settings updated. No response body.</p>
 
 <p><strong>Notes:</strong></p>
 <ul>
-  <li>Setting <code class="language-plaintext highlighter-rouge">pushEnabled: false</code> stops all push notifications from being delivered to the device but does <strong>not</strong> deactivate individual subscriptions. To deactivate all subscriptions, use <code class="language-plaintext highlighter-rouge">PUT /api/subscriptions/disable-all</code>.</li>
-  <li>Setting <code class="language-plaintext highlighter-rouge">subscriptionDigestEnabled: false</code> stops daily/weekly digest emails for subscriptions with <code class="language-plaintext highlighter-rouge">notificationFrequency</code> set to <code class="language-plaintext highlighter-rouge">daily</code> or <code class="language-plaintext highlighter-rouge">weekly</code>.</li>
+  <li>Setting <code class="language-plaintext highlighter-rouge">pushEnabled: false</code> stops all push notifications from being delivered to the device but does <strong>not</strong> deactivate individual subscriptions. To deactivate all subscriptions, use <code class="language-plaintext highlighter-rouge">PUT /api/v1/subscriptions/disable-all</code>.</li>
+  <li>Setting <code class="language-plaintext highlighter-rouge">subscriptionDigestEnabled: false</code> stops daily/weekly digest emails for subscriptions with <code class="language-plaintext highlighter-rouge">frequency</code> set to <code class="language-plaintext highlighter-rouge">daily</code> or <code class="language-plaintext highlighter-rouge">weekly</code>.</li>
 </ul>
 
 <hr />
 
-<h3 id="delete-apiprofile">DELETE /api/profile</h3>
+<h3 id="post-apiv1profilephonesend-code">POST /api/v1/profile/phone/send-code</h3>
+
+<p>Sends an SMS verification code to the supplied phone number. Stores the phone on the customer, resets its verified flag, then dispatches the code via the SMS provider. Rate-limited (policy <code class="language-plaintext highlighter-rouge">phone-verify</code>).</p>
+
+<p><strong>Auth:</strong> Required</p>
+
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">SendPhoneCodeRequest</code>):</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"phoneNumber"</span><span class="p">:</span><span class="w"> </span><span class="s2">"+48123456789"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Response 202:</strong> Code dispatched.
+<strong>Response 400:</strong> <code class="language-plaintext highlighter-rouge">invalid-phone-format</code> (or other validation error).
+<strong>Response 502:</strong> <code class="language-plaintext highlighter-rouge">sms-send-failed</code> — the SMS provider rejected the send.</p>
+
+<hr />
+
+<h3 id="post-apiv1profilephoneverify-code">POST /api/v1/profile/phone/verify-code</h3>
+
+<p>Verifies the 6-digit code sent by <code class="language-plaintext highlighter-rouge">send-code</code>. On success the customer’s <code class="language-plaintext highlighter-rouge">PhoneVerified</code> flag is set.</p>
+
+<p><strong>Auth:</strong> Required</p>
+
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">VerifyPhoneCodeRequest</code>):</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"123456"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Response 204:</strong> Phone verified.
+<strong>Response 400:</strong> Code invalid or expired.</p>
+
+<hr />
+
+<h3 id="delete-apiv1profile">DELETE /api/v1/profile</h3>
 
 <p>Requests account deletion (GDPR). Marks the account for deletion; completed within 30 days.</p>
 
@@ -2720,7 +2889,7 @@ grant_type=refresh_token
 
 <p>Saved addresses are a small, bounded collection (practical limit: 10 per customer). They return a plain array, not the paginated envelope.</p>
 
-<h3 id="get-apiprofileaddresses">GET /api/profile/addresses</h3>
+<h3 id="get-apiv1profileaddresses">GET /api/v1/profile/addresses</h3>
 
 <p>Returns the customer’s saved delivery addresses.</p>
 
@@ -2743,7 +2912,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="post-apiprofileaddresses">POST /api/profile/addresses</h3>
+<h3 id="post-apiv1profileaddresses">POST /api/v1/profile/addresses</h3>
 
 <p>Creates a new saved address. Maximum 10 addresses per customer.</p>
 
@@ -2766,17 +2935,17 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="put-apiprofileaddressesid">PUT /api/profile/addresses/{id}</h3>
+<h3 id="put-apiv1profileaddressesid">PUT /api/v1/profile/addresses/{id}</h3>
 
 <p>Updates a saved address.</p>
 
 <p><strong>Auth:</strong> Required
 <strong>Request Body:</strong> Partial address object.
-<strong>Response 200:</strong> Updated address object.</p>
+<strong>Response 204:</strong> Address updated. No response body.</p>
 
 <hr />
 
-<h3 id="delete-apiprofileaddressesid">DELETE /api/profile/addresses/{id}</h3>
+<h3 id="delete-apiv1profileaddressesid">DELETE /api/v1/profile/addresses/{id}</h3>
 
 <p>Deletes a saved address.</p>
 
@@ -2787,13 +2956,13 @@ grant_type=refresh_token
 
 <h2 id="10-push-notifications-endpoints">10. Push Notifications Endpoints</h2>
 
-<h3 id="post-apinotificationsdevice">POST /api/notifications/device</h3>
+<h3 id="post-apiv1notificationsdevices">POST /api/v1/notifications/devices</h3>
 
-<p>Registers a device for push notifications (Firebase Cloud Messaging for Android, APNs for iOS).</p>
+<p>Registers a device for push notifications (Firebase Cloud Messaging for Android, APNs for iOS). Upserts by device token.</p>
 
 <p><strong>Auth:</strong> Required</p>
 
-<p><strong>Request Body:</strong></p>
+<p><strong>Request Body (<code class="language-plaintext highlighter-rouge">RegisterDeviceRequest</code>):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"deviceToken"</span><span class="p">:</span><span class="w"> </span><span class="s2">"firebase-or-apns-token-..."</span><span class="p">,</span><span class="w">
@@ -2818,31 +2987,28 @@ grant_type=refresh_token
       <td><code class="language-plaintext highlighter-rouge">deviceToken</code></td>
       <td>Required, FCM registration token or APNs device token</td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">appVersion</code></td>
+      <td>Optional</td>
+    </tr>
   </tbody>
 </table>
 
-<p><strong>Response 200:</strong> Device registered / updated.</p>
+<p><strong>Response 204:</strong> Device registered / updated. No response body.</p>
 
 <hr />
 
-<h3 id="delete-apinotificationsdevice">DELETE /api/notifications/device</h3>
+<h3 id="delete-apiv1notificationsdevicesdevicetoken">DELETE /api/v1/notifications/devices/{deviceToken}</h3>
 
-<p>Unregisters the current device from push notifications (e.g., on sign-out).</p>
+<p>Unregisters the current device from push notifications (e.g., on sign-out). The token is passed in the path — there is no request body.</p>
 
 <p><strong>Auth:</strong> Required</p>
-
-<p><strong>Request Body:</strong></p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"deviceToken"</span><span class="p">:</span><span class="w"> </span><span class="s2">"firebase-or-apns-token-..."</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
 
 <p><strong>Response 204:</strong> No content.</p>
 
 <hr />
 
-<h3 id="get-apinotifications">GET /api/notifications</h3>
+<h3 id="get-apiv1notifications">GET /api/v1/notifications</h3>
 
 <p>Returns the in-app notification feed for the authenticated customer.</p>
 
@@ -3033,7 +3199,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="put-apinotificationsidread">PUT /api/notifications/{id}/read</h3>
+<h3 id="put-apiv1notificationsidread">PUT /api/v1/notifications/{id}/read</h3>
 
 <p>Marks a notification as read.</p>
 
@@ -3042,7 +3208,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="put-apinotificationsread-all">PUT /api/notifications/read-all</h3>
+<h3 id="put-apiv1notificationsread-all">PUT /api/v1/notifications/read-all</h3>
 
 <p>Marks all notifications as read.</p>
 
@@ -3053,7 +3219,7 @@ grant_type=refresh_token
 
 <h2 id="11-reference-data-endpoints">11. Reference Data Endpoints</h2>
 
-<h3 id="get-apireferenceflower-types">GET /api/reference/flower-types</h3>
+<h3 id="get-apiv1referenceflower-types">GET /api/v1/reference/flower-types</h3>
 
 <p>Returns the list of supported flower types for subscriptions and filtering.</p>
 
@@ -3078,7 +3244,7 @@ grant_type=refresh_token
 
 <hr />
 
-<h3 id="get-apireferencefreshness-labels">GET /api/reference/freshness-labels</h3>
+<h3 id="get-apiv1referencefreshness-labels">GET /api/v1/reference/freshness-labels</h3>
 
 <p>Returns freshness score ranges and their display labels.</p>
 
@@ -3100,9 +3266,9 @@ grant_type=refresh_token
 
 <h2 id="12-health-check-endpoint">12. Health Check Endpoint</h2>
 
-<h3 id="get-apihealth">GET /api/health</h3>
+<h3 id="get-health">GET /health</h3>
 
-<p>Returns backend health status. Useful for mobile app to detect connectivity issues.</p>
+<p>Returns backend health status. Useful for mobile app to detect connectivity issues. (Health checks are mapped at the unversioned root: <code class="language-plaintext highlighter-rouge">/health</code>, plus <code class="language-plaintext highlighter-rouge">/health/ready</code> and <code class="language-plaintext highlighter-rouge">/health/live</code> — they are <strong>not</strong> under the <code class="language-plaintext highlighter-rouge">/api/v1</code> prefix.)</p>
 
 <p><strong>Auth:</strong> None</p>
 
@@ -3139,17 +3305,17 @@ grant_type=refresh_token
     <tr>
       <td><strong>Authenticated</strong></td>
       <td>Pass <code class="language-plaintext highlighter-rouge">access_token</code> query string param</td>
-      <td>Radius groups, order groups</td>
+      <td>Customers group, radius groups, order groups</td>
     </tr>
     <tr>
       <td><strong>Anonymous</strong></td>
       <td>Connect without token</td>
-      <td>Radius groups only</td>
+      <td>Customers group, radius groups</td>
     </tr>
   </tbody>
 </table>
 
-<p>Anonymous connections can subscribe to <code class="language-plaintext highlighter-rouge">JoinRadiusGroup</code> to receive real-time bouquet availability updates (AUTH-04, DISC-04). Order-related groups (<code class="language-plaintext highlighter-rouge">JoinOrderGroup</code>) require authentication.</p>
+<p>Anonymous connections can subscribe to <code class="language-plaintext highlighter-rouge">JoinCustomersGroup</code> (or <code class="language-plaintext highlighter-rouge">JoinRadiusGroup</code>) to receive real-time bouquet availability updates (AUTH-04, DISC-04). Note that bouquet availability broadcasts (<code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> / <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> / <code class="language-plaintext highlighter-rouge">FreshnessUpdated</code>) are currently emitted to the flat <code class="language-plaintext highlighter-rouge">customers</code> group; radius groups still exist for geo-scoped subscriptions. Order-related groups (<code class="language-plaintext highlighter-rouge">JoinOrderGroup</code>) require authentication.</p>
 
 <h3 id="connection-setup-net-maui">Connection Setup (.NET MAUI)</h3>
 
@@ -3198,9 +3364,9 @@ grant_type=refresh_token
 
 <h4 id="leaveradiusgroup">LeaveRadiusGroup</h4>
 
-<p>Unsubscribe from radius updates.</p>
+<p>Unsubscribe from radius updates. Takes the same <code class="language-plaintext highlighter-rouge">(lat, lng, radiusKm)</code> arguments used to join — the group name is derived from them, so they must match.</p>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"LeaveRadiusGroup"</span><span class="p">);</span>
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"LeaveRadiusGroup"</span><span class="p">,</span> <span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">,</span> <span class="n">radiusKm</span><span class="p">);</span>
 </code></pre></div></div>
 
 <h4 id="joinordergroup">JoinOrderGroup</h4>
@@ -3217,41 +3383,61 @@ grant_type=refresh_token
 <div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"LeaveOrderGroup"</span><span class="p">,</span> <span class="n">orderId</span><span class="p">);</span>
 </code></pre></div></div>
 
+<h4 id="joincustomersgroup--leavecustomersgroup">JoinCustomersGroup / LeaveCustomersGroup</h4>
+
+<p>Join (or leave) the flat <code class="language-plaintext highlighter-rouge">customers</code> broadcast group used by the web map and mobile clients to receive <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> / <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> / <code class="language-plaintext highlighter-rouge">FreshnessUpdated</code> / price / view-count broadcasts. No arguments. On joining, the server also pushes the current offline-vase state so stale markers can be hidden immediately.</p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"JoinCustomersGroup"</span><span class="p">);</span>
+<span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"LeaveCustomersGroup"</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h4 id="joincustomergroup">JoinCustomerGroup</h4>
+
+<p>Join a per-customer group (<code class="language-plaintext highlighter-rouge">customer-{customerId}</code>) and the flat <code class="language-plaintext highlighter-rouge">customers</code> group.</p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"JoinCustomerGroup"</span><span class="p">,</span> <span class="n">customerId</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h4 id="joinvendorgroup">JoinVendorGroup</h4>
+
+<p>Vendor-portal subscription. Joins <code class="language-plaintext highlighter-rouge">vendor-{vendorId}</code> and <code class="language-plaintext highlighter-rouge">vendortype-{vendorType}</code>. If the JWT carries a <code class="language-plaintext highlighter-rouge">vendor_id</code> claim it must match <code class="language-plaintext highlighter-rouge">vendorId</code>.</p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"JoinVendorGroup"</span><span class="p">,</span> <span class="n">vendorId</span><span class="p">,</span> <span class="n">vendorType</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h4 id="startviewingbouquet--stopviewingbouquet">StartViewingBouquet / StopViewingBouquet</h4>
+
+<p>Increment / decrement the real-time view counter for a bouquet (drives <code class="language-plaintext highlighter-rouge">BouquetViewCountChanged</code>).</p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"StartViewingBouquet"</span><span class="p">,</span> <span class="n">bouquetId</span><span class="p">);</span>
+<span class="k">await</span> <span class="n">connection</span><span class="p">.</span><span class="nf">InvokeAsync</span><span class="p">(</span><span class="s">"StopViewingBouquet"</span><span class="p">,</span> <span class="n">bouquetId</span><span class="p">);</span>
+</code></pre></div></div>
+
 <hr />
 
 <h3 id="server--client">Server → Client</h3>
 
 <h4 id="bouquetbecameavailable">BouquetBecameAvailable</h4>
 
-<p>A new bouquet is available within the subscribed radius. Payload matches the nearby endpoint item schema so the app can add a map pin without an extra REST call.</p>
+<p>A bouquet became available. Broadcast to the flat <code class="language-plaintext highlighter-rouge">customers</code> group (not per-radius). The payload is <strong>flat and minimal</strong> — the client should fetch full detail via REST if it needs location, freshness, distance, etc.</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"vaseId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"v-001"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vend-42"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"vendorName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flora Elegance"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shop"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"available"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"price"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="p">,</span><span class="w">
   </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"available"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"freshnessScore"</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"freshnessLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Very Fresh"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"location"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-    </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"longitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"displayAddress"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Śródmieście, Warsaw"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"exactAddressHidden"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
-  </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"distanceKm"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"availableFrom"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-04-10T09:15:00Z"</span><span class="w">
+  </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/..."</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-04-10T09:15:00Z"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
 <p><strong>Notes:</strong></p>
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">distanceKm</code> is computed using the coordinates the client sent in <code class="language-plaintext highlighter-rouge">JoinRadiusGroup</code>.</li>
-  <li>The event uses the same nested <code class="language-plaintext highlighter-rouge">location</code> structure as the REST response.</li>
+  <li>Not all fields are present on every emission — a status-transition emission may carry only <code class="language-plaintext highlighter-rouge">bouquetId</code>, <code class="language-plaintext highlighter-rouge">vendorId</code>, <code class="language-plaintext highlighter-rouge">vendorType</code>, <code class="language-plaintext highlighter-rouge">status</code>, <code class="language-plaintext highlighter-rouge">timestamp</code>, while a newly-published bouquet also carries <code class="language-plaintext highlighter-rouge">price</code>, <code class="language-plaintext highlighter-rouge">currency</code>, <code class="language-plaintext highlighter-rouge">imageUrl</code>.</li>
+  <li>There is no nested <code class="language-plaintext highlighter-rouge">location</code>, <code class="language-plaintext highlighter-rouge">distanceKm</code>, <code class="language-plaintext highlighter-rouge">freshnessScore</code>, <code class="language-plaintext highlighter-rouge">vendorName</code>, <code class="language-plaintext highlighter-rouge">vaseId</code>, or <code class="language-plaintext highlighter-rouge">availableFrom</code> on this event — fetch <code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/{id}/detail</code> for those.</li>
+  <li>The client subscribes via <code class="language-plaintext highlighter-rouge">JoinCustomersGroup</code> (web map) / <code class="language-plaintext highlighter-rouge">JoinCustomerGroup</code> (authenticated).</li>
 </ul>
 
 <h4 id="bouquetbecameunavailable">BouquetBecameUnavailable</h4>
@@ -3274,12 +3460,13 @@ grant_type=refresh_token
 
 <h4 id="freshnessupdated">FreshnessUpdated</h4>
 
-<p>A bouquet’s freshness score has changed (pushed periodically by the vase sensors).</p>
+<p>A bouquet’s freshness score has changed (pushed periodically by the vase sensors). Broadcast to the <code class="language-plaintext highlighter-rouge">customers</code> group and the owning <code class="language-plaintext highlighter-rouge">vendor-{vendorId}</code> group.</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
   </span><span class="nl">"freshnessScore"</span><span class="p">:</span><span class="w"> </span><span class="mi">78</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"freshnessLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fresh"</span><span class="w">
+  </span><span class="nl">"freshnessLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fresh"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-04-10T09:15:00Z"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -3296,6 +3483,10 @@ grant_type=refresh_token
 </span></code></pre></div></div>
 
 <h4 id="deliverylocationupdated">DeliveryLocationUpdated</h4>
+
+<blockquote>
+  <p><strong>Not yet implemented</strong> (planned EP-07). Documented here for the mobile client to code against; the backend does not currently emit this event.</p>
+</blockquote>
 
 <p>Real-time delivery courier location update (sent while order status is <code class="language-plaintext highlighter-rouge">in_delivery</code>).</p>
 
@@ -3341,7 +3532,7 @@ grant_type=refresh_token
 
 <h3 id="price-changed-error-extension">Price Changed Error Extension</h3>
 
-<p>For 409 price-changed errors (on <code class="language-plaintext highlighter-rouge">POST /api/orders</code>), the response includes the current price:</p>
+<p>For 409 price-changed errors (on <code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code>), the response includes the current price:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/errors/price-changed"</span><span class="p">,</span><span class="w">
@@ -3574,7 +3765,7 @@ grant_type=refresh_token
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
-      <td>For POST /api/orders</td>
+      <td>For POST /api/v1/orders</td>
       <td>Client-generated UUID v4</td>
     </tr>
   </tbody>
@@ -3634,61 +3825,61 @@ grant_type=refresh_token
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/auth/register</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/customers/register</code></td>
       <td>No</td>
       <td>No</td>
-      <td>Duplicate returns 409 naturally</td>
+      <td>Duplicate returns 400 naturally</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/auth/resend-verification</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/auth/resend-verification</code></td>
       <td>Yes</td>
       <td>Yes</td>
       <td>Rate-limited; no side effects on repeat</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/orders/preview</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/orders/preview</code></td>
       <td>Yes</td>
       <td>Yes</td>
       <td>Read-only, no side effects</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/orders</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code></td>
       <td>No</td>
       <td><strong>Yes with <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></strong></td>
       <td>Same key returns cached 201 response</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/orders/{id}/confirm-payment</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/orders/{id}/confirm-payment</code></td>
       <td>Yes</td>
       <td>Yes</td>
-      <td>Duplicate confirmation returns same 200</td>
+      <td>Duplicate confirmation returns 204</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/orders/{id}/cancel</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/orders/{id}/cancel</code></td>
       <td>Yes</td>
       <td>Yes</td>
       <td>Duplicate cancellation returns 409 harmlessly</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/subscriptions</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/subscriptions</code></td>
       <td>No</td>
       <td>No</td>
-      <td>Duplicate returns 409 if identical</td>
+      <td>Duplicate returns 400 if identical</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/favourites/{id}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/favourites/{id}</code></td>
       <td>Yes</td>
       <td>Yes</td>
-      <td>Duplicate returns 409 harmlessly</td>
+      <td>Idempotent — duplicate returns 204</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/profile/addresses</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/profile/addresses</code></td>
       <td>No</td>
       <td>No</td>
       <td>May create duplicates — client should check</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">POST /api/notifications/device</code></td>
+      <td><code class="language-plaintext highlighter-rouge">POST /api/v1/notifications/devices</code></td>
       <td>Yes</td>
       <td>Yes</td>
       <td>Upserts by device token</td>
@@ -3716,7 +3907,7 @@ grant_type=refresh_token
 
 <p><strong>Usage:</strong></p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /api/orders
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /api/v1/orders
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 </code></pre></div></div>
@@ -3742,61 +3933,61 @@ Content-Type: application/json
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/config</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/config</code></td>
       <td><code class="language-plaintext highlighter-rouge">public, max-age=3600</code></td>
       <td>No</td>
       <td>Cache for 1h; serve stale if offline</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/reference/flower-types</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/reference/flower-types</code></td>
       <td><code class="language-plaintext highlighter-rouge">public, max-age=86400</code></td>
       <td>Yes</td>
       <td>Cache for 24h; serve stale if offline</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/reference/freshness-labels</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/reference/freshness-labels</code></td>
       <td><code class="language-plaintext highlighter-rouge">public, max-age=86400</code></td>
       <td>Yes</td>
       <td>Cache for 24h; serve stale if offline</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/vendors/{id}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/vendors/{id}</code></td>
       <td><code class="language-plaintext highlighter-rouge">public, max-age=3600</code></td>
       <td>Yes</td>
       <td>Cache for 1h; serve stale if offline</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/bouquets/{id}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/{id}/detail</code></td>
       <td><code class="language-plaintext highlighter-rouge">private, max-age=60</code></td>
       <td>Yes</td>
       <td>Short cache; show stale with banner if offline</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/bouquets/nearby</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/nearby</code></td>
       <td><code class="language-plaintext highlighter-rouge">private, no-cache</code></td>
       <td>No</td>
       <td>Cache last result; show with “May be outdated” banner</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/orders</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/orders</code></td>
       <td><code class="language-plaintext highlighter-rouge">private, no-cache</code></td>
       <td>No</td>
       <td>Cache last result for offline viewing</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/orders/{id}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/orders/{id}</code></td>
       <td><code class="language-plaintext highlighter-rouge">private, max-age=30</code></td>
       <td>Yes</td>
       <td>Short cache; show stale with banner</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/profile</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/profile</code></td>
       <td><code class="language-plaintext highlighter-rouge">private, max-age=300</code></td>
       <td>Yes</td>
       <td>Cache for 5 min</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">GET /api/health</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GET /health</code></td>
       <td><code class="language-plaintext highlighter-rouge">no-store</code></td>
       <td>No</td>
       <td>Never cache</td>
@@ -3814,7 +4005,7 @@ Content-Type: application/json
 
 <p>For endpoints that return <code class="language-plaintext highlighter-rouge">ETag</code>, the mobile app should send <code class="language-plaintext highlighter-rouge">If-None-Match</code> on subsequent requests:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET /api/bouquets/b3f1a2c4-...
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET /api/v1/bouquets/b3f1a2c4-.../detail
 If-None-Match: "abc123"
 </code></pre></div></div>
 

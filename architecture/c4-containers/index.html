@@ -768,15 +768,15 @@
   Person(admin, "Platform Admin")
 
   Container_Boundary(platform, "FlowerShop IoT Platform") {
-    Container(api, "REST API", ".NET 8 / ASP.NET Core", "CQRS, multi-tenant, 23 controllers, MediatR pipeline")
+    Container(api, "REST API", ".NET 8 / ASP.NET Core", "CQRS, multi-tenant, 29 controllers, MediatR pipeline")
     Container(adminPortal, "Admin Portal", "ASP.NET Razor Pages :5001", "Vendor management, analytics, vase registration")
     Container(vendorPortal, "Vendor Portal", "ASP.NET Razor Pages :5002", "Bouquet catalog, order management, analytics dashboard")
     Container(customerApp, "Customer Web App", "ASP.NET MVC :5003", "Browse map, cart, checkout, profile, subscriptions")
     ContainerDb(postgres, "PostgreSQL 15", "Database", "All domain aggregates: Vendor, Bouquet, Order, Cart, Customer, SmartVase, etc.")
     ContainerDb(redis, "Redis 7", "Cache + Blacklist", "Query cache (versioned), token blacklist, idempotency keys")
-    Container(keycloak, "Keycloak 23", "Identity Provider", "OIDC, JWT issuance, user management, email verification")
-    Container(rabbitmq, "RabbitMQ", "Message Broker", "Domain event bus (InMemoryEventBus currently active)")
-    Container(mqtt, "Mosquitto MQTT", "IoT Broker", "Vase telemetry, heartbeat, command dispatch")
+    Container(keycloak, "Keycloak 23", "Identity Provider", "OIDC, JWT issuance, user management, email verification (dev :8090; prod auth.findmyflowers.pl)")
+    Container(rabbitmq, "RabbitMQ", "Message Broker", "Domain event bus (InMemoryEventBus active; RabbitMQEventBus is a stub)")
+    Container(mqtt, "MQTT Broker", "IoT Broker", "Vase telemetry, heartbeat, command dispatch (dev: Mosquitto; prod: HiveMQ Cloud, TLS 8883)")
     Container(signalr, "SignalR Hub (in-process)", "WebSocket Hub (inside REST API process)", "BouquetHub — real-time bouquet updates, order tracking; runs in-process with the REST API")
   }
 

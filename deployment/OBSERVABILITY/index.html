@@ -779,7 +779,7 @@
     </tr>
     <tr>
       <td>“Map is empty / 500s”</td>
-      <td>API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api</code> + <code class="language-plaintext highlighter-rouge">/health/ready</code></td>
+      <td>API logs: <code class="language-plaintext highlighter-rouge">fly logs --app flower-shop-backend-core</code> + <code class="language-plaintext highlighter-rouge">/health/ready</code></td>
     </tr>
     <tr>
       <td>“Bouquets don’t refresh”</td>
@@ -791,19 +791,19 @@
     </tr>
     <tr>
       <td>“Admin portal won’t load”</td>
-      <td>Render dashboard → flowershop-admin-portal → Logs</td>
+      <td><code class="language-plaintext highlighter-rouge">fly logs --app flowershop-admin-portal</code></td>
     </tr>
     <tr>
       <td>“Vendor portal login fails”</td>
-      <td>VendorPortal logs + Keycloak <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code> client settings</td>
+      <td><code class="language-plaintext highlighter-rouge">fly logs --app flowershop-vendor-portal</code> + Keycloak (portals use the <code class="language-plaintext highlighter-rouge">flowershop-api</code> client, password grant)</td>
     </tr>
     <tr>
       <td>“API intermittently slow”</td>
-      <td>Aiven metrics + Fly metrics on the API app</td>
+      <td>Fly Postgres metrics + Fly metrics on the API app</td>
     </tr>
     <tr>
       <td>“Customer app 502”</td>
-      <td>Fly logs on customer-app; usually an API cold start</td>
+      <td><code class="language-plaintext highlighter-rouge">fly logs --app flowershop-customer-app</code>; usually an API blip</td>
     </tr>
   </tbody>
 </table>
@@ -812,7 +812,7 @@
 
 <h2 id="health-endpoints">Health endpoints</h2>
 
-<p>Every component exposes at least one. Wire them into cron-job.org (§Stage 10 of runbook) for passive monitoring.</p>
+<p>Every component exposes at least one. Fly keeps machines warm (<code class="language-plaintext highlighter-rouge">min_machines_running=1</code>) and probes these itself; wire them into an external uptime monitor if you want passive alerting.</p>
 
 <table>
   <thead>
@@ -827,7 +827,7 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FlowerShop.API</code></td>
       <td><code class="language-plaintext highlighter-rouge">GET /health</code></td>
-      <td>All registered checks (DB, MQTT, any future Redis/RabbitMQ)</td>
+      <td>All registered checks (DB, MQTT)</td>
       <td><code class="language-plaintext highlighter-rouge">{"status":"Healthy"}</code> 200 / <code class="language-plaintext highlighter-rouge">{"status":"Unhealthy"}</code> 503</td>
     </tr>
     <tr>
@@ -856,8 +856,8 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">AdminPortal</code> / <code class="language-plaintext highlighter-rouge">VendorPortal</code></td>
-      <td><code class="language-plaintext highlighter-rouge">GET /health</code></td>
-      <td>ASP.NET default — process liveness</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /Login</code></td>
+      <td>Login page; Fly uses it as health probe</td>
       <td>200</td>
     </tr>
     <tr>
@@ -870,9 +870,14 @@
 </table>
 
 <p><strong>Check all of them in one shell:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for </span>h <span class="k">in </span>api auth app admin vendor<span class="p">;</span> <span class="k">do
-  </span><span class="nb">printf</span> <span class="s2">"%-8s %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$h</span><span class="s2">"</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}'</span> https://<span class="nv">$h</span>.findmyflowers.pl/health 2&gt;/dev/null <span class="o">||</span> <span class="nb">echo </span>x<span class="si">)</span><span class="s2">"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># API health</span>
+curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'api    %{http_code}\n'</span> https://api.findmyflowers.pl/health
+<span class="c"># Portals probe /Login</span>
+<span class="k">for </span>h <span class="k">in </span>admin vendors<span class="p">;</span> <span class="k">do
+  </span><span class="nb">printf</span> <span class="s2">"%-7s %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$h</span><span class="s2">"</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}'</span> https://<span class="nv">$h</span>.findmyflowers.pl/Login 2&gt;/dev/null <span class="o">||</span> <span class="nb">echo </span>x<span class="si">)</span><span class="s2">"</span>
 <span class="k">done</span>
+<span class="c"># CustomerApp is on app.findmyflowers.pl</span>
+curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'app    %{http_code}\n'</span> https://app.findmyflowers.pl/
 </code></pre></div></div>
 
 <hr />
@@ -881,22 +886,21 @@
 
 <h3 id="fly-apps--live-tail">Fly apps — live tail</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api              <span class="c"># follow</span>
-fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail</span>    <span class="c"># one shot (last ~100 lines)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flower-shop-backend-core              <span class="c"># follow</span>
+fly logs <span class="nt">--app</span> flower-shop-backend-core <span class="nt">--no-tail</span>    <span class="c"># one shot (last ~100 lines)</span>
 </code></pre></div></div>
 
 <p>Filter by grep client-side:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'error|warn|stripe|mqtt'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'error|warn|stripe|mqtt'</span>
+</code></pre></div></div>
+
+<p>The portals are Fly apps too:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-admin-portal
+fly logs <span class="nt">--app</span> flowershop-vendor-portal
+fly logs <span class="nt">--app</span> flowershop-customer-app
 </code></pre></div></div>
 
 <p><strong>Retention:</strong> Fly free tier keeps ~24 h of logs. For longer retention, forward with <code class="language-plaintext highlighter-rouge">fly log-shipper</code> (costs extra) or add Serilog sink → Seq / Loki.</p>
-
-<h3 id="render-services">Render services</h3>
-
-<ul>
-  <li>Dashboard → service → <strong>Logs</strong> tab. Streaming UI, 7 days of retention on free tier.</li>
-  <li>CLI alternative: Render doesn’t ship a first-party CLI for logs yet; use the web UI or the REST API (<code class="language-plaintext highlighter-rouge">GET /v1/services/{id}/events</code>).</li>
-</ul>
 
 <h3 id="serilog-structured-output">Serilog structured output</h3>
 
@@ -910,7 +914,7 @@ fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail
 </ul>
 
 <p>Grep a specific request across logs:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="s2">"RequestId=abc-123"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly logs <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">grep</span> <span class="s2">"RequestId=abc-123"</span>
 </code></pre></div></div>
 
 <h3 id="what-to-grep-for">What to grep for</h3>
@@ -962,33 +966,22 @@ fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail
 
 <p>Dashboard → app → <strong>Metrics</strong>. Shows CPU, memory, network, connections, HTTP status breakdown per machine. Free. 7 days retention.</p>
 
-<h3 id="aiven-postgresql">Aiven PostgreSQL</h3>
+<h3 id="fly-postgres">Fly Postgres</h3>
 
-<p>Console → service → <strong>Metrics</strong> tab. Shows:</p>
-<ul>
-  <li>Connections in use vs. max</li>
-  <li>Disk usage (5 GB limit on free plan)</li>
-  <li>Query throughput</li>
-  <li>Replication lag (irrelevant on free tier; no replicas)</li>
-</ul>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly postgres list
+fly status <span class="nt">--app</span> flower-shop-postgres        <span class="c"># machine health</span>
+fly metrics <span class="nt">--app</span> flower-shop-postgres        <span class="c"># or the Fly dashboard → Metrics</span>
+</code></pre></div></div>
 
-<p><strong>Watch:</strong> disk hitting 4 GB → start pruning old order data or upgrade plan.</p>
-
-<h3 id="upstash-redis">Upstash Redis</h3>
-
-<p>Console → database → <strong>Usage</strong>. Shows commands/month against the 500k free cap.</p>
-
-<h3 id="cloudamqp">CloudAMQP</h3>
-
-<p>Instance → <strong>Metrics</strong>. Shows message rate, queue depth, connection count.</p>
+<p>Watch connection count and disk usage on the <code class="language-plaintext highlighter-rouge">flower-shop-postgres</code> app. Tunnel in for ad-hoc queries: <code class="language-plaintext highlighter-rouge">flyctl proxy 5433:5432 -a flower-shop-postgres</code>.</p>
 
 <h3 id="hivemq-cloud">HiveMQ Cloud</h3>
 
 <p>Cluster → <strong>Monitoring</strong>. Shows connected clients (100 cap on free), messages/hour, storage.</p>
 
-<h3 id="cron-joborg-uptime">Cron-job.org (uptime)</h3>
-
-<p>Per job, shows “Last execution” and success history. Free-tier dashboards are a reasonable UptimeRobot substitute.</p>
+<blockquote>
+  <p>Redis and RabbitMQ are not provisioned in prod — there are no dashboards for them.</p>
+</blockquote>
 
 <hr />
 
@@ -998,8 +991,8 @@ fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail
 
 <ol>
   <li><strong>CustomerApp</strong> (Fly) → look for the session cookie in its logs.</li>
-  <li><strong>API</strong> (Fly) → <code class="language-plaintext highlighter-rouge">fly logs --app flowershop-api | grep &lt;request-id&gt;</code> — <code class="language-plaintext highlighter-rouge">RequestId</code> is forwarded from CustomerApp if present, otherwise generated.</li>
-  <li><strong>PostgreSQL</strong> (Aiven) → <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> shows the query; enable it in the Aiven console under <em>Advanced configuration</em>.</li>
+  <li><strong>API</strong> (Fly) → <code class="language-plaintext highlighter-rouge">fly logs --app flower-shop-backend-core | grep &lt;request-id&gt;</code> — <code class="language-plaintext highlighter-rouge">RequestId</code> is forwarded from CustomerApp if present, otherwise generated.</li>
+  <li><strong>PostgreSQL</strong> (Fly Postgres) → <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> shows the query; connect via <code class="language-plaintext highlighter-rouge">flyctl proxy 5433:5432 -a flower-shop-postgres</code> and enable the extension if not already on.</li>
 </ol>
 
 <p>For IoT path: vase → HiveMQ → API → SignalR → CustomerApp. Correlate by <code class="language-plaintext highlighter-rouge">VaseSerialNumber</code> — it’s stamped on every log line in <code class="language-plaintext highlighter-rouge">MqttDeviceCommunicationService</code>.</p>
@@ -1011,10 +1004,9 @@ fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail
 <p><strong>None configured today.</strong> The cheapest stack that works:</p>
 
 <ol>
-  <li><strong>cron-job.org</strong> → email on 3 consecutive failures. Free. Covers uptime only.</li>
   <li><strong>Cloudflare</strong> → Health Checks (one free check) → emails if an origin goes down.</li>
   <li><strong>Stripe</strong> → Dashboard → Developers → Webhooks → failing deliveries trigger email automatically.</li>
-  <li><strong>Aiven</strong> → service → Integrations → “Email notifications” → alerts on disk/CPU thresholds.</li>
+  <li><strong>Fly</strong> → <code class="language-plaintext highlighter-rouge">fly status</code> / dashboard alerts on machine health.</li>
 </ol>
 
 <p>For anything richer (paging, PagerDuty, Slack webhooks) you need one of:</p>
@@ -1024,7 +1016,7 @@ fly logs <span class="nt">--app</span> flowershop-api <span class="nt">--no-tail
   <li>Seq self-hosted on Fly — ~$2/mo extra, full-text log search</li>
 </ul>
 
-<p>Pick one when on-call becomes a real thing. Before then, cron-job.org + email is adequate.</p>
+<p>Pick one when on-call becomes a real thing.</p>
 
 <hr />
 

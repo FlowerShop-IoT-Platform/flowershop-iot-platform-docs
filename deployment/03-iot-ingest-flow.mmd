@@ -4,7 +4,7 @@ sequenceDiagram
     participant MQ as MqttDeviceCommunicationService (in API)
     participant API as API request pipeline
     participant PG as Postgres
-    participant RD as Upstash Redis
+    participant RD as Redis cache
     participant HUB as BouquetHub /hubs/bouquet
     participant BR as Browser on map
 

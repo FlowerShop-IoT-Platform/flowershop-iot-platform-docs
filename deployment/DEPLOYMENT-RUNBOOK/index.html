@@ -770,7 +770,7 @@
   <li>Work top-to-bottom. Every stage has <strong>Pre-reqs → Do → Verify → Gate</strong>.</li>
   <li>The <strong>Gate</strong> is a literal command whose success is the single criterion for moving on. If the gate fails, consult the <em>Troubleshoot</em> row, then retry — do not skip ahead.</li>
   <li>Commands assume <code class="language-plaintext highlighter-rouge">bash</code> (Git Bash on Windows is fine). All <code class="language-plaintext highlighter-rouge">$VAR</code> placeholders map to the secrets table in <a href="/deployment/SECRETS-AND-ENV-VARS/">SECRETS-AND-ENV-VARS.md</a>.</li>
-  <li>Expected total time for a clean run: <strong>~2.5 h</strong> (most of it waiting for DNS, Aiven provisioning, and Keycloak’s first boot).</li>
+  <li>Expected total time for a clean run: <strong>~2.5 h</strong> (most of it waiting for DNS propagation and Keycloak’s first boot).</li>
 </ul>
 
 <hr />
@@ -822,9 +822,13 @@
 </table>
 
 <p><strong>Gate 0:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly auth <span class="nb">whoami</span> <span class="o">&amp;&amp;</span> psql <span class="nt">--version</span> <span class="o">&amp;&amp;</span> gh secret list | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'FLY_API_TOKEN|RENDER_API_KEY|AIVEN_PG_CONNECTION'</span> | <span class="nb">wc</span> <span class="nt">-l</span>
-<span class="c"># must print at least 3</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly auth <span class="nb">whoami</span> <span class="o">&amp;&amp;</span> psql <span class="nt">--version</span> <span class="o">&amp;&amp;</span> gh secret list | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'FLY_API_TOKEN'</span> | <span class="nb">wc</span> <span class="nt">-l</span>
+<span class="c"># must print at least 1</span>
 </code></pre></div></div>
+
+<blockquote>
+  <p><strong>Hosting reality:</strong> everything runs on <strong>Fly.io</strong> in region <strong><code class="language-plaintext highlighter-rouge">fra</code></strong> — the API, all three portals, Keycloak, and PostgreSQL. There is no Render, Aiven, Upstash, or CloudAMQP. Redis and RabbitMQ are dev-only (docker-compose) and are <strong>not provisioned in prod</strong>.</p>
+</blockquote>
 
 <hr />
 
@@ -880,48 +884,47 @@
 
 <p><strong>Pre-reqs:</strong> §1 green.</p>
 
-<h3 id="2a-aiven-postgresql">2a. Aiven PostgreSQL</h3>
+<h3 id="2a-postgresql-on-fly">2a. PostgreSQL on Fly</h3>
 
-<p><strong>Do:</strong> <a href="/deployment/REGISTRATION-AND-CICD/#24-aiven-postgresql">REGISTRATION-AND-CICD.md §2.4</a>. Create service <code class="language-plaintext highlighter-rouge">flowershop-pg</code>, then on the <strong>Databases</strong> tab add <code class="language-plaintext highlighter-rouge">flowershop_iot</code> and <code class="language-plaintext highlighter-rouge">keycloak</code> (leave <code class="language-plaintext highlighter-rouge">defaultdb</code> alone).</p>
+<p><strong>Do:</strong> provision a Fly Postgres app <code class="language-plaintext highlighter-rouge">flower-shop-postgres</code> (PostgreSQL <strong>17</strong>), region <code class="language-plaintext highlighter-rouge">fra</code>, then create the two databases the platform needs: <code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code> (app) and <code class="language-plaintext highlighter-rouge">keycloak</code>.</p>
 
-<p><strong>Verify:</strong> copy the service URI into <code class="language-plaintext highlighter-rouge">$AIVEN_BASE_URI</code> locally (don’t commit).</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">APP_DB</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">AIVEN_BASE_URI</span><span class="p">/\/defaultdb/\/flowershop_iot</span><span class="k">}</span><span class="s2">"</span>
-<span class="nb">export </span><span class="nv">KC_DB</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">AIVEN_BASE_URI</span><span class="p">/\/defaultdb/\/keycloak</span><span class="k">}</span><span class="s2">"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create the cluster (skip if it already exists).</span>
+fly postgres create <span class="nt">--name</span> flower-shop-postgres <span class="nt">--region</span> fra <span class="nt">--vm-size</span> shared-cpu-1x <span class="nt">--initial-cluster-size</span> 1
 
-psql <span class="s2">"</span><span class="nv">$APP_DB</span><span class="s2">"</span> <span class="nt">-c</span> <span class="s2">"SELECT version();"</span>
-psql <span class="s2">"</span><span class="nv">$KC_DB</span><span class="s2">"</span>  <span class="nt">-c</span> <span class="s2">"SELECT 1;"</span>
+<span class="c"># Create the two databases (via psql over a local proxy).</span>
+fly proxy 15432:5432 <span class="nt">-a</span> flower-shop-postgres &amp;
+psql <span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD</span><span class="s2">@localhost:15432/postgres"</span> <span class="nt">-c</span> <span class="s2">"CREATE DATABASE flower_shop_backend_core;"</span>
+psql <span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD</span><span class="s2">@localhost:15432/postgres"</span> <span class="nt">-c</span> <span class="s2">"CREATE DATABASE keycloak;"</span>
 </code></pre></div></div>
 
-<p><strong>Gate 2a:</strong> both <code class="language-plaintext highlighter-rouge">psql</code> calls return without error.</p>
-
-<h3 id="2b-upstash-redis">2b. Upstash Redis</h3>
-
-<p><strong>Do:</strong> <a href="/deployment/REGISTRATION-AND-CICD/#25-upstash-redis">REGISTRATION-AND-CICD.md §2.5</a>. Copy the <code class="language-plaintext highlighter-rouge">rediss://...</code> URL.</p>
-
-<p><strong>Verify:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>redis-cli <span class="nt">--tls</span> <span class="nt">-u</span> <span class="s2">"</span><span class="nv">$UPSTASH_REDIS_URL</span><span class="s2">"</span> ping
-<span class="c"># Expected: PONG</span>
+<p><strong>Verify:</strong> reach both DBs through the Fly proxy (don’t commit any URI).</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># flyctl proxy 15432:5432 -a flower-shop-postgres  must be running in another shell</span>
+psql <span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD</span><span class="s2">@localhost:15432/flower_shop_backend_core"</span> <span class="nt">-c</span> <span class="s2">"SELECT version();"</span>
+psql <span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD</span><span class="s2">@localhost:15432/keycloak"</span>                  <span class="nt">-c</span> <span class="s2">"SELECT 1;"</span>
 </code></pre></div></div>
-<p>(If <code class="language-plaintext highlighter-rouge">redis-cli</code> isn’t installed, skip — we’ll re-verify during Stage 5 via the API <code class="language-plaintext highlighter-rouge">/health</code> which tests Redis connectivity.)</p>
 
-<h3 id="2c-cloudamqp">2c. CloudAMQP</h3>
+<p><strong>Gate 2a:</strong> both <code class="language-plaintext highlighter-rouge">psql</code> calls return without error. Note that within Fly’s private network the DB is reached at <code class="language-plaintext highlighter-rouge">flower-shop-postgres.flycast:5432</code> — that is what Keycloak and the API use (Stages 3 &amp; 5), not the local proxy.</p>
 
-<p><strong>Do:</strong> <a href="/deployment/REGISTRATION-AND-CICD/#26-cloudamqp-rabbitmq">REGISTRATION-AND-CICD.md §2.6</a>.</p>
+<h3 id="2b-redis--not-provisioned-in-prod">2b. Redis — not provisioned in prod</h3>
 
-<p><strong>Verify:</strong> open the instance’s <strong>RabbitMQ Manager</strong> link — it should load the mgmt UI. Note the <code class="language-plaintext highlighter-rouge">amqps://</code> URI.</p>
+<p>Redis is a <strong>dev-only</strong> dependency (docker-compose.dev.yml). There is no managed Redis in production. <code class="language-plaintext highlighter-rouge">RedisCacheService</code> falls back to an in-memory distributed cache when <code class="language-plaintext highlighter-rouge">ConnectionStrings:Redis</code> is unset, so no action is required here. Skip to 2c.</p>
+
+<h3 id="2c-rabbitmq--not-provisioned-in-prod">2c. RabbitMQ — not provisioned in prod</h3>
+
+<p>RabbitMQ is likewise <strong>dev-only</strong>. Prod <code class="language-plaintext highlighter-rouge">appsettings</code> sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code>, but <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub; the working event path in production is the <strong>Outbox pattern</strong>, with <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> as the effective in-process fallback. No managed broker is provisioned — skip to 2d.</p>
 
 <h3 id="2d-hivemq-cloud">2d. HiveMQ Cloud</h3>
 
-<p><strong>Do:</strong> <a href="/deployment/REGISTRATION-AND-CICD/#27-hivemq-cloud-mqtt">REGISTRATION-AND-CICD.md §2.7</a>.</p>
+<p><strong>Do:</strong> <a href="/deployment/REGISTRATION-AND-CICD/#27-hivemq-cloud-mqtt">REGISTRATION-AND-CICD.md §2.7</a>. This is the one external managed service — it replaces the dev-only Mosquitto broker.</p>
 
 <p><strong>Verify:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Any MQTT client works; mosquitto_pub shown here.</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Any MQTT client works; mosquitto_pub shown here. TLS on port 8883.</span>
 mosquitto_pub <span class="nt">-h</span> <span class="s2">"</span><span class="nv">$HIVEMQ_HOST</span><span class="s2">"</span> <span class="nt">-p</span> 8883 <span class="nt">--cafile</span> /etc/ssl/certs/ca-certificates.crt <span class="se">\</span>
   <span class="nt">-u</span> <span class="s2">"</span><span class="nv">$HIVEMQ_USER</span><span class="s2">"</span> <span class="nt">-P</span> <span class="s2">"</span><span class="nv">$HIVEMQ_PASS</span><span class="s2">"</span> <span class="nt">-t</span> <span class="s2">"test/deploy"</span> <span class="nt">-m</span> <span class="s2">"hello"</span> <span class="nt">-d</span>
 <span class="c"># Expected: "Client sent CONNECT" then "Client received CONNACK (0)"</span>
 </code></pre></div></div>
 
-<p><strong>Gate 2:</strong> all four services are reachable from your laptop with the credentials you just saved.</p>
+<p><strong>Gate 2:</strong> Postgres (both DBs) and HiveMQ are reachable with the credentials you just saved.</p>
 
 <hr />
 
@@ -936,13 +939,13 @@ mosquitto_pub <span class="nt">-h</span> <span class="s2">"</span><span class="n
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> &lt;repo root&gt;
 
 <span class="c"># 1. Launch the app (idempotent — skips create if it exists).</span>
-fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-keycloak <span class="nt">--region</span> waw <span class="nt">--yes</span>
+fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-keycloak <span class="nt">--region</span> fra <span class="nt">--yes</span>
 
-<span class="c"># 2. Set secrets.</span>
+<span class="c"># 2. Set secrets. Keycloak reaches Postgres over Fly's private network (.flycast).</span>
 fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop-keycloak <span class="se">\</span>
-  <span class="nv">KC_DB_URL</span><span class="o">=</span><span class="s2">"jdbc:postgresql://</span><span class="k">${</span><span class="nv">AIVEN_PG_HOST</span><span class="k">}</span><span class="s2">:</span><span class="k">${</span><span class="nv">AIVEN_PG_PORT</span><span class="k">}</span><span class="s2">/keycloak?sslmode=require"</span> <span class="se">\</span>
-  <span class="nv">KC_DB_USERNAME</span><span class="o">=</span><span class="s2">"</span><span class="nv">$AIVEN_PG_USER</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">KC_DB_PASSWORD</span><span class="o">=</span><span class="s2">"</span><span class="nv">$AIVEN_PG_PASSWORD</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nv">KC_DB_URL</span><span class="o">=</span><span class="s2">"jdbc:postgresql://flower-shop-postgres.flycast:5432/keycloak"</span> <span class="se">\</span>
+  <span class="nv">KC_DB_USERNAME</span><span class="o">=</span><span class="s2">"postgres"</span> <span class="se">\</span>
+  <span class="nv">KC_DB_PASSWORD</span><span class="o">=</span><span class="s2">"</span><span class="nv">$PG_PASSWORD</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">KEYCLOAK_ADMIN</span><span class="o">=</span><span class="s2">"admin"</span> <span class="se">\</span>
   <span class="nv">KEYCLOAK_ADMIN_PASSWORD</span><span class="o">=</span><span class="s2">"</span><span class="nv">$KEYCLOAK_ADMIN_PASSWORD</span><span class="s2">"</span>
 
@@ -974,11 +977,11 @@ curl <span class="nt">-fsS</span> https://flowershop-keycloak.fly.dev/health/rea
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FATAL: role "..." does not exist</code></td>
-      <td>Wrong <code class="language-plaintext highlighter-rouge">KC_DB_USERNAME</code>; check Aiven service users</td>
+      <td>Wrong <code class="language-plaintext highlighter-rouge">KC_DB_USERNAME</code>; the Fly Postgres superuser is <code class="language-plaintext highlighter-rouge">postgres</code></td>
     </tr>
     <tr>
       <td>Stuck in “starting” &gt; 3 min</td>
-      <td><code class="language-plaintext highlighter-rouge">fly logs -a flowershop-keycloak</code>; usually DB TLS issue — confirm <code class="language-plaintext highlighter-rouge">?sslmode=require</code> in <code class="language-plaintext highlighter-rouge">KC_DB_URL</code></td>
+      <td><code class="language-plaintext highlighter-rouge">fly logs -a flowershop-keycloak</code>; usually the DB isn’t reachable — confirm the <code class="language-plaintext highlighter-rouge">flower-shop-postgres.flycast:5432/keycloak</code> host in <code class="language-plaintext highlighter-rouge">KC_DB_URL</code> and that both apps share the same Fly org/private network</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">KC_HOSTNAME</code> mismatch warnings</td>
@@ -996,8 +999,8 @@ curl <span class="nt">-fsS</span> https://flowershop-keycloak.fly.dev/health/rea
 <p><strong>Do:</strong></p>
 <ol>
   <li>Browser → <code class="language-plaintext highlighter-rouge">https://flowershop-keycloak.fly.dev</code>, login as <code class="language-plaintext highlighter-rouge">admin / $KEYCLOAK_ADMIN_PASSWORD</code>.</li>
-  <li><strong>Realm</strong> dropdown → <strong>Create realm</strong> → <em>Resource file</em> → upload <code class="language-plaintext highlighter-rouge">infra/keycloak/flowershop-realm.json</code> (committed during Stage 0).</li>
-  <li>Verify the four clients exist: <code class="language-plaintext highlighter-rouge">flowershop-api</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>, <code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code>, <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code>.</li>
+  <li><strong>Realm</strong> dropdown → <strong>Create realm</strong> → <em>Resource file</em> → upload <code class="language-plaintext highlighter-rouge">docker/keycloak/flowershop-realm.json</code> (committed during Stage 0). The realm ships with a <strong>Google identity provider</strong> already configured.</li>
+  <li>Verify the <code class="language-plaintext highlighter-rouge">flowershop-api</code> and <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> clients exist. The three portals do <strong>not</strong> have their own OIDC clients — they authenticate against the <code class="language-plaintext highlighter-rouge">flowershop-api</code> client using the password (Direct Access) grant.</li>
   <li>For each <strong>confidential</strong> client (<code class="language-plaintext highlighter-rouge">flowershop-api</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>): <strong>Credentials</strong> tab → copy the secret.</li>
   <li>Store as GitHub Actions secrets and also locally for the next stage:
     <ul>
@@ -1007,8 +1010,8 @@ curl <span class="nt">-fsS</span> https://flowershop-keycloak.fly.dev/health/rea
   </li>
   <li>In each client’s <strong>Settings</strong>, update the redirect URIs to production hosts (they likely point at <code class="language-plaintext highlighter-rouge">localhost</code> in the dev export):
     <ul>
-      <li><code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> → Valid redirect URIs: <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/signin-oidc</code>, Post logout: <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code></li>
-      <li><code class="language-plaintext highlighter-rouge">flowershop-api</code> → no browser redirects needed; confirm “Direct access grants” on if you use dev tokens.</li>
+      <li><code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> → the customer app is served on <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code>, so Valid redirect URIs: <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/signin-oidc</code>, Post logout: <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code></li>
+      <li><code class="language-plaintext highlighter-rouge">flowershop-api</code> → no browser redirects needed; confirm <strong>Direct access grants</strong> is <strong>on</strong> (the portals and dev tokens depend on it).</li>
     </ul>
   </li>
 </ol>
@@ -1027,13 +1030,16 @@ curl <span class="nt">-fsS</span> https://flowershop-keycloak.fly.dev/health/rea
 
 <p><strong>Do:</strong></p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-api <span class="nt">--region</span> waw <span class="nt">--yes</span>
+<p>The API is the Fly app <strong><code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code></strong>, deployed via the repo’s <strong><code class="language-plaintext highlighter-rouge">fly.toml</code></strong> (region <code class="language-plaintext highlighter-rouge">fra</code>, 1 GB VM, always-on). Ignore the stale, unused <code class="language-plaintext highlighter-rouge">fly.api.toml</code> orphan.</p>
 
-fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop-api <span class="se">\</span>
-  <span class="nv">ConnectionStrings__DefaultConnection</span><span class="o">=</span><span class="s2">"</span><span class="nv">$APP_DB</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">ConnectionStrings__ReadConnection</span><span class="o">=</span><span class="s2">"</span><span class="nv">$APP_DB</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">ConnectionStrings__Redis</span><span class="o">=</span><span class="s2">"</span><span class="nv">$UPSTASH_REDIS_URL</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">RabbitMQ__ConnectionString</span><span class="o">=</span><span class="s2">"</span><span class="nv">$CLOUDAMQP_URL</span><span class="s2">"</span> <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flower-shop-backend-core <span class="nt">--region</span> fra <span class="nt">--yes</span>
+
+<span class="c"># Redis and RabbitMQ are NOT provisioned in prod — do not set ConnectionStrings__Redis</span>
+<span class="c"># or RabbitMQ__ConnectionString. The API's cache falls back to in-memory and the working</span>
+<span class="c"># event path is the Outbox pattern.</span>
+fly secrets <span class="nb">set</span> <span class="nt">--app</span> flower-shop-backend-core <span class="se">\</span>
+  <span class="nv">ConnectionStrings__DefaultConnection</span><span class="o">=</span><span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD</span><span class="s2">@flower-shop-postgres.flycast:5432/flower_shop_backend_core"</span> <span class="se">\</span>
+  <span class="nv">ConnectionStrings__ReadConnection</span><span class="o">=</span><span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD</span><span class="s2">@flower-shop-postgres.flycast:5432/flower_shop_backend_core"</span> <span class="se">\</span>
   <span class="nv">MQTT__BrokerHost</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HIVEMQ_HOST</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">MQTT__BrokerPort</span><span class="o">=</span><span class="s2">"8883"</span> <span class="se">\</span>
   <span class="nv">MQTT__UseTls</span><span class="o">=</span><span class="s2">"true"</span> <span class="se">\</span>
@@ -1045,26 +1051,31 @@ fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop
   <span class="nv">Authentication__Keycloak__ClientSecret</span><span class="o">=</span><span class="s2">"</span><span class="nv">$KEYCLOAK_CLIENT_SECRET_API</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">Stripe__SecretKey</span><span class="o">=</span><span class="s2">"</span><span class="nv">$STRIPE_SECRET_KEY</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nv">Stripe__WebhookSecret</span><span class="o">=</span><span class="s2">"</span><span class="nv">$STRIPE_WEBHOOK_SECRET</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nv">Cors__AllowedOrigins__0</span><span class="o">=</span><span class="s2">"https://app.findmyflowers.pl"</span> <span class="se">\</span>
+  <span class="nv">FileStorage__Provider</span><span class="o">=</span><span class="s2">"R2"</span> <span class="se">\</span>
+  <span class="nv">FileStorage__R2__AccessKeyId</span><span class="o">=</span><span class="s2">"</span><span class="nv">$R2_ACCESS_KEY_ID</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nv">FileStorage__R2__SecretAccessKey</span><span class="o">=</span><span class="s2">"</span><span class="nv">$R2_SECRET_ACCESS_KEY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nv">Cors__AllowedOrigins__0</span><span class="o">=</span><span class="s2">"https://findmyflowers.pl"</span> <span class="se">\</span>
   <span class="nv">Cors__AllowedOrigins__1</span><span class="o">=</span><span class="s2">"https://admin.findmyflowers.pl"</span> <span class="se">\</span>
-  <span class="nv">Cors__AllowedOrigins__2</span><span class="o">=</span><span class="s2">"https://vendor.findmyflowers.pl"</span>
+  <span class="nv">Cors__AllowedOrigins__2</span><span class="o">=</span><span class="s2">"https://vendors.findmyflowers.pl"</span>
 
-fly certs add api.findmyflowers.pl <span class="nt">--app</span> flowershop-api
+fly certs add api.findmyflowers.pl <span class="nt">--app</span> flower-shop-backend-core
 
-fly deploy <span class="nt">--config</span> fly.api.toml
+fly deploy <span class="nt">--config</span> fly.toml
 </code></pre></div></div>
 
-<p>The API runs <code class="language-plaintext highlighter-rouge">Database.MigrateAsync()</code> on startup (Program.cs ~line 248, 10-attempt retry). Expect the first boot to spend ~30 s creating tables on an empty Aiven DB.</p>
+<p>Photos are stored in <strong>Cloudflare R2</strong> (bucket <code class="language-plaintext highlighter-rouge">flowershop-bouquets</code>, served publicly at <code class="language-plaintext highlighter-rouge">https://img.findmyflowers.pl</code>). Only the two R2 access-key secrets need setting here; the bucket name, public URL and provider live in committed config.</p>
+
+<p>The API runs <code class="language-plaintext highlighter-rouge">Database.MigrateAsync()</code> on startup (Program.cs ~line 248, 10-attempt retry). Expect the first boot to spend ~30 s creating tables on the empty <code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code> DB.</p>
 
 <p><strong>Verify:</strong></p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Logs should show "Applied migration" entries and then "Now listening on: http://[::]:8080".</span>
-fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'Applied migration|Now listening'</span>
+fly logs <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'Applied migration|Now listening'</span>
 
 <span class="c"># Fly's built-in health check polls /health/ready every 15 s.</span>
-fly status <span class="nt">--app</span> flowershop-api | <span class="nb">grep </span>passing
+fly status <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">grep </span>passing
 
 <span class="c"># Hit /health/ready directly.</span>
-curl <span class="nt">-fsS</span> https://flowershop-api.fly.dev/health/ready | jq <span class="nb">.</span>
+curl <span class="nt">-fsS</span> https://flower-shop-backend-core.fly.dev/health/ready | jq <span class="nb">.</span>
 <span class="c"># Expected: {"status":"Healthy","results":{"...":{"status":"Healthy"},...}}</span>
 </code></pre></div></div>
 
@@ -1080,7 +1091,7 @@ curl <span class="nt">-fsS</span> https://flowershop-api.fly.dev/health/ready | 
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">"status":"Unhealthy"</code> with DB entry red</td>
-      <td>Wrong Aiven URI; check <code class="language-plaintext highlighter-rouge">?sslmode=require</code> + user/DB names</td>
+      <td>Wrong connection string; confirm the <code class="language-plaintext highlighter-rouge">flower-shop-postgres.flycast:5432/flower_shop_backend_core</code> host, user <code class="language-plaintext highlighter-rouge">postgres</code>, and <code class="language-plaintext highlighter-rouge">$PG_PASSWORD</code></td>
     </tr>
     <tr>
       <td>Keycloak JWKS fetch fails</td>
@@ -1101,7 +1112,9 @@ curl <span class="nt">-fsS</span> https://flowershop-api.fly.dev/health/ready | 
 
 <p><strong>Do:</strong></p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-customer-app <span class="nt">--region</span> waw <span class="nt">--yes</span>
+<p>The customer app is served on <strong><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></strong> (Fly app <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>, region <code class="language-plaintext highlighter-rouge">fra</code>).</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-customer-app <span class="nt">--region</span> fra <span class="nt">--yes</span>
 
 fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop-customer-app <span class="se">\</span>
   <span class="nv">Authentication__ClientId</span><span class="o">=</span><span class="s2">"flowershop-customer-app"</span> <span class="se">\</span>
@@ -1117,41 +1130,47 @@ fly deploy <span class="nt">--config</span> fly.customer-app.toml
 <span class="c"># Expected: HTTP/2 200 OR HTTP/2 302 (302 if it redirects unauthenticated users to Keycloak)</span>
 </code></pre></div></div>
 
-<p><strong>Gate 6:</strong> status code is <code class="language-plaintext highlighter-rouge">200</code> or <code class="language-plaintext highlighter-rouge">302</code>. Navigating the <code class="language-plaintext highlighter-rouge">.fly.dev</code> URL in a browser loads the homepage or redirects cleanly to <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code>.</p>
+<p><strong>Gate 6:</strong> status code is <code class="language-plaintext highlighter-rouge">200</code> or <code class="language-plaintext highlighter-rouge">302</code>. Navigating the <code class="language-plaintext highlighter-rouge">.fly.dev</code> URL in a browser loads the homepage or redirects cleanly to <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code>. Once DNS is attached (Stage 8) it’s live at <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code>.</p>
 
 <hr />
 
-<h2 id="stage-7--admin--vendor-portals-on-render">Stage 7 — Admin &amp; Vendor portals on Render</h2>
+<h2 id="stage-7--admin--vendor-portals-on-fly">Stage 7 — Admin &amp; Vendor portals on Fly</h2>
 
-<p>These are the last surfaces because they only matter once the API is serving.</p>
+<p>These are the last surfaces because they only matter once the API is serving. Both portals deploy to <strong>Fly.io</strong> (region <code class="language-plaintext highlighter-rouge">fra</code>), same as everything else — there is no Render.</p>
 
 <p><strong>Pre-reqs:</strong> §5 green.</p>
 
-<p><strong>Do:</strong> <a href="/deployment/REGISTRATION-AND-CICD/#42-render-services-dashboard-path--recommended">REGISTRATION-AND-CICD.md §4.2</a> — create both Render services via dashboard, set env vars as listed, add custom domains <code class="language-plaintext highlighter-rouge">admin.findmyflowers.pl</code> and <code class="language-plaintext highlighter-rouge">vendor.findmyflowers.pl</code>, <strong>disable Render’s auto-deploy</strong>, copy both service IDs into GitHub secrets.</p>
+<p><strong>Do:</strong> launch and deploy each portal from its committed Fly config. Fly keeps them warm via <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, so no external keep-warm cron is needed.</p>
 
-<p>Then trigger both workflows manually:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gh workflow run deploy-admin-portal.yml
-gh workflow run deploy-vendor-portal.yml
-gh run watch
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Admin portal — app flowershop-admin-portal, domain admin.findmyflowers.pl</span>
+fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-admin-portal <span class="nt">--region</span> fra <span class="nt">--yes</span>
+fly certs add admin.findmyflowers.pl <span class="nt">--app</span> flowershop-admin-portal
+flyctl deploy <span class="nt">--config</span> fly.admin-portal.toml
+
+<span class="c"># Vendor portal — app flowershop-vendor-portal, domain vendors.findmyflowers.pl (PLURAL)</span>
+fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flowershop-vendor-portal <span class="nt">--region</span> fra <span class="nt">--yes</span>
+fly certs add vendors.findmyflowers.pl <span class="nt">--app</span> flowershop-vendor-portal
+flyctl deploy <span class="nt">--config</span> fly.vendor-portal.toml
 </code></pre></div></div>
 
-<p><strong>Verify:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Render gives each service a *.onrender.com hostname. Substitute yours.</span>
-curl <span class="nt">-fsS</span> https://flowershop-admin-portal.onrender.com/health
-curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.onrender.com/health
+<p>Both portals authenticate against the <code class="language-plaintext highlighter-rouge">flowershop-api</code> Keycloak client using the password grant — they have no OIDC client of their own, so no extra Keycloak secrets are needed here.</p>
+
+<p><strong>Verify:</strong> the portal health-check path is <strong><code class="language-plaintext highlighter-rouge">/Login</code></strong> (not <code class="language-plaintext highlighter-rouge">/health</code>).</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-fsS</span> https://flowershop-admin-portal.fly.dev/Login  <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}\n'</span>
+curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.fly.dev/Login <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}\n'</span>
 </code></pre></div></div>
 
-<p><strong>Gate 7:</strong> both <code class="language-plaintext highlighter-rouge">/health</code> return 200.</p>
+<p><strong>Gate 7:</strong> both <code class="language-plaintext highlighter-rouge">/Login</code> return 200.</p>
 
 <hr />
 
 <h2 id="stage-8--attach-subdomains">Stage 8 — Attach subdomains</h2>
 
-<p>Now every backend is live on its <code class="language-plaintext highlighter-rouge">*.fly.dev</code> / <code class="language-plaintext highlighter-rouge">*.onrender.com</code> hostname — point DNS at them.</p>
+<p>Now every surface is live on its <code class="language-plaintext highlighter-rouge">*.fly.dev</code> hostname — point DNS at them. Everything is on Fly, so every record follows Fly’s DNS/TLS conventions.</p>
 
 <p><strong>Pre-reqs:</strong> §3, §5, §6, §7 green.</p>
 
-<p><strong>Do:</strong> in Cloudflare DNS, create these CNAMEs (<strong>Proxy status: DNS only</strong> — orange cloud <em>off</em>, since Fly and Render manage their own TLS):</p>
+<p><strong>Do:</strong> in Cloudflare DNS, create these records (<strong>Proxy status: DNS only</strong> — orange cloud <em>off</em>, since Fly manages its own TLS). Every record is a plain subdomain CNAME to its <code class="language-plaintext highlighter-rouge">.fly.dev</code> host, including the customer app on <code class="language-plaintext highlighter-rouge">app</code>:</p>
 
 <table>
   <thead>
@@ -1163,7 +1182,7 @@ curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.onrender.com/
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">api</code></td>
-      <td><code class="language-plaintext highlighter-rouge">flowershop-api.fly.dev</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flower-shop-backend-core.fly.dev</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">auth</code></td>
@@ -1175,25 +1194,25 @@ curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.onrender.com/
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">admin</code></td>
-      <td><code class="language-plaintext highlighter-rouge">&lt;your-admin-service&gt;.onrender.com</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flowershop-admin-portal.fly.dev</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">vendor</code></td>
-      <td><code class="language-plaintext highlighter-rouge">&lt;your-vendor-service&gt;.onrender.com</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vendors</code></td>
+      <td><code class="language-plaintext highlighter-rouge">flowershop-vendor-portal.fly.dev</code></td>
     </tr>
   </tbody>
 </table>
 
-<p>Wait for each host to issue its cert (Fly and Render both do this automatically once the CNAME exists — 1–5 min typical).</p>
+<p>Wait for each host to issue its cert (Fly does this automatically once the record exists — 1–5 min typical).</p>
 
 <p><strong>Verify:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for </span>sub <span class="k">in </span>api auth app admin vendor<span class="p">;</span> <span class="k">do
-  </span><span class="nb">echo</span> <span class="s2">"=== </span><span class="nv">$sub</span><span class="s2"> ==="</span>
-  curl <span class="nt">-sI</span> <span class="s2">"https://</span><span class="nv">$sub</span><span class="s2">.findmyflowers.pl/"</span> | <span class="nb">head</span> <span class="nt">-n</span> 1
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for </span>host <span class="k">in </span>api.findmyflowers.pl auth.findmyflowers.pl app.findmyflowers.pl admin.findmyflowers.pl vendors.findmyflowers.pl<span class="p">;</span> <span class="k">do
+  </span><span class="nb">echo</span> <span class="s2">"=== </span><span class="nv">$host</span><span class="s2"> ==="</span>
+  curl <span class="nt">-sI</span> <span class="s2">"https://</span><span class="nv">$host</span><span class="s2">/"</span> | <span class="nb">head</span> <span class="nt">-n</span> 1
 <span class="k">done</span>
 </code></pre></div></div>
 
-<p><strong>Gate 8:</strong> every subdomain returns <code class="language-plaintext highlighter-rouge">HTTP/2 200</code> or <code class="language-plaintext highlighter-rouge">HTTP/2 302</code> with a valid cert (no TLS errors).</p>
+<p><strong>Gate 8:</strong> every host returns <code class="language-plaintext highlighter-rouge">HTTP/2 200</code> or <code class="language-plaintext highlighter-rouge">HTTP/2 302</code> with a valid cert (no TLS errors).</p>
 
 <table>
   <thead>
@@ -1205,7 +1224,7 @@ curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.onrender.com/
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">SSL_ERROR_NO_CYPHER_OVERLAP</code> / cert still old</td>
-      <td>Cloudflare proxy is on — switch the CNAME to DNS-only (grey cloud)</td>
+      <td>Cloudflare proxy is on — switch the record to DNS-only (grey cloud)</td>
     </tr>
     <tr>
       <td>Fly says “awaiting certificate” &gt; 10 min</td>
@@ -1226,7 +1245,7 @@ curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.onrender.com/
   <li>URL: <code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl/api/stripe/webhook</code>.</li>
   <li>Events: <code class="language-plaintext highlighter-rouge">payment_intent.succeeded</code>, <code class="language-plaintext highlighter-rouge">payment_intent.payment_failed</code>, <code class="language-plaintext highlighter-rouge">charge.refunded</code>.</li>
   <li>Copy the signing secret → set on Fly:
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly secrets <span class="nb">set</span> <span class="nt">--app</span> flowershop-api <span class="nv">Stripe__WebhookSecret</span><span class="o">=</span><span class="s2">"</span><span class="nv">$NEW_WEBHOOK_SECRET</span><span class="s2">"</span>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly secrets <span class="nb">set</span> <span class="nt">--app</span> flower-shop-backend-core <span class="nv">Stripe__WebhookSecret</span><span class="o">=</span><span class="s2">"</span><span class="nv">$NEW_WEBHOOK_SECRET</span><span class="s2">"</span>
 <span class="c"># fly auto-rolls the app on secret change; wait for passing status</span>
 </code></pre></div>    </div>
   </li>
@@ -1235,7 +1254,7 @@ curl <span class="nt">-fsS</span> https://flowershop-vendor-portal.onrender.com/
 
 <p><strong>Verify:</strong></p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Tail API logs while the test fires. You want to see a 2xx response and NO signature errors.</span>
-fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'stripe|webhook'</span>
+fly logs <span class="nt">--app</span> flower-shop-backend-core | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s1">'stripe|webhook'</span>
 </code></pre></div></div>
 
 <p><strong>Gate 9:</strong> Stripe dashboard shows the test delivery with a <code class="language-plaintext highlighter-rouge">200</code> response.</p>
@@ -1246,16 +1265,20 @@ fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</s
 
 <p><strong>Pre-reqs:</strong> §8 green.</p>
 
-<p><strong>Do:</strong> at <a href="https://cron-job.org">cron-job.org</a> create two pings (every 10 min, HTTP GET, expect 200):</p>
+<p><strong>Do:</strong> no external keep-warm service is needed — every Fly app runs with <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>, so machines stay warm without pinging. There is no cron-job.org dependency.</p>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">https://admin.findmyflowers.pl/health</code></li>
-  <li><code class="language-plaintext highlighter-rouge">https://vendor.findmyflowers.pl/health</code></li>
-</ul>
+<p>Database backup is already automated in-repo as <strong><code class="language-plaintext highlighter-rouge">.github/workflows/db-backup.yml</code></strong> — it runs every <strong>Monday at 03:17 UTC</strong>, does a <code class="language-plaintext highlighter-rouge">pg_dump -F c</code> of <strong>both</strong> databases (<code class="language-plaintext highlighter-rouge">flower_shop_backend_core</code> and <code class="language-plaintext highlighter-rouge">keycloak</code>), and uploads the dumps to Cloudflare R2. Restores use <code class="language-plaintext highlighter-rouge">pg_restore</code> (see <a href="/deployment/ROLLBACK-AND-RECOVERY/#database-backup">ROLLBACK-AND-RECOVERY.md §”Database backup”</a>). Just confirm the workflow is present and its R2 secrets are set.</p>
 
-<p>Also add a weekly backup job — see <a href="/deployment/ROLLBACK-AND-RECOVERY/#database-backup">ROLLBACK-AND-RECOVERY.md §”Database backup”</a>.</p>
+<p><strong>Verify:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Confirm all Fly apps report min_machines_running &gt;= 1.</span>
+<span class="k">for </span>app <span class="k">in </span>flower-shop-backend-core flowershop-admin-portal flowershop-vendor-portal flowershop-customer-app<span class="p">;</span> <span class="k">do
+  </span>fly status <span class="nt">--app</span> <span class="s2">"</span><span class="nv">$app</span><span class="s2">"</span> | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'started'</span>
+<span class="k">done</span>
+<span class="c"># Confirm the backup workflow exists and has run (or run it once manually).</span>
+gh workflow view db-backup.yml
+</code></pre></div></div>
 
-<p><strong>Gate 10:</strong> two “Success” executions visible on cron-job.org within 20 min.</p>
+<p><strong>Gate 10:</strong> all apps show <code class="language-plaintext highlighter-rouge">started</code> machines and <code class="language-plaintext highlighter-rouge">gh workflow view db-backup.yml</code> resolves.</p>
 
 <hr />
 
@@ -1308,7 +1331,7 @@ fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</s
     <tr>
       <td>3 Keycloak</td>
       <td>10 min</td>
-      <td>Aiven must be up</td>
+      <td>Fly Postgres must be up</td>
     </tr>
     <tr>
       <td>4 Realm</td>
@@ -1328,7 +1351,7 @@ fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</s
     <tr>
       <td>7 Portals</td>
       <td>10 min</td>
-      <td>Render dashboard steps</td>
+      <td>Fly deploy of both portals</td>
     </tr>
     <tr>
       <td>8 DNS attach</td>
@@ -1362,12 +1385,14 @@ fly logs <span class="nt">--app</span> flowershop-api | <span class="nb">grep</s
 <p>Useful when re-opening the runbook on day two:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s2">"== Fly =="</span>
-fly status <span class="nt">--app</span> flowershop-api        | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
-fly status <span class="nt">--app</span> flowershop-keycloak   | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
-fly status <span class="nt">--app</span> flowershop-customer-app | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
+fly status <span class="nt">--app</span> flower-shop-backend-core  | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
+fly status <span class="nt">--app</span> flowershop-keycloak       | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
+fly status <span class="nt">--app</span> flowershop-customer-app   | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
+fly status <span class="nt">--app</span> flowershop-admin-portal   | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
+fly status <span class="nt">--app</span> flowershop-vendor-portal  | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'passing|failing'</span>
 <span class="nb">echo</span> <span class="s2">"== HTTP =="</span>
-<span class="k">for </span>h <span class="k">in </span>api auth app admin vendor<span class="p">;</span> <span class="k">do
-  </span><span class="nb">printf</span> <span class="s2">"%-10s %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$h</span><span class="s2">"</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}'</span> https://<span class="nv">$h</span>.findmyflowers.pl/<span class="si">)</span><span class="s2">"</span>
+<span class="k">for </span>h <span class="k">in </span>api.findmyflowers.pl auth.findmyflowers.pl app.findmyflowers.pl admin.findmyflowers.pl vendors.findmyflowers.pl<span class="p">;</span> <span class="k">do
+  </span><span class="nb">printf</span> <span class="s2">"%-30s %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$h</span><span class="s2">"</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-s</span> <span class="nt">-o</span> /dev/null <span class="nt">-w</span> <span class="s1">'%{http_code}'</span> https://<span class="nv">$h</span>/<span class="si">)</span><span class="s2">"</span>
 <span class="k">done</span>
 </code></pre></div></div>
 

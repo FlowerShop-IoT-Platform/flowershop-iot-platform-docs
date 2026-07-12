@@ -761,7 +761,15 @@
 
 <blockquote>
   <p>Companion to EPICS.md (Option C — Mobile API, EP-01 through EP-09).
-Epics are numbered EP-10 through EP-15 to avoid collision.</p>
+Epics are numbered EP-10 through EP-18 to avoid collision.</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Status (2026-07-12):</strong> Largely shipped. The analytics <code class="language-plaintext highlighter-rouge">VendorId.New()</code> bug is fixed (EP-10),
+all three portals are built and deployed to Fly.io, IoT uses real R2 photo upload + MQTT/TLS
+(HiveMQ, EP-15), and EP-16/17/18 (E2E, payment resilience, card checkout) are complete. The
+per-task <code class="language-plaintext highlighter-rouge">state</code> fields in some <code class="language-plaintext highlighter-rouge">tasks-ep1X-*.json</code> files lag the code — <strong>treat the codebase as
+ground truth</strong> for what is done.</p>
 </blockquote>
 
 <hr />

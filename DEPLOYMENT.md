@@ -4,11 +4,11 @@
 
 | Resource | Value |
 |---|---|
-| API URL | https://flower-shop-backend-core.fly.dev |
+| API URL | https://api.findmyflowers.pl (also https://flower-shop-backend-core.fly.dev) |
 | Fly app name | `flower-shop-backend-core` |
 | Fly Postgres app | `flower-shop-postgres` |
-| Region | `iad` (Virginia) — target `fra` (Frankfurt) on next machine resize |
-| Deployed from | `main` branch via GitHub integration |
+| Region | `fra` (Frankfurt) |
+| Deployed from | `main` branch via `.github/workflows/deploy-api.yml` (`flyctl deploy --config fly.toml`) |
 
 ---
 
@@ -18,12 +18,12 @@
 
 | Setting | Value |
 |---|---|
-| VM size | shared-1x-cpu @ 1 GB RAM (256 MB until next redeploy — see note) |
-| Machines | 2 |
-| Auto-stop | Yes (scales to zero when idle, wakes on first request) |
+| VM size | shared-1x-cpu @ 1 GB RAM |
+| Machines | Always-on (`auto_stop_machines = false`, `min_machines_running = 1`) |
 | HTTPS | Enforced (`force_https = true`) |
+| Config | `fly.toml` |
 
-> **Note:** The machines were provisioned before the `fly.toml` memory fix (PR #8) was merged. They will pick up `memory = '1gb'` on the next triggered redeploy.
+> **Note:** `fly.api.toml` (app `flowershop-api`, region `waw`) is a stale, unused orphan config left over from an earlier plan. The live API deploys from `fly.toml` (app `flower-shop-backend-core`, region `fra`).
 
 ### PostgreSQL
 
@@ -78,7 +78,9 @@ Managed via `flyctl secrets` — never committed to the repo.
 | `ConnectionStrings__DefaultConnection` | Npgsql connection string for EF Core |
 | `ConnectionStrings__ReadConnection` | Read replica (same as primary for now) |
 | `JWT__SecretKey` | JWT signing key — randomly generated 64-char hex string |
-| `Authentication__UseKeycloak` | `false` — Keycloak stubbed out, dev-token auth active |
+| `Authentication__UseKeycloak` | `true` — real Keycloak auth live at `auth.findmyflowers.pl` |
+| `Stripe__SecretKey` / `Stripe__WebhookSecret` | Stripe payments (wired) |
+| `FileStorage__R2__AccessKeyId` / `FileStorage__R2__SecretAccessKey` | Cloudflare R2 photo storage |
 
 To view which secrets are set (values are never shown):
 ```powershell
@@ -113,14 +115,16 @@ flyctl logs --app flower-shop-backend-core
 
 ---
 
-## Services Not Yet Deployed
+## Companion Services
 
 | Service | Status | Notes |
 |---|---|---|
-| MQTT broker | Not deployed | App retries in background, non-fatal |
-| Redis | Not deployed | Falls back to in-memory cache |
-| RabbitMQ | Not deployed | Using `InMemoryEventBus` |
-| Keycloak | Not deployed | `Authentication__UseKeycloak=false` — dev-token auth active |
-| Admin Portal | Not deployed | Separate app needed (EP-11) |
-| Vendor Portal | Not deployed | Separate app needed (EP-12) |
-| Customer App | Not deployed | Separate app needed (EP-13) |
+| Keycloak | ✅ Deployed | Fly app `flowershop-keycloak` at `auth.findmyflowers.pl`; `Authentication__UseKeycloak=true` |
+| MQTT broker | ✅ Deployed | HiveMQ Cloud, TLS port 8883 (replaces dev-only Mosquitto) |
+| Admin Portal | ✅ Deployed | Fly app `flowershop-admin-portal` at `admin.findmyflowers.pl` (`fly.admin-portal.toml`) |
+| Vendor Portal | ✅ Deployed | Fly app `flowershop-vendor-portal` at `vendors.findmyflowers.pl` (`fly.vendor-portal.toml`) |
+| Customer App | ✅ Deployed | Fly app `flowershop-customer-app` at `app.findmyflowers.pl` (`fly.customer-app.toml`) |
+| Cloudflare R2 | ✅ Wired | Bouquet photos, bucket `flowershop-bouquets`, served from `img.findmyflowers.pl` |
+| Stripe | ✅ Wired | `Stripe__SecretKey` / `Stripe__WebhookSecret` via Fly secrets |
+| Redis | Not provisioned in prod | Falls back to in-memory distributed cache (dev-only in `docker-compose.dev.yml`) |
+| RabbitMQ | Not provisioned in prod | Using `InMemoryEventBus` (dev-only in `docker-compose.dev.yml`) |

@@ -766,11 +766,11 @@
 ordered, executable checklist. Do the phases in order — each depends on the previous.</p>
 </blockquote>
 
-<p><strong>Last updated:</strong> 2026-07-06</p>
+<p><strong>Last updated:</strong> 2026-07-12 (go-live complete)</p>
 
 <hr />
 
-<h2 id="current-state-verified-2026-07-06">Current state (verified 2026-07-06)</h2>
+<h2 id="current-state-all-phases-done">Current state (all phases DONE)</h2>
 
 <table>
   <thead>
@@ -782,11 +782,11 @@ ordered, executable checklist. Do the phases in order — each depends on the pr
   <tbody>
     <tr>
       <td>API <code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code></td>
-      <td>✅ Deployed on Fly (region <code class="language-plaintext highlighter-rouge">iad</code>), healthy at <code class="language-plaintext highlighter-rouge">flower-shop-backend-core.fly.dev</code>. Running <code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak=false</code> (dev-auth mode).</td>
+      <td>✅ Deployed on Fly (region <code class="language-plaintext highlighter-rouge">fra</code>), live at <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl</code>. Running <code class="language-plaintext highlighter-rouge">Authentication__UseKeycloak=true</code> (real auth).</td>
     </tr>
     <tr>
       <td>Postgres <code class="language-plaintext highlighter-rouge">flower-shop-postgres</code></td>
-      <td>✅ Deployed on Fly (chosen over Aiven from the spec)</td>
+      <td>✅ Deployed on Fly, PostgreSQL 17 (chosen over Aiven from the spec)</td>
     </tr>
     <tr>
       <td>R2 photo storage + <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code></td>
@@ -798,19 +798,19 @@ ordered, executable checklist. Do the phases in order — each depends on the pr
     </tr>
     <tr>
       <td>Keycloak</td>
-      <td>❌ Not deployed (<code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code> → 000)</td>
+      <td>✅ Deployed as Fly app <code class="language-plaintext highlighter-rouge">flowershop-keycloak</code> at <code class="language-plaintext highlighter-rouge">auth.findmyflowers.pl</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">api.findmyflowers.pl</code> custom domain</td>
-      <td>❌ Not set (API only on <code class="language-plaintext highlighter-rouge">.fly.dev</code>)</td>
+      <td>✅ Live</td>
     </tr>
     <tr>
       <td>AdminPortal / VendorPortal / CustomerApp</td>
-      <td>❌ Not deployed (<code class="language-plaintext highlighter-rouge">admin</code>/<code class="language-plaintext highlighter-rouge">vendor</code>/<code class="language-plaintext highlighter-rouge">app</code> → 000)</td>
+      <td>✅ Deployed on Fly at <code class="language-plaintext highlighter-rouge">admin.</code> / <code class="language-plaintext highlighter-rouge">vendors.</code> (plural) / <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></td>
     </tr>
     <tr>
       <td>Stripe / MQTT prod config</td>
-      <td>❌ Background services erroring each poll</td>
+      <td>✅ Stripe wired; MQTT on HiveMQ Cloud (TLS 8883)</td>
     </tr>
   </tbody>
 </table>
@@ -819,6 +819,11 @@ ordered, executable checklist. Do the phases in order — each depends on the pr
 <code class="language-plaintext highlighter-rouge">flowershop-api</code>, <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>, <code class="language-plaintext highlighter-rouge">ESP32-40C86C</code>; Google IdP <code class="language-plaintext highlighter-rouge">google</code>.
 There is <strong>no</strong> dedicated admin/vendor client — both portals authenticate through
 the <code class="language-plaintext highlighter-rouge">flowershop-api</code> client via password grant.</p>
+
+<blockquote>
+  <p>This runbook is preserved as the go-live record. The phases below describe what was
+done, in order; they are all complete.</p>
+</blockquote>
 
 <hr />
 
@@ -927,16 +932,18 @@ protected endpoint.</li>
 
 <hr />
 
-<h2 id="phase-4--deploy-the-three-portals-to-render">Phase 4 — Deploy the three portals to Render</h2>
+<h2 id="phase-4--deploy-the-three-portals-to-fly">Phase 4 — Deploy the three portals to Fly</h2>
 
-<p>Each has a Dockerfile (<code class="language-plaintext highlighter-rouge">src/portals/&lt;Portal&gt;/Dockerfile</code>, EXPOSE 8080). Repeat per portal.
-Ref: <code class="language-plaintext highlighter-rouge">DEPLOYMENT-SPEC.md</code> §”Render — each portal”.</p>
+<p>Each has a Dockerfile (<code class="language-plaintext highlighter-rouge">src/portals/&lt;Portal&gt;/Dockerfile</code>, EXPOSE 8080) and a committed Fly config
+(<code class="language-plaintext highlighter-rouge">fly.admin-portal.toml</code>, <code class="language-plaintext highlighter-rouge">fly.vendor-portal.toml</code>, <code class="language-plaintext highlighter-rouge">fly.customer-app.toml</code>, all region <code class="language-plaintext highlighter-rouge">fra</code>,
+<code class="language-plaintext highlighter-rouge">min_machines_running=1</code>). Repeat per portal.
+Ref: <code class="language-plaintext highlighter-rouge">DEPLOYMENT-SPEC.md</code> §”Fly — each portal”.</p>
 
 <p>For <strong>each</strong> of AdminPortal / VendorPortal / CustomerApp:</p>
 <ol>
-  <li>Render → <strong>New Web Service</strong> → connect this repo → <strong>Docker</strong> runtime → set the Dockerfile path
-to the portal’s Dockerfile (root context, so it can COPY the shared projects).</li>
-  <li>Env vars (common):
+  <li><code class="language-plaintext highlighter-rouge">fly apps create &lt;app&gt;</code> (<code class="language-plaintext highlighter-rouge">flowershop-admin-portal</code> / <code class="language-plaintext highlighter-rouge">flowershop-vendor-portal</code> / <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code>),
+then <code class="language-plaintext highlighter-rouge">flyctl deploy --config fly.&lt;portal&gt;.toml</code> (GHA <code class="language-plaintext highlighter-rouge">deploy-&lt;portal&gt;.yml</code> does this on push).</li>
+  <li>Secrets/env (common):
     <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ASPNETCORE_URLS=http://+:8080
 ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
 ApiSettings__BaseUrl=https://api.findmyflowers.pl
@@ -951,11 +958,11 @@ Authentication__ClientSecret=&lt;secret&gt;
 Authentication__PostLoginRedirectUri=https://app.findmyflowers.pl/
 </code></pre></div>    </div>
   </li>
-  <li>Add the custom domain in Render (<code class="language-plaintext highlighter-rouge">admin</code> / <code class="language-plaintext highlighter-rouge">vendor</code> / <code class="language-plaintext highlighter-rouge">app</code>.findmyflowers.pl) → Render gives a
-<code class="language-plaintext highlighter-rouge">CNAME</code> target → add it in <strong>Cloudflare DNS</strong>, proxy <strong>OFF</strong> (grey) so Render’s TLS works.</li>
+  <li><code class="language-plaintext highlighter-rouge">fly certs add &lt;host&gt; -a &lt;app&gt;</code> for <code class="language-plaintext highlighter-rouge">admin.</code> / <code class="language-plaintext highlighter-rouge">vendors.</code> (plural) / <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> → add
+the matching record in <strong>Cloudflare DNS</strong>, proxy <strong>OFF</strong> (grey) so Fly’s TLS works.</li>
   <li><strong>CustomerApp:</strong> register <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/signin-oidc</code> as a valid redirect URI on
 the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> client in Keycloak (and post-logout <code class="language-plaintext highlighter-rouge">.../signout-callback-oidc</code>).</li>
-  <li>Keep-warm: add a cron-job.org ping every 10 min on CustomerApp + API (Render free sleeps at 15 min).</li>
+  <li>No keep-warm cron needed — <code class="language-plaintext highlighter-rouge">min_machines_running=1</code> keeps every Fly app awake.</li>
 </ol>
 
 <hr />
@@ -965,9 +972,9 @@ the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</
 <ol>
   <li>In <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code> set:
     <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">"Cors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"AllowedOrigins"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-  </span><span class="s2">"https://app.findmyflowers.pl"</span><span class="p">,</span><span class="w">
+  </span><span class="s2">"https://findmyflowers.pl"</span><span class="p">,</span><span class="w">
   </span><span class="s2">"https://admin.findmyflowers.pl"</span><span class="p">,</span><span class="w">
-  </span><span class="s2">"https://vendor.findmyflowers.pl"</span><span class="w">
+  </span><span class="s2">"https://vendors.findmyflowers.pl"</span><span class="w">
 </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">
 </span></code></pre></div>    </div>
     <p>(The API reads this into <code class="language-plaintext highlighter-rouge">FlowerShopPolicy</code>; a non-empty list without <code class="language-plaintext highlighter-rouge">*</code> switches it from
@@ -996,8 +1003,8 @@ the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" /><code class="language-plaintext highlighter-rouge">https://auth.findmyflowers.pl/realms/flowershop</code> → 200</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" /><code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl/health</code> → 200; <code class="language-plaintext highlighter-rouge">dev-token</code> → 404</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Admin portal login (platformadmin) → dashboard loads, data via <code class="language-plaintext highlighter-rouge">api.findmyflowers.pl</code></li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Vendor portal login → bouquet upload → <code class="language-plaintext highlighter-rouge">photoUrl</code> is <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl/...</code> and image loads</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Customer app → “Sign in with Google” → returns to <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> logged in → map loads</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Vendor portal (<code class="language-plaintext highlighter-rouge">vendors.findmyflowers.pl</code>) login → bouquet upload → <code class="language-plaintext highlighter-rouge">photoUrl</code> is <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl/...</code> and image loads</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Customer app (<code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code>) → “Sign in with Google” → returns to <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> logged in → map loads</li>
   <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />No CORS errors in browser console on any portal</li>
 </ul>
 
@@ -1005,9 +1012,9 @@ the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</
 
 <h2 id="known-risks-from-deployment-specmd-still-apply">Known risks (from DEPLOYMENT-SPEC.md, still apply)</h2>
 
-<p>Fly free-VM eviction · Render cold-start chain (~90 s first login) · CloudAMQP 20-conn cap ·
-HiveMQ 100-device cap · Aiven/Fly PG has no auto-backups (weekly <code class="language-plaintext highlighter-rouge">pg_dump</code> → R2) ·
-Keycloak realm drift dev↔prod (commit the realm export; the showcase imports it).</p>
+<p>Fly VM eviction (mitigated by <code class="language-plaintext highlighter-rouge">min_machines_running=1</code>) · HiveMQ 100-device cap ·
+Fly PG backups handled by <code class="language-plaintext highlighter-rouge">.github/workflows/db-backup.yml</code> (weekly <code class="language-plaintext highlighter-rouge">pg_dump -F c</code> of both DBs → R2) ·
+Keycloak realm drift dev↔prod (realm export committed at <code class="language-plaintext highlighter-rouge">docker/keycloak/flowershop-realm.json</code>; the showcase imports it).</p>
 
     </div>
   </main>

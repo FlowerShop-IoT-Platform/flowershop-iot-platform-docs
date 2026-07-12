@@ -811,20 +811,10 @@
       <td><strong>Publish</strong></td>
       <td>1</td>
       <td>false</td>
-      <td><code class="language-plaintext highlighter-rouge">{ "command": string, "timestamp": long, "correlation_id"?: string }</code></td>
+      <td>See command payload variants below</td>
       <td>This repo</td>
       <td>Active</td>
-      <td><code class="language-plaintext highlighter-rouge">Infrastructure/Services/MqttService.cs</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">smartvase/{vendorId}/{deviceId}/display</code></td>
-      <td><strong>Publish</strong></td>
-      <td>1</td>
-      <td>false</td>
-      <td><code class="language-plaintext highlighter-rouge">{ "command": "updateDisplay", "timestamp": long, "payload": { "status": string, "price": decimal, "currency": string, "bouquetId": string, "qrCode": string, "message": string } }</code></td>
-      <td>This repo</td>
-      <td>Active</td>
-      <td><code class="language-plaintext highlighter-rouge">Infrastructure/Services/MqttService.cs</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Infrastructure/Services/MqttService.cs</code>, <code class="language-plaintext highlighter-rouge">Application/EventHandlers/OrderPaidVaseNotificationHandler.cs</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">smartvase/{vendorId}/{deviceId}/wifi</code></td>
@@ -883,6 +873,51 @@
 <strong><code class="language-plaintext highlighter-rouge">theme</code> enum values</strong>: <code class="language-plaintext highlighter-rouge">default</code>, <code class="language-plaintext highlighter-rouge">elegant</code>, <code class="language-plaintext highlighter-rouge">modern</code>, <code class="language-plaintext highlighter-rouge">rustic</code>
 <strong><code class="language-plaintext highlighter-rouge">type</code> (alert) enum values</strong>: <code class="language-plaintext highlighter-rouge">low_battery</code>, <code class="language-plaintext highlighter-rouge">connection_issue</code>, <code class="language-plaintext highlighter-rouge">sensor_malfunction</code>, <code class="language-plaintext highlighter-rouge">maintenance_required</code>
 <strong><code class="language-plaintext highlighter-rouge">severity</code> enum values</strong>: <code class="language-plaintext highlighter-rouge">low</code>, <code class="language-plaintext highlighter-rouge">medium</code>, <code class="language-plaintext highlighter-rouge">high</code>, <code class="language-plaintext highlighter-rouge">critical</code></p>
+
+<h4 id="smartvasevendoriddeviceidcommands-payload-variants"><code class="language-plaintext highlighter-rouge">smartvase/{vendorId}/{deviceId}/commands</code> payload variants</h4>
+
+<p>All command payloads share <code class="language-plaintext highlighter-rouge">command</code> (string) and <code class="language-plaintext highlighter-rouge">timestamp</code> (long). There is <strong>no separate <code class="language-plaintext highlighter-rouge">/display</code> topic</strong> — display updates ride the <code class="language-plaintext highlighter-rouge">commands</code> topic.</p>
+
+<blockquote>
+  <p>⚠️ <strong>Timestamp units differ:</strong> the <strong>display</strong> command (<code class="language-plaintext highlighter-rouge">SendVaseDisplayCommandAsync</code>) uses <code class="language-plaintext highlighter-rouge">timestamp</code> in <strong>seconds</strong> (<code class="language-plaintext highlighter-rouge">ToUnixTimeSeconds</code>); all <strong>generic</strong> commands (<code class="language-plaintext highlighter-rouge">SendVaseCommandAsync</code>, e.g. <code class="language-plaintext highlighter-rouge">prepare_delivery</code>) use <code class="language-plaintext highlighter-rouge">timestamp</code> in <strong>milliseconds</strong> (<code class="language-plaintext highlighter-rouge">ToUnixTimeMilliseconds</code>).</p>
+</blockquote>
+
+<p><strong>1. Display update</strong> (<code class="language-plaintext highlighter-rouge">command: "updateDisplay"</code>) — nested <code class="language-plaintext highlighter-rouge">payload</code> object, timestamp in <strong>seconds</strong>:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"updateDisplay"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="mi">1712745600</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"payload"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AVAILABLE"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"price"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"qrCode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://app.findmyflowers.pl/Bouquets/Details/{bouquetId}?addToCart=true&amp;vaseId={deviceId}"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>2. Generic command</strong> (flat payload; optional <code class="language-plaintext highlighter-rouge">correlation_id</code>; params merged at top level; timestamp in <strong>milliseconds</strong>):</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w"> </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"restart|ping|configure|..."</span><span class="p">,</span><span class="w"> </span><span class="nl">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="mi">1712745600000</span><span class="p">,</span><span class="w"> </span><span class="nl">"correlation_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>3. Order-driven <code class="language-plaintext highlighter-rouge">prepare_delivery</code></strong> (from <code class="language-plaintext highlighter-rouge">OrderPaidVaseNotificationHandler</code> on <code class="language-plaintext highlighter-rouge">OrderPaidEvent</code>; flat params, timestamp in <strong>milliseconds</strong>):</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"prepare_delivery"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="mi">1712745600000</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"display_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"delivery"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"delivery_qr"</span><span class="p">:</span><span class="w"> </span><span class="s2">"geo:&lt;lat&gt;,&lt;lon&gt;?q=&lt;url-encoded-address&gt;"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"delivery_status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PREPARING"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"delivery_address"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;street&gt;, &lt;postalCode&gt; &lt;city&gt;"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"order_info"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ORDER #A1B2C3D4"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"customer_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;customerId&gt;"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">display_mode</code> / <code class="language-plaintext highlighter-rouge">delivery_qr</code> / <code class="language-plaintext highlighter-rouge">delivery_status</code> / <code class="language-plaintext highlighter-rouge">delivery_address</code> are present only for delivery orders that have a generated delivery QR code; <code class="language-plaintext highlighter-rouge">order_info</code> and <code class="language-plaintext highlighter-rouge">customer_id</code> are always present.</p>
 
 <h3 id="1b-device--backend-subscribe">1b. Device → Backend (Subscribe)</h3>
 
@@ -1006,7 +1041,7 @@
 
 <h2 id="2-rest-api-endpoints">2. REST API Endpoints</h2>
 
-<p><strong>Base URL</strong>: <code class="language-plaintext highlighter-rouge">http://localhost:8080</code> (dev) — <code class="language-plaintext highlighter-rouge">https://api.flowershop.io</code> (prod)
+<p><strong>Base URL</strong>: <code class="language-plaintext highlighter-rouge">http://localhost:8080</code> (dev) — <code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl</code> (prod)
 <strong>API version prefix</strong>: <code class="language-plaintext highlighter-rouge">/api/v1/</code>
 <strong>Counterpart repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-mobile</code> (mobile app), portals (served from this repo), firmware heartbeat endpoint</p>
 
@@ -1044,16 +1079,48 @@
       <td>POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor-accounts/register-with-admin</code></td>
       <td>None</td>
-      <td><code class="language-plaintext highlighter-rouge">{ vendorType, businessName, description?, contactEmail, contactPhone?, latitude, longitude, fullAddress?, adminUsername, adminPassword }</code></td>
-      <td><code class="language-plaintext highlighter-rouge">{ vendorId, vendorType, adminUsername, token, expiresIn }</code></td>
-      <td>Admin Portal</td>
+      <td><code class="language-plaintext highlighter-rouge">{ vendorType, businessName, description?, contactEmail, contactPhone?, latitude, longitude, fullAddress?, adminUsername, adminPassword, onlineAddress?, billingAddress?{street,city,postalCode,country}, acceptedTerms?, termsVersion? }</code> (EP-19 billing/T&amp;C fields)</td>
+      <td><code class="language-plaintext highlighter-rouge">{ vendorId, vendorType, adminUsername, stripeCustomerId?, token, expiresIn }</code></td>
+      <td>Admin Portal, Vendor Portal sign-up</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor-accounts/setup-intent</code></td>
+      <td>None</td>
+      <td><code class="language-plaintext highlighter-rouge">{ vendorId }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ clientSecret }</code> (Stripe SetupIntent — EP-19; 404 if vendor unknown, 400 if no Stripe customer)</td>
+      <td>Vendor Portal sign-up wizard</td>
     </tr>
     <tr>
       <td>POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/customers/register</code></td>
       <td>None</td>
-      <td><code class="language-plaintext highlighter-rouge">{ username, email, password, customerName, preferredVendorType? }</code></td>
-      <td><code class="language-plaintext highlighter-rouge">{ token, tokenType, expiresIn, username }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ username, email, password, customerName, preferredVendorType?, phoneNumber? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AuthResponse</code> <code class="language-plaintext highlighter-rouge">{ token, tokenType, expiresIn, username }</code> 201</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/auth/password-reset/request</code></td>
+      <td>None</td>
+      <td><code class="language-plaintext highlighter-rouge">{ email }</code></td>
+      <td>202 (always; reset completes on Keycloak hosted page — no <code class="language-plaintext highlighter-rouge">/confirm</code> endpoint)</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/auth/resend-verification</code></td>
+      <td>Bearer (any authenticated)</td>
+      <td>—</td>
+      <td>202 queued / 204 already-verified / 429 (rate-limit <code class="language-plaintext highlighter-rouge">auth-email</code>)</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/auth/logout</code></td>
+      <td>Bearer (any authenticated)</td>
+      <td>—</td>
+      <td>204 (jti blacklisted until expiry) / 400 no-jti</td>
       <td>Mobile App</td>
     </tr>
     <tr>
@@ -1237,7 +1304,28 @@
       <td>POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/orders/{id}/cancel</code></td>
       <td><code class="language-plaintext highlighter-rouge">{ reason }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CancelOrderResponseDto</code> (200)</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/orders/{id}/confirm-delivery</code></td>
+      <td>—</td>
       <td>204</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/orders/{orderId}/lines/{bouquetId}/feedback</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ rating, comment?, isAnonymous }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ id }</code> 201</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/orders/me/pending-feedback</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">IReadOnlyList&lt;PendingFeedbackDto&gt;</code></td>
       <td>Mobile App</td>
     </tr>
     <tr>
@@ -1371,6 +1459,20 @@
       <td><code class="language-plaintext highlighter-rouge">/api/v1/profile/notification-settings</code></td>
       <td><code class="language-plaintext highlighter-rouge">{ pushEnabled, emailEnabled, subscriptionDigestEnabled }</code></td>
       <td>204</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/profile/phone/send-code</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ phoneNumber }</code></td>
+      <td>202 (400 <code class="language-plaintext highlighter-rouge">invalid-phone-format</code>, 502 <code class="language-plaintext highlighter-rouge">sms-send-failed</code>)</td>
+      <td>Mobile App</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/profile/phone/verify-code</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ code }</code></td>
+      <td>204 (400 invalid/expired)</td>
       <td>Mobile App</td>
     </tr>
     <tr>
@@ -1563,6 +1665,20 @@
       <td>Query: <code class="language-plaintext highlighter-rouge">pageNumber, pageSize</code></td>
       <td><code class="language-plaintext highlighter-rouge">PagedResult&lt;EmployeeActivityDto&gt;</code></td>
       <td>Vendor Portal</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/payments</code></td>
+      <td>Query: <code class="language-plaintext highlighter-rouge">filter?, page, pageSize</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorPaymentListResult</code> (EP-18) — tenant-scoped, no Stripe-internal ids</td>
+      <td>Vendor Portal (payments dashboard)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/payments/metrics</code></td>
+      <td>Query: <code class="language-plaintext highlighter-rouge">fromDate?, toDate?</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorPaymentMetricsDto</code> (EP-18)</td>
+      <td>Vendor Portal (payments dashboard)</td>
     </tr>
     <tr>
       <td>GET</td>
@@ -1817,6 +1933,20 @@
       <td>Customer portal subscription</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">JoinCustomersGroup</code></td>
+      <td>No</td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">customers</code></td>
+      <td>Anonymous web-map subscription; on join server also pushes current offline-vase <code class="language-plaintext highlighter-rouge">BouquetBecameUnavailable</code> state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">LeaveCustomersGroup</code></td>
+      <td>No</td>
+      <td>—</td>
+      <td>—</td>
+      <td>Leave the flat customers group</td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">StartViewingBouquet</code></td>
       <td>No</td>
       <td><code class="language-plaintext highlighter-rouge">bouquetId: string</code></td>
@@ -1848,7 +1978,7 @@
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code></td>
-      <td><code class="language-plaintext highlighter-rouge">customers</code> (all), radius groups</td>
+      <td><code class="language-plaintext highlighter-rouge">customers</code> (all)</td>
       <td><code class="language-plaintext highlighter-rouge">{ bouquetId, vendorId, vendorType, status, price, currency, imageUrl, timestamp }</code></td>
       <td>Active</td>
       <td>Bouquet created/released from cart</td>
@@ -1904,10 +2034,10 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FreshnessUpdated</code></td>
-      <td>radius groups</td>
+      <td><code class="language-plaintext highlighter-rouge">customers</code>, <code class="language-plaintext highlighter-rouge">vendor-{vendorId}</code></td>
       <td><code class="language-plaintext highlighter-rouge">{ bouquetId, freshnessScore, freshnessLabel, timestamp }</code></td>
-      <td><strong>Defined, NOT yet triggered</strong></td>
-      <td>MQTT sensor data → freshness calc</td>
+      <td>Active</td>
+      <td>MQTT sensor data → freshness calc (<code class="language-plaintext highlighter-rouge">RealTimeNotificationService.NotifyFreshnessUpdate</code>)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">DeliveryLocationUpdated</code></td>
@@ -2386,6 +2516,19 @@
 <blockquote>
   <p><strong>External repos must configure the same realm name, client ID, and custom claim mappers</strong> (<code class="language-plaintext highlighter-rouge">vendor_id</code>, <code class="language-plaintext highlighter-rouge">vendor_type</code>, <code class="language-plaintext highlighter-rouge">customer_id</code>) in Keycloak.</p>
 </blockquote>
+
+<h3 id="5d-google-sso--just-in-time-customer-provisioning">5d. Google SSO / Just-In-Time Customer Provisioning</h3>
+
+<p>Customers may sign in with Google (configured as an Identity Provider in the <code class="language-plaintext highlighter-rouge">flowershop</code> realm; committed export <code class="language-plaintext highlighter-rouge">docker/keycloak/flowershop-realm.json</code>). On a first Google login the Keycloak user exists but the platform DB does not, and the token carries <strong>no <code class="language-plaintext highlighter-rouge">customer_id</code> claim</strong>. <code class="language-plaintext highlighter-rouge">TenantResolutionMiddleware</code> detects this case (token has <code class="language-plaintext highlighter-rouge">email</code>, no <code class="language-plaintext highlighter-rouge">vendor_id</code>, no existing <code class="language-plaintext highlighter-rouge">customer_id</code>, not an admin) and calls <code class="language-plaintext highlighter-rouge">CustomerProvisioningService.EnsureCustomerProvisionedAsync</code>, which:</p>
+
+<ol>
+  <li>Reads <code class="language-plaintext highlighter-rouge">email</code>, <code class="language-plaintext highlighter-rouge">given_name</code>, <code class="language-plaintext highlighter-rouge">family_name</code> from the validated token.</li>
+  <li>Creates a local <code class="language-plaintext highlighter-rouge">Customer</code> + <code class="language-plaintext highlighter-rouge">User</code> (idempotently — reuses an existing user matched by Keycloak id or email).</li>
+  <li>Writes <code class="language-plaintext highlighter-rouge">customer_id</code> back to Keycloak via <code class="language-plaintext highlighter-rouge">KeycloakAdminClient.SetUserAttributesAsync</code>, and assigns the <code class="language-plaintext highlighter-rouge">User</code> realm role — so subsequent tokens carry the claim natively.</li>
+  <li><strong>Injects the <code class="language-plaintext highlighter-rouge">customer_id</code> claim into the current request principal</strong>, so the very first request is authorized without requiring a re-login.</li>
+</ol>
+
+<p>Consequently: <code class="language-plaintext highlighter-rouge">customer_id</code> may be <strong>absent on the first Google token</strong> and is populated mid-request; Google emails are treated as verified (no separate email-verification step); a Google login auto-links to any existing account with the same verified email.</p>
 
 <hr />
 
@@ -2972,11 +3115,6 @@
       <td><code class="language-plaintext highlighter-rouge">IStripeService</code> not wired — <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code> never calls Stripe</td>
       <td>High</td>
       <td>EP-04</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">FreshnessUpdated</code> SignalR event defined but never triggered</td>
-      <td>Medium</td>
-      <td>EP-08</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">DeliveryLocationUpdated</code> SignalR event in API contract but not implemented</td>

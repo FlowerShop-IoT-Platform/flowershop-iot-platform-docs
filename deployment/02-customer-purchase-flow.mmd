@@ -1,10 +1,10 @@
 sequenceDiagram
     actor U as Customer
-    participant CA as CustomerApp (Render)
+    participant CA as CustomerApp (Fly)
     participant KC as Keycloak (Fly)
     participant API as API (Fly)
-    participant PG as Postgres (Aiven)
-    participant RMQ as RabbitMQ (CloudAMQP)
+    participant PG as Postgres (Fly)
+    participant OB as Outbox (in API)
     participant S as Stripe
 
     U->>CA: open /app
@@ -21,7 +21,7 @@ sequenceDiagram
     CA->>API: POST /orders/preview
     CA->>API: POST /orders
     API->>PG: reserve bouquets (OrderReservationExpiryService)
-    API->>RMQ: OrderCreated
+    API->>OB: OrderCreated (outbox)
     API->>S: PaymentIntent.create
     S-->>API: client_secret
     API-->>CA: order + client_secret
@@ -30,4 +30,4 @@ sequenceDiagram
     U->>S: 3DS + pay
     S->>API: POST /api/stripe/webhook (signed)
     API->>PG: confirm order, mark Sold
-    API->>RMQ: BouquetSold
+    API->>OB: BouquetSold (outbox)

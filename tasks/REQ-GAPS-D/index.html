@@ -765,6 +765,15 @@ Requirement refs point at the tasks in <code class="language-plaintext highlight
 Analysis date: 2026-07-06</p>
 </blockquote>
 
+<blockquote>
+  <p><strong>Status (2026-07-12): SHIPPED.</strong> The platform is fully live at <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. The gaps below
+are historical. Two deltas from the criteria as written: <strong>all three portals shipped on Fly.io, not
+Render</strong> (so the “Render web service” / <code class="language-plaintext highlighter-rouge">RENDER_*</code> secret / cron-job.org keep-warm requirements do
+not apply — Fly <code class="language-plaintext highlighter-rouge">min_machines_running=1</code> keeps apps warm), and <strong>the API runs in region <code class="language-plaintext highlighter-rouge">fra</code></strong> (not
+<code class="language-plaintext highlighter-rouge">iad</code>) with <strong>real Keycloak auth</strong> (<code class="language-plaintext highlighter-rouge">UseKeycloak=true</code>). See EPICS-D.md and SHOWCASE-RUNBOOK.md for
+the as-built state.</p>
+</blockquote>
+
 <h2 id="context">Context</h2>
 
 <p>The platform is being taken live at <strong><code class="language-plaintext highlighter-rouge">findmyflowers.pl</code></strong> for a pilot showcase to a first flower
@@ -825,19 +834,19 @@ written but not executed.</strong> Verified live state (2026-07-06):</p>
     <tr>
       <th>Surface</th>
       <th>Requested (this epic)</th>
-      <th>Existing docs/config assume</th>
+      <th>As-built (actual)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Customer App</td>
-      <td><strong><code class="language-plaintext highlighter-rouge">findmyflowers.pl</code></strong> (bare apex)</td>
-      <td><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></td>
+      <td>(plan floated the bare apex <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>)</td>
+      <td><strong><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></strong> (plain subdomain CNAME)</td>
     </tr>
     <tr>
       <td>Vendor Portal</td>
       <td><strong><code class="language-plaintext highlighter-rouge">vendors.findmyflowers.pl</code></strong> (plural)</td>
-      <td><code class="language-plaintext highlighter-rouge">vendor.findmyflowers.pl</code> (singular)</td>
+      <td><code class="language-plaintext highlighter-rouge">vendors.findmyflowers.pl</code></td>
     </tr>
     <tr>
       <td>Admin Portal</td>
@@ -847,7 +856,7 @@ written but not executed.</strong> Verified live state (2026-07-06):</p>
     <tr>
       <td>Public docs</td>
       <td><strong><code class="language-plaintext highlighter-rouge">docs.findmyflowers.pl</code></strong></td>
-      <td>GitHub Pages, no custom domain</td>
+      <td><code class="language-plaintext highlighter-rouge">docs.findmyflowers.pl</code></td>
     </tr>
     <tr>
       <td>API</td>
@@ -862,9 +871,10 @@ written but not executed.</strong> Verified live state (2026-07-06):</p>
   </tbody>
 </table>
 
-<p>Two divergences carry real work: the <strong>apex customer domain</strong> cannot be a plain CNAME to
-Render/Fly (needs Cloudflare CNAME-flattening / proxied record), and <strong><code class="language-plaintext highlighter-rouge">docs.</code> is new</strong> — the
-docs workflow publishes to GitHub Pages but no custom domain is wired.</p>
+<p>One divergence carried real work: <strong><code class="language-plaintext highlighter-rouge">docs.</code> is new</strong> — the docs workflow publishes to GitHub Pages
+but no custom domain is wired. (The plan initially floated a bare-apex customer domain, which would
+have needed Cloudflare CNAME-flattening; as-built the Customer App shipped on the plain
+<code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> subdomain CNAME, so that wrinkle never materialised.)</p>
 
 <hr />
 
@@ -885,7 +895,7 @@ local behaviour is unchanged.</p>
 <p><code class="language-plaintext highlighter-rouge">appsettings.Production.json</code> sets <code class="language-plaintext highlighter-rouge">Cors:AllowedOrigins: ["*"]</code>. The policy in
 <code class="language-plaintext highlighter-rouge">ServiceCollectionExtensions.cs</code> intentionally drops <code class="language-plaintext highlighter-rouge">AllowCredentials()</code> on the wildcard branch,
 so a wildcard prod config is both insecure and blocks credentialed browser requests from the
-portals. Required: set the real production origins (apex + admin + vendors) so the policy switches
+portals. Required: set the real production origins (app + admin + vendors) so the policy switches
 to the explicit-allow-list branch with <code class="language-plaintext highlighter-rouge">AllowCredentials()</code>.</p>
 
 <h3 id="req-dep-03-config-production-appsettings-placeholders--p1">REQ-DEP-03 <code class="language-plaintext highlighter-rouge">[CONFIG]</code> Production appsettings placeholders — P1</h3>
@@ -938,14 +948,15 @@ workflow owns deploys.</p>
 <code class="language-plaintext highlighter-rouge">RENDER_VENDOR_SERVICE_ID</code> recorded. Note the divergence from existing docs/config that use
 <code class="language-plaintext highlighter-rouge">vendor.</code> (singular) — DNS, CORS, and the deploy workflow references must all use <code class="language-plaintext highlighter-rouge">vendors.</code>.</p>
 
-<h3 id="req-dep-09-missing-customer-app-deployed-at-the-apex-findmyflowerspl--p0">REQ-DEP-09 <code class="language-plaintext highlighter-rouge">[MISSING]</code> Customer App deployed at the apex <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code> — P0</h3>
+<h3 id="req-dep-09-missing-customer-app-deployed-at-appfindmyflowerspl--p0">REQ-DEP-09 <code class="language-plaintext highlighter-rouge">[MISSING]</code> Customer App deployed at <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> — P0</h3>
 
 <p>Required: deploy the CustomerApp (Render or Fly) with OIDC env
 (<code class="language-plaintext highlighter-rouge">Authentication__Authority</code>, <code class="language-plaintext highlighter-rouge">ClientId=flowershop-customer-app</code>, <code class="language-plaintext highlighter-rouge">ClientSecret</code>,
-<code class="language-plaintext highlighter-rouge">PostLoginRedirectUri=https://findmyflowers.pl/</code>); serve it on the <strong>bare apex</strong> via Cloudflare
-CNAME-flattening (or a proxied record), since apex cannot be a plain CNAME to Render/Fly; and
-register <code class="language-plaintext highlighter-rouge">https://findmyflowers.pl/signin-oidc</code> + post-logout <code class="language-plaintext highlighter-rouge">https://findmyflowers.pl/</code> as valid
-redirect URIs on the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> Keycloak client.</p>
+<code class="language-plaintext highlighter-rouge">PostLoginRedirectUri=https://app.findmyflowers.pl/</code>); serve it on <strong><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></strong> via a
+plain subdomain CNAME to the Fly host (as-built — the plan first floated the bare apex, but that
+would have needed Cloudflare CNAME-flattening, so a normal <code class="language-plaintext highlighter-rouge">app.</code> subdomain was used instead); and
+register <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/signin-oidc</code> + post-logout <code class="language-plaintext highlighter-rouge">https://app.findmyflowers.pl/</code> as
+valid redirect URIs on the <code class="language-plaintext highlighter-rouge">flowershop-customer-app</code> Keycloak client.</p>
 
 <h3 id="req-dep-10-missing-cors-wired-to-the-real-showcase-origins--p0">REQ-DEP-10 <code class="language-plaintext highlighter-rouge">[MISSING]</code> CORS wired to the real showcase origins — P0</h3>
 
@@ -983,12 +994,18 @@ backups).</p>
 
 <p>Run the full path on the branded domains: <code class="language-plaintext highlighter-rouge">auth</code> realm → 200; <code class="language-plaintext highlighter-rouge">api/health</code> → 200 and <code class="language-plaintext highlighter-rouge">dev-token</code>
 → 404; admin login → dashboard; vendor login → bouquet upload with an <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl</code> photo;
-customer “Sign in with Google” → returns to the apex logged in → map loads; no CORS errors; and a
+customer “Sign in with Google” → returns to <code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code> logged in → map loads; no CORS errors; and a
 vase heartbeat visible in API logs. Green across all = go-live.</p>
 
 <hr />
 
 <h2 id="summary-table">Summary Table</h2>
+
+<blockquote>
+  <p>Status reflects the as-built deployment (2026-07-12) — all items shipped. Two diverged from the
+original wording: portals are on <strong>Fly.io</strong> (not Render) and the Customer App is on
+<strong><code class="language-plaintext highlighter-rouge">app.findmyflowers.pl</code></strong> (not the bare apex).</p>
+</blockquote>
 
 <table>
   <thead>
@@ -1004,91 +1021,91 @@ vase heartbeat visible in API logs. Green across all = go-live.</p>
       <td>REQ-DEP-01</td>
       <td>Portals hardcode Keycloak URL + client secret</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-02</td>
       <td>Prod CORS wildcard breaks credentialed calls</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-03</td>
       <td>Prod appsettings placeholders (DB/Redis/MQTT/JWT)</td>
       <td>P1</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-04</td>
       <td>Keycloak deployed at auth.findmyflowers.pl</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-05</td>
       <td>API custom domain api.findmyflowers.pl</td>
       <td>P1</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-06</td>
       <td>API switched to real Keycloak auth</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-07</td>
       <td>Admin Portal at admin.findmyflowers.pl</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE (Fly, not Render)</td>
     </tr>
     <tr>
       <td>REQ-DEP-08</td>
       <td>Vendor Portal at vendors.findmyflowers.pl</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE (Fly, not Render)</td>
     </tr>
     <tr>
       <td>REQ-DEP-09</td>
-      <td>Customer App at apex findmyflowers.pl</td>
+      <td>Customer App at app.findmyflowers.pl</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE (Fly; <code class="language-plaintext highlighter-rouge">app.</code>, not apex)</td>
     </tr>
     <tr>
       <td>REQ-DEP-10</td>
       <td>CORS wired to real showcase origins</td>
       <td>P0</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-11</td>
       <td>Public docs at docs.findmyflowers.pl</td>
       <td>P1</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-12</td>
       <td>MQTT pointed at HiveMQ Cloud for vase demo</td>
       <td>P1</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-13</td>
       <td>Stripe test-mode wired for checkout demo</td>
       <td>P2</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
     <tr>
       <td>REQ-DEP-14</td>
       <td>Keep-warm &amp; operational crons</td>
       <td>P2</td>
-      <td>MISSING</td>
+      <td>✅ DONE (Fly always-on + weekly R2 backup)</td>
     </tr>
     <tr>
       <td>REQ-DEP-15</td>
       <td>End-to-end showcase smoke test</td>
       <td>P1</td>
-      <td>MISSING</td>
+      <td>✅ DONE</td>
     </tr>
   </tbody>
 </table>

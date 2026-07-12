@@ -762,7 +762,7 @@
 
 <h2 id="system-health-checks">System Health Checks</h2>
 
-<p>Container orchestration (Docker Compose in dev, Kubernetes in production) continuously polls each service’s dedicated health check. The API’s <code class="language-plaintext highlighter-rouge">/health</code> endpoint is the top-level signal for the application layer. Each infrastructure service exposes its own probe — PostgreSQL via <code class="language-plaintext highlighter-rouge">pg_isready</code>, Redis via <code class="language-plaintext highlighter-rouge">redis-cli ping</code>, MQTT via <code class="language-plaintext highlighter-rouge">mosquitto_sub</code>, and Keycloak via its <code class="language-plaintext highlighter-rouge">/health/ready</code> endpoint. All five must report healthy for the platform to be considered fully operational; a failure in any one of them will block dependent service startup.</p>
+<p>In dev, Docker Compose polls each service’s dedicated health check. In production the platform runs as Fly.io apps (region <code class="language-plaintext highlighter-rouge">fra</code>) fronted by Cloudflare — Fly’s health checks poll each app. The API’s <code class="language-plaintext highlighter-rouge">/health</code> endpoint is the top-level signal for the application layer. Each infrastructure service exposes its own probe — PostgreSQL via <code class="language-plaintext highlighter-rouge">pg_isready</code>, Redis via <code class="language-plaintext highlighter-rouge">redis-cli ping</code>, MQTT via a broker probe (dev: Mosquitto <code class="language-plaintext highlighter-rouge">mosquitto_sub</code>; prod: HiveMQ Cloud, TLS 8883), and Keycloak via its <code class="language-plaintext highlighter-rouge">/health/ready</code> endpoint. All must report healthy for the platform to be considered fully operational; a failure in any one of them will block dependent service startup.</p>
 
 <pre><code class="language-mermaid">flowchart TD
   subgraph HealthChecks["Health Check Endpoints"]
@@ -773,7 +773,7 @@
     KCH["curl /health/ready\n(keycloak-dev)"]
   end
 
-  ORCH["Container Orchestrator\n(Docker Compose / Kubernetes)"] --&gt;|polls| HC
+  ORCH["Health Poller\n(Docker Compose in dev / Fly.io in prod)"] --&gt;|polls| HC
   ORCH --&gt; PGH
   ORCH --&gt; RH
   ORCH --&gt; MQH
@@ -946,12 +946,12 @@ dotnet ef database update
 
 <h3 id="running-tests">Running tests</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dotnet <span class="nb">test</span>    <span class="c"># runs all 126 tests across 3 test projects</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dotnet <span class="nb">test</span>    <span class="c"># runs 400+ test methods across 8 test projects</span>
 </code></pre></div></div>
 
 <h3 id="checking-swagger">Checking Swagger</h3>
 
-<p>Navigate to <code class="language-plaintext highlighter-rouge">http://localhost:8080/swagger</code> — all 23 controllers and their endpoints are documented.</p>
+<p>Navigate to <code class="language-plaintext highlighter-rouge">http://localhost:8080/swagger</code> — all 29 controllers and their endpoints are documented.</p>
 
 <h3 id="sub-domain-mapping--monitoring-signals">Sub-domain Mapping — Monitoring Signals</h3>
 
@@ -1005,38 +1005,18 @@ dotnet ef database update
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code></td>
-      <td>Domain events are silently dropped; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is active instead</td>
+      <td>Events published through it are dropped; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real impl. Prod sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> (selects the stub), so <code class="language-plaintext highlighter-rouge">IEventBus</code> events are dropped in prod — but the <strong>outbox</strong> (<code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code>) is the actual delivery path and is unaffected</td>
       <td>EP-09 S-09-06</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">AnalyticsController</code> calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code> in 4 actions</td>
-      <td>All analytics data is wrong (random GUID instead of tenant’s VendorId)</td>
-      <td>EP-10 T-10-001</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> reads <code class="language-plaintext highlighter-rouge">VendorId</code> from session instead of JWT claim</td>
-      <td>Vendor isolation broken for portal users</td>
-      <td>EP-12 T-12-003</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> POSTs photos to hardcoded <code class="language-plaintext highlighter-rouge">http://localhost:8080/api/mock-vase/...</code></td>
-      <td>Photo upload fails in any non-localhost environment</td>
-      <td>EP-12 T-12-004</td>
+      <td><code class="language-plaintext highlighter-rouge">AnalyticsHandlers</code> benchmark handler still calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code></td>
+      <td>One benchmark-only fallback remains; the earlier “4 actions” bug is fixed (per-vendor analytics now read tenant context)</td>
+      <td>Low priority</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">INotificationServiceClient</code> is a stub</td>
       <td>FCM push notifications not delivered to mobile devices</td>
       <td>EP-06</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">IStripeService</code> is a stub</td>
-      <td>Payment not wired in <code class="language-plaintext highlighter-rouge">CreateOrderCommandHandler</code></td>
-      <td>EP-04</td>
-    </tr>
-    <tr>
-      <td>Cart + OrderLine DB tables do not exist</td>
-      <td>Cart and multi-line order endpoints return DB errors until migration is run</td>
-      <td>Run <code class="language-plaintext highlighter-rouge">AddCartAndOrderLines</code> migration</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">CachingGeocodingService</code> uses <code class="language-plaintext highlighter-rouge">IMemoryCache</code></td>
@@ -1099,32 +1079,17 @@ dotnet ef database update
     <tr>
       <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus</code> stub</td>
       <td>All sub-domains (async events)</td>
-      <td>Domain events dropped in production; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the active fallback</td>
+      <td>Events published through <code class="language-plaintext highlighter-rouge">IEventBus</code> are dropped (prod selects the stub via <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code>); the outbox pattern is the real delivery path and is unaffected</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">AnalyticsController</code> calls <code class="language-plaintext highlighter-rouge">VendorId.New()</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AnalyticsHandlers</code> benchmark <code class="language-plaintext highlighter-rouge">VendorId.New()</code> fallback</td>
       <td><strong>Vendor Management / Platform Administration</strong></td>
-      <td>All analytics responses return data for a random, non-existent vendor</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">VendorPortal</code> reads VendorId from session</td>
-      <td><strong>Vendor Management</strong></td>
-      <td>Vendor isolation broken in the portal — any session can access any vendor’s data</td>
+      <td>One benchmark-only handler; other per-vendor analytics now read tenant context correctly</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">INotificationServiceClient</code> stub</td>
       <td><strong>Customer Purchasing</strong></td>
       <td>FCM push notifications not delivered to any mobile device</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">IStripeService</code> stub</td>
-      <td><strong>Payments</strong></td>
-      <td>Orders complete without actual payment processing</td>
-    </tr>
-    <tr>
-      <td>Cart + OrderLine tables missing</td>
-      <td><strong>Customer Purchasing</strong></td>
-      <td>Cart and multi-line order endpoints return DB errors until migration is run</td>
     </tr>
   </tbody>
 </table>

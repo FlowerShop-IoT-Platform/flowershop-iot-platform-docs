@@ -10,17 +10,15 @@ flowchart TB
         KC["Keycloak 23<br/>OIDC + admin API"]
     end
 
-    subgraph RENDER["Render free - Docker web services"]
+    subgraph FLYPORTALS["Fly.io - portal VMs (region fra)"]
         AP["AdminPortal<br/>Razor Pages"]
         VP["VendorPortal<br/>Razor Pages"]
         CA["CustomerApp<br/>MVC + OIDC"]
     end
 
-    subgraph DATA["Managed free tiers"]
-        PG[("Aiven PostgreSQL<br/>flowershop + keycloak DBs")]
-        RD[("Upstash Redis")]
-        RMQ["CloudAMQP<br/>RabbitMQ"]
-        MQTT["HiveMQ Cloud<br/>MQTT broker"]
+    subgraph DATA["Managed services"]
+        PG[("Fly Postgres 17<br/>flower_shop_backend_core + keycloak DBs")]
+        MQTT["HiveMQ Cloud<br/>MQTT broker (TLS 8883)"]
         R2["Cloudflare R2<br/>bouquet photos"]
     end
 
@@ -38,7 +36,5 @@ flowchart TB
     API -. subscribe .-> MQTT
 
     API --> PG
-    API --> RD
-    API --> RMQ
     API --> R2
     KC --> PG
