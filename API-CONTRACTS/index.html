@@ -1261,6 +1261,9 @@ grant_type=refresh_token
       </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"available"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"freshnessScore"</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span><span class="w">
       </span><span class="nl">"freshnessLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Very Fresh"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"initialFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"currentFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"maxFreshnessScale"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
       </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"location"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
         </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
@@ -1283,6 +1286,19 @@ grant_type=refresh_token
 <ul>
   <li><code class="language-plaintext highlighter-rouge">isFavourite</code> is always <code class="language-plaintext highlighter-rouge">false</code> for unauthenticated requests.</li>
   <li><code class="language-plaintext highlighter-rouge">exactAddressHidden</code> is <code class="language-plaintext highlighter-rouge">true</code> for freelance florists; coordinates are approximate within ~500 m (SEC-06).</li>
+  <li><strong>Freshness visibility (EP-25):</strong> <code class="language-plaintext highlighter-rouge">initialFreshnessDays</code> is the vendor-declared rating
+(1–<code class="language-plaintext highlighter-rouge">maxFreshnessScale</code>, where <code class="language-plaintext highlighter-rouge">maxFreshnessScale</code> is always 3), declared when the vendor sets the
+price. <code class="language-plaintext highlighter-rouge">currentFreshnessDays</code> is the value after daily decay — the initial rating minus one per full
+day since the rating was declared (not since the bouquet was created; the two usually differ),
+floored at 0. Render it as <code class="language-plaintext highlighter-rouge">maxFreshnessScale</code> flower pictograms with <code class="language-plaintext highlighter-rouge">currentFreshnessDays</code> coloured
+and the rest greyed (e.g. <code class="language-plaintext highlighter-rouge">2</code> of <code class="language-plaintext highlighter-rouge">3</code> → two coloured + one grey). All three fields are <code class="language-plaintext highlighter-rouge">null</code>/absent when
+the vendor did not declare a rating. This is a display-only signal and is independent of <code class="language-plaintext highlighter-rouge">freshnessScore</code>
+(the 0–100 sensor reading) and of price — freshness-based discounts are handled separately by the vendor
+pricing strategy and never driven by these fields.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">freshnessDays</code> semantics changed (EP-25):</strong> on the vendor-facing catalog read models
+(<code class="language-plaintext highlighter-rouge">AvailableBouquetReadModel</code>, <code class="language-plaintext highlighter-rouge">BouquetDetails</code>) the pre-existing <code class="language-plaintext highlighter-rouge">freshnessDays</code> field now carries the
+vendor-declared rating (0 when unset), replacing its former meaning of estimated age/shelf-life in days.
+Customer-facing endpoints are unaffected — use <code class="language-plaintext highlighter-rouge">initialFreshnessDays</code>/<code class="language-plaintext highlighter-rouge">currentFreshnessDays</code> there.</li>
 </ul>
 
 <p><strong>Response 400:</strong> Invalid coordinates or radius value.</p>
@@ -1339,6 +1355,9 @@ grant_type=refresh_token
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"available"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"freshnessScore"</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span><span class="w">
   </span><span class="nl">"freshnessLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Very Fresh"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"initialFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"currentFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"maxFreshnessScale"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
   </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"aiTags"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
     </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rose"</span><span class="p">,</span><span class="w"> </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Roses"</span><span class="p">,</span><span class="w"> </span><span class="nl">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">},</span><span class="w">
@@ -1482,6 +1501,9 @@ grant_type=refresh_token
       </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"available"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"freshnessScore"</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span><span class="w">
       </span><span class="nl">"freshnessLabel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Very Fresh"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"initialFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"currentFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"maxFreshnessScale"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
       </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"location"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
         </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">

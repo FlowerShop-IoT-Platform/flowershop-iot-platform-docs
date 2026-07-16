@@ -286,6 +286,9 @@ Returns bouquets available within a radius of the given location.
       "status": "available",
       "freshnessScore": 84,
       "freshnessLabel": "Very Fresh",
+      "initialFreshnessDays": 3,
+      "currentFreshnessDays": 2,
+      "maxFreshnessScale": 3,
       "thumbnailUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg",
       "location": {
         "latitude": 52.2297,
@@ -307,6 +310,19 @@ Returns bouquets available within a radius of the given location.
 **Notes:**
 - `isFavourite` is always `false` for unauthenticated requests.
 - `exactAddressHidden` is `true` for freelance florists; coordinates are approximate within ~500 m (SEC-06).
+- **Freshness visibility (EP-25):** `initialFreshnessDays` is the vendor-declared rating
+  (1–`maxFreshnessScale`, where `maxFreshnessScale` is always 3), declared when the vendor sets the
+  price. `currentFreshnessDays` is the value after daily decay — the initial rating minus one per full
+  day since the rating was declared (not since the bouquet was created; the two usually differ),
+  floored at 0. Render it as `maxFreshnessScale` flower pictograms with `currentFreshnessDays` coloured
+  and the rest greyed (e.g. `2` of `3` → two coloured + one grey). All three fields are `null`/absent when
+  the vendor did not declare a rating. This is a display-only signal and is independent of `freshnessScore`
+  (the 0–100 sensor reading) and of price — freshness-based discounts are handled separately by the vendor
+  pricing strategy and never driven by these fields.
+- **`freshnessDays` semantics changed (EP-25):** on the vendor-facing catalog read models
+  (`AvailableBouquetReadModel`, `BouquetDetails`) the pre-existing `freshnessDays` field now carries the
+  vendor-declared rating (0 when unset), replacing its former meaning of estimated age/shelf-life in days.
+  Customer-facing endpoints are unaffected — use `initialFreshnessDays`/`currentFreshnessDays` there.
 
 **Response 400:** Invalid coordinates or radius value.
 
@@ -343,6 +359,9 @@ Returns full detail for a single bouquet (customer-facing `BouquetDetailDto`). N
   "status": "available",
   "freshnessScore": 84,
   "freshnessLabel": "Very Fresh",
+  "initialFreshnessDays": 3,
+  "currentFreshnessDays": 2,
+  "maxFreshnessScale": 3,
   "imageUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg",
   "aiTags": [
     { "type": "rose", "label": "Roses", "count": 8 },
@@ -436,6 +455,9 @@ Returns all favourited bouquets for the authenticated customer.
       "status": "available",
       "freshnessScore": 84,
       "freshnessLabel": "Very Fresh",
+      "initialFreshnessDays": 3,
+      "currentFreshnessDays": 2,
+      "maxFreshnessScale": 3,
       "thumbnailUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg",
       "location": {
         "latitude": 52.2297,
