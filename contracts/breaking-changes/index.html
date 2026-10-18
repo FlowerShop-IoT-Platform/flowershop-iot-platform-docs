@@ -760,6 +760,18 @@
 
 <p>Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.</p>
 
+<h2 id="2026-10-18--ep-30-vendor-stock-additive-non-breaking">2026-10-18 — EP-30 Vendor stock (additive, non-breaking)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new vendor endpoints under <code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock</code> (see <code class="language-plaintext highlighter-rouge">outbound.md</code> §2c and
+<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §22); migration <code class="language-plaintext highlighter-rouge">AddStockManagement</code> (2 new tables). Assistant sessions now fill a
+missing unit price from the vendor’s stock unit cost before the remembered assistant price — same
+payload shape, only the filled value can differ.</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (new consumer, EP-M11); Vendor Portal in this repo.</li>
+  <li><strong>Deployment order</strong>: backend first (migration applies on start), then the Vendor Portal, then the
+mobile build. An older app never calls the new endpoints.</li>
+</ul>
+
 <h2 id="2026-10-14--ep-28-ai-bouquet-assistant-additive-non-breaking">2026-10-14 — EP-28 AI Bouquet Assistant (additive, non-breaking)</h2>
 
 <ul>

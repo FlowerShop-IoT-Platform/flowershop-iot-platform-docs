@@ -244,6 +244,12 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | PUT/GET | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/saved` / `/cost?sellingPrice=` | `{ saved }` | `DesignSessionDto` / `RecipeCostDto` | Vendor mobile app |
 | GET | `/api/v1/vendor/design-recipes?saved=true` | — | `DesignRecipeDto[]` | Vendor mobile app |
 | GET/PUT | `/api/v1/vendor/design-cost-profile` | `{ expectedVersion, basis, laborMinutes, hourlyRate, overheadPercent }` | `DesignCostProfileDto` | Vendor mobile app |
+| GET/POST | `/api/v1/vendor/stock` | GET `?search&kind&status&includeArchived`; POST `{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }` | `StockOverviewDto` / 201 `StockItemDto` (EP-30) | Vendor Portal, vendor mobile app |
+| GET/PUT/DELETE | `/api/v1/vendor/stock/{id}` | PUT `{ expectedVersion, …fields }` | `StockItemDetailsDto` / `StockItemDto` / 204 archive | Vendor Portal, vendor mobile app |
+| POST | `/api/v1/vendor/stock/{id}/restore` | — | `StockItemDto` | Vendor Portal, vendor mobile app |
+| POST/GET | `/api/v1/vendor/stock/{id}/movements` | POST `{ type, quantity, unitCost?, note? }` + optional `Idempotency-Key`; GET `?skip&take` | `StockItemDto` / `StockMovementDto[]` | Vendor Portal, vendor mobile app |
+| GET | `/api/v1/vendor/stock/movements` | `?skip&take` | `StockMovementDto[]` (whole shop) | Vendor Portal |
+| POST | `/api/v1/vendor/stock/consume` | `{ reason, note?, reference?, lines[] }` + optional `Idempotency-Key` | `StockConsumeResultDto` (all-or-nothing) | Vendor mobile app (assistant "I made it") |
 | GET | `/api/v1/vendor-accounts/debug/token-claims` | — | Token claims | Dev tooling |
 
 ### 2d. Platform Admin Endpoints (Policy: `PlatformAdmin`)

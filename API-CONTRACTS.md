@@ -2449,3 +2449,54 @@ styles: ["Soft & natural", …], minStems: 11, maxStems: 21 }`.
 `DesignSessionSummaryDto`: `{ id, state, inputMode, inventoryItemCount, recipeCount, savedRecipeCount, createdAt, updatedAt }`.
 
 Canonical copy for the mobile client: `flower-shop-vendor-mobile-app/docs/superpowers/specs/2026-10-14-ai-bouquet-assistant-api-contract.md`.
+
+---
+
+## 22. Vendor Stock (EP-30)
+
+Vendor-only (`VendorAccess` policy), under `/api/v1/vendor/stock`. Tenant from the JWT; another
+vendor's item answers **404**. Independent of `BouquetDesign:Enabled`. Quantities are whole units
+(flowers and greenery in stems); money is a JSON number in PLN (2 dp). Errors are ProblemDetails with
+a stable `code` extension; show `detail` to the user.
+
+| Method | Path | Body / query | Success |
+|---|---|---|---|
+| GET | `/vendor/stock` | `?search=&kind=Flower\|Greenery\|Material&status=all\|InStock\|Low\|Out&includeArchived=false` | 200 `StockOverviewDto` (summary is always over all active items) |
+| POST | `/vendor/stock` | `{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes?, note? }` | 201 `StockItemDto` (`quantity > 0` records an `Initial` movement) |
+| GET | `/vendor/stock/{id}` | — | 200 `StockItemDetailsDto` (item + 20 most recent movements) |
+| PUT | `/vendor/stock/{id}` | `{ expectedVersion, kind, name, color?, unit?, unitCost?, lowStockThreshold?, supplier?, notes? }` | 200 `StockItemDto` |
+| DELETE | `/vendor/stock/{id}` | — | 204 (archived; history kept) |
+| POST | `/vendor/stock/{id}/restore` | — | 200 `StockItemDto` |
+| POST | `/vendor/stock/{id}/movements` | `{ type: Received\|Used\|Wasted\|Counted, quantity, unitCost?, note? }`, optional `Idempotency-Key` | 200 `StockItemDto` (Counted: `quantity` is the counted total) |
+| GET | `/vendor/stock/{id}/movements` | `?skip=0&take=50` (max 100) | 200 `StockMovementDto[]`, newest first |
+| GET | `/vendor/stock/movements` | `?skip=0&take=50` (max 100) | 200 `StockMovementDto[]` — whole shop |
+| POST | `/vendor/stock/consume` | `{ reason: Used\|Wasted, note?, reference?, lines: [{ stockItemId?, name?, color?, quantity }] }`, optional `Idempotency-Key` | 200 `StockConsumeResultDto` — all-or-nothing |
+
+Rules: `unit` defaults to `Stem` (`Item` for materials); flowers/greenery must be `Stem`. Name +
+colour (trimmed, case-insensitive) is unique per vendor and is the same key the assistant uses, so
+`consume` lines may name an item instead of its id. A movement or consume replayed with the same
+`Idempotency-Key` is applied once (`replayed: true` on consume). Unit costs of stock items fill
+missing prices in assistant sessions (before remembered assistant prices).
+
+| Status | `code` |
+|---|---|
+| 400 | `invalid-request` |
+| 404 | `not-found` |
+| 409 | `duplicate-item`, `version-conflict`, `archived` |
+| 422 | `insufficient-stock`, `unknown-item`, `item-limit` (500 items per vendor) |
+
+```json
+{
+  "summary": { "totalItems": 3, "lowStockCount": 1, "outOfStockCount": 1, "totalValue": 44.0, "unpricedCount": 1 },
+  "items": [{
+    "id": "…", "version": 4, "kind": "Flower", "name": "Rose", "color": "Pink", "unit": "Stem",
+    "quantity": 8, "unitCost": 4.5, "lowStockThreshold": 10, "supplier": "Hurtownia", "notes": null,
+    "isArchived": false, "status": "Low", "stockValue": 36.0,
+    "lastReceivedAt": "2026-10-18T03:58:00Z", "createdAt": "…", "updatedAt": "…" }]
+}
+```
+
+`StockMovementDto`: `{ id, stockItemId, itemName, itemColor, unit, type: Initial|Received|Used|Wasted|Counted,
+delta, quantityAfter, unitCost, note, reference, occurredAt }`. `StockItemDetailsDto`: `{ item, recentMovements }`.
+`StockConsumeResultDto`: `{ items: StockItemDto[], replayed }`. `totalValue` adds priced items only;
+`unpricedCount` says how many items with stock on hand have no cost.

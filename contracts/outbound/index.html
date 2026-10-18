@@ -1751,6 +1751,48 @@
       <td>Vendor mobile app</td>
     </tr>
     <tr>
+      <td>GET/POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock</code></td>
+      <td>GET <code class="language-plaintext highlighter-rouge">?search&amp;kind&amp;status&amp;includeArchived</code>; POST <code class="language-plaintext highlighter-rouge">{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockOverviewDto</code> / 201 <code class="language-plaintext highlighter-rouge">StockItemDto</code> (EP-30)</td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET/PUT/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/{id}</code></td>
+      <td>PUT <code class="language-plaintext highlighter-rouge">{ expectedVersion, …fields }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockItemDetailsDto</code> / <code class="language-plaintext highlighter-rouge">StockItemDto</code> / 204 archive</td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/{id}/restore</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">StockItemDto</code></td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST/GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/{id}/movements</code></td>
+      <td>POST <code class="language-plaintext highlighter-rouge">{ type, quantity, unitCost?, note? }</code> + optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>; GET <code class="language-plaintext highlighter-rouge">?skip&amp;take</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockItemDto</code> / <code class="language-plaintext highlighter-rouge">StockMovementDto[]</code></td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/movements</code></td>
+      <td><code class="language-plaintext highlighter-rouge">?skip&amp;take</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockMovementDto[]</code> (whole shop)</td>
+      <td>Vendor Portal</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/consume</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ reason, note?, reference?, lines[] }</code> + optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockConsumeResultDto</code> (all-or-nothing)</td>
+      <td>Vendor mobile app (assistant “I made it”)</td>
+    </tr>
+    <tr>
       <td>GET</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor-accounts/debug/token-claims</code></td>
       <td>—</td>

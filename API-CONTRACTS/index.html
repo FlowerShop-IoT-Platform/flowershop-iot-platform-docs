@@ -4456,6 +4456,136 @@ styles: ["Soft &amp; natural", …], minStems: 11, maxStems: 21 }</code>.</p>
 
 <p>Canonical copy for the mobile client: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app/docs/superpowers/specs/2026-10-14-ai-bouquet-assistant-api-contract.md</code>.</p>
 
+<hr />
+
+<h2 id="22-vendor-stock-ep-30">22. Vendor Stock (EP-30)</h2>
+
+<p>Vendor-only (<code class="language-plaintext highlighter-rouge">VendorAccess</code> policy), under <code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock</code>. Tenant from the JWT; another
+vendor’s item answers <strong>404</strong>. Independent of <code class="language-plaintext highlighter-rouge">BouquetDesign:Enabled</code>. Quantities are whole units
+(flowers and greenery in stems); money is a JSON number in PLN (2 dp). Errors are ProblemDetails with
+a stable <code class="language-plaintext highlighter-rouge">code</code> extension; show <code class="language-plaintext highlighter-rouge">detail</code> to the user.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body / query</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock</code></td>
+      <td><code class="language-plaintext highlighter-rouge">?search=&amp;kind=Flower\|Greenery\|Material&amp;status=all\|InStock\|Low\|Out&amp;includeArchived=false</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockOverviewDto</code> (summary is always over all active items)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes?, note? }</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">StockItemDto</code> (<code class="language-plaintext highlighter-rouge">quantity &gt; 0</code> records an <code class="language-plaintext highlighter-rouge">Initial</code> movement)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockItemDetailsDto</code> (item + 20 most recent movements)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion, kind, name, color?, unit?, unitCost?, lowStockThreshold?, supplier?, notes? }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockItemDto</code></td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}</code></td>
+      <td>—</td>
+      <td>204 (archived; history kept)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}/restore</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockItemDto</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}/movements</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ type: Received\|Used\|Wasted\|Counted, quantity, unitCost?, note? }</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockItemDto</code> (Counted: <code class="language-plaintext highlighter-rouge">quantity</code> is the counted total)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}/movements</code></td>
+      <td><code class="language-plaintext highlighter-rouge">?skip=0&amp;take=50</code> (max 100)</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockMovementDto[]</code>, newest first</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/movements</code></td>
+      <td><code class="language-plaintext highlighter-rouge">?skip=0&amp;take=50</code> (max 100)</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockMovementDto[]</code> — whole shop</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/consume</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ reason: Used\|Wasted, note?, reference?, lines: [{ stockItemId?, name?, color?, quantity }] }</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockConsumeResultDto</code> — all-or-nothing</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Rules: <code class="language-plaintext highlighter-rouge">unit</code> defaults to <code class="language-plaintext highlighter-rouge">Stem</code> (<code class="language-plaintext highlighter-rouge">Item</code> for materials); flowers/greenery must be <code class="language-plaintext highlighter-rouge">Stem</code>. Name +
+colour (trimmed, case-insensitive) is unique per vendor and is the same key the assistant uses, so
+<code class="language-plaintext highlighter-rouge">consume</code> lines may name an item instead of its id. A movement or consume replayed with the same
+<code class="language-plaintext highlighter-rouge">Idempotency-Key</code> is applied once (<code class="language-plaintext highlighter-rouge">replayed: true</code> on consume). Unit costs of stock items fill
+missing prices in assistant sessions (before remembered assistant prices).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th><code class="language-plaintext highlighter-rouge">code</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>400</td>
+      <td><code class="language-plaintext highlighter-rouge">invalid-request</code></td>
+    </tr>
+    <tr>
+      <td>404</td>
+      <td><code class="language-plaintext highlighter-rouge">not-found</code></td>
+    </tr>
+    <tr>
+      <td>409</td>
+      <td><code class="language-plaintext highlighter-rouge">duplicate-item</code>, <code class="language-plaintext highlighter-rouge">version-conflict</code>, <code class="language-plaintext highlighter-rouge">archived</code></td>
+    </tr>
+    <tr>
+      <td>422</td>
+      <td><code class="language-plaintext highlighter-rouge">insufficient-stock</code>, <code class="language-plaintext highlighter-rouge">unknown-item</code>, <code class="language-plaintext highlighter-rouge">item-limit</code> (500 items per vendor)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"totalItems"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nl">"lowStockCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nl">"outOfStockCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nl">"totalValue"</span><span class="p">:</span><span class="w"> </span><span class="mf">44.0</span><span class="p">,</span><span class="w"> </span><span class="nl">"unpricedCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nl">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flower"</span><span class="p">,</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rose"</span><span class="p">,</span><span class="w"> </span><span class="nl">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pink"</span><span class="p">,</span><span class="w"> </span><span class="nl">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Stem"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"quantity"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="nl">"unitCost"</span><span class="p">:</span><span class="w"> </span><span class="mf">4.5</span><span class="p">,</span><span class="w"> </span><span class="nl">"lowStockThreshold"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nl">"supplier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Hurtownia"</span><span class="p">,</span><span class="w"> </span><span class="nl">"notes"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"isArchived"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="nl">"stockValue"</span><span class="p">:</span><span class="w"> </span><span class="mf">36.0</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"lastReceivedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-18T03:58:00Z"</span><span class="p">,</span><span class="w"> </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"updatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">}]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">StockMovementDto</code>: <code class="language-plaintext highlighter-rouge">{ id, stockItemId, itemName, itemColor, unit, type: Initial|Received|Used|Wasted|Counted,
+delta, quantityAfter, unitCost, note, reference, occurredAt }</code>. <code class="language-plaintext highlighter-rouge">StockItemDetailsDto</code>: <code class="language-plaintext highlighter-rouge">{ item, recentMovements }</code>.
+<code class="language-plaintext highlighter-rouge">StockConsumeResultDto</code>: <code class="language-plaintext highlighter-rouge">{ items: StockItemDto[], replayed }</code>. <code class="language-plaintext highlighter-rouge">totalValue</code> adds priced items only;
+<code class="language-plaintext highlighter-rouge">unpricedCount</code> says how many items with stock on hand have no cost.</p>
+
     </div>
   </main>
 </div>
