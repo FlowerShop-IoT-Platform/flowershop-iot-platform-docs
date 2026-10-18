@@ -250,6 +250,11 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | POST/GET | `/api/v1/vendor/stock/{id}/movements` | POST `{ type, quantity, unitCost?, note? }` + optional `Idempotency-Key`; GET `?skip&take` | `StockItemDto` / `StockMovementDto[]` | Vendor Portal, vendor mobile app |
 | GET | `/api/v1/vendor/stock/movements` | `?skip&take` | `StockMovementDto[]` (whole shop) | Vendor Portal |
 | POST | `/api/v1/vendor/stock/consume` | `{ reason, note?, reference?, lines[] }` + optional `Idempotency-Key` | `StockConsumeResultDto` (all-or-nothing) | Vendor mobile app (assistant "I made it") |
+| POST/DELETE/PUT | `/api/v1/vendor/stock/{id}/photos[/{photoId}[/primary]]` | multipart `photo` + `clientPhotoId?` | `StockPhotoDto` / 204 (EP-31) | Vendor Portal, vendor mobile app |
+| GET | `/api/v1/vendor/stock/photos/{photoId}/content` | — | private JPEG bytes | Vendor Portal (proxy), vendor mobile app |
+| POST | `/api/v1/vendor/stock/photos/{photoId}/describe` | optional `Idempotency-Key` | `StockAppearanceSuggestionDto` (EP-31, AI) | Vendor Portal, vendor mobile app |
+| POST | `/api/v1/vendor/stock/photo-suggestions` | multipart `photo` + `clientPhotoId?`, optional `Idempotency-Key` | `StockPhotoSuggestionDto` (pending photo + suggestion) | Vendor Portal, vendor mobile app |
+| GET | `/api/v1/vendor/stock/ai-usage` | — | `StockAiUsageDto` | Vendor Portal, vendor mobile app |
 | GET | `/api/v1/vendor-accounts/debug/token-claims` | — | Token claims | Dev tooling |
 
 ### 2d. Platform Admin Endpoints (Policy: `PlatformAdmin`)

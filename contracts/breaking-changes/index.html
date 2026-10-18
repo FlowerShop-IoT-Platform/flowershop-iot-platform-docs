@@ -760,6 +760,21 @@
 
 <p>Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.</p>
 
+<h2 id="2026-10-18--ep-31-stock-photos--ai-appearance-additive-non-breaking">2026-10-18 — EP-31 Stock photos &amp; AI appearance (additive, non-breaking)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new photo / AI endpoints under <code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock</code> (<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §22.1,
+<code class="language-plaintext highlighter-rouge">outbound.md</code> §2c); <code class="language-plaintext highlighter-rouge">StockItemDto</code> gains <code class="language-plaintext highlighter-rouge">variety</code>, <code class="language-plaintext highlighter-rouge">appearance</code>, <code class="language-plaintext highlighter-rouge">primaryPhoto</code>; create/update accept
+<code class="language-plaintext highlighter-rouge">variety</code>, <code class="language-plaintext highlighter-rouge">appearance</code> (update: omitted = unchanged), create accepts <code class="language-plaintext highlighter-rouge">pendingPhotoId</code>; consume lines
+accept <code class="language-plaintext highlighter-rouge">variety</code>. Assistant inventory items and recipe lines gain optional <code class="language-plaintext highlighter-rouge">stockItemId</code> + <code class="language-plaintext highlighter-rouge">variety</code>.
+New config <code class="language-plaintext highlighter-rouge">BouquetDesign:StockRecognition:*</code> and <code class="language-plaintext highlighter-rouge">Limits:StockRecognitionsPerMonth</code>. Migration
+<code class="language-plaintext highlighter-rouge">AddStockPhotosAndAppearance</code> (column <code class="language-plaintext highlighter-rouge">Variety</code>, jsonb <code class="language-plaintext highlighter-rouge">Appearance</code>, 2 new tables; catalogue key
+becomes <code class="language-plaintext highlighter-rouge">name|colour[|variety]</code>, unchanged for items without a variety).</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M12); Vendor Portal in this repo.</li>
+  <li><strong>Deployment order</strong>: API first (migration applies on start), then the Vendor Portal, then the mobile
+build. Old clients ignore the new fields; an old client’s PUT omits <code class="language-plaintext highlighter-rouge">appearance</code>/<code class="language-plaintext highlighter-rouge">variety</code> and leaves them as they are.</li>
+</ul>
+
 <h2 id="2026-10-18--ep-30-vendor-stock-additive-non-breaking">2026-10-18 — EP-30 Vendor stock (additive, non-breaking)</h2>
 
 <ul>

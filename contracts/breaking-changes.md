@@ -2,6 +2,19 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-18 — EP-31 Stock photos & AI appearance (additive, non-breaking)
+
+- **What changed**: new photo / AI endpoints under `/api/v1/vendor/stock` (`API-CONTRACTS.md` §22.1,
+  `outbound.md` §2c); `StockItemDto` gains `variety`, `appearance`, `primaryPhoto`; create/update accept
+  `variety`, `appearance` (update: omitted = unchanged), create accepts `pendingPhotoId`; consume lines
+  accept `variety`. Assistant inventory items and recipe lines gain optional `stockItemId` + `variety`.
+  New config `BouquetDesign:StockRecognition:*` and `Limits:StockRecognitionsPerMonth`. Migration
+  `AddStockPhotosAndAppearance` (column `Variety`, jsonb `Appearance`, 2 new tables; catalogue key
+  becomes `name|colour[|variety]`, unchanged for items without a variety).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M12); Vendor Portal in this repo.
+- **Deployment order**: API first (migration applies on start), then the Vendor Portal, then the mobile
+  build. Old clients ignore the new fields; an old client's PUT omits `appearance`/`variety` and leaves them as they are.
+
 ## 2026-10-18 — EP-30 Vendor stock (additive, non-breaking)
 
 - **What changed**: new vendor endpoints under `/api/v1/vendor/stock` (see `outbound.md` §2c and

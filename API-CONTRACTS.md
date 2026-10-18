@@ -2500,3 +2500,44 @@ missing prices in assistant sessions (before remembered assistant prices).
 delta, quantityAfter, unitCost, note, reference, occurredAt }`. `StockItemDetailsDto`: `{ item, recentMovements }`.
 `StockConsumeResultDto`: `{ items: StockItemDto[], replayed }`. `totalValue` adds priced items only;
 `unpricedCount` says how many items with stock on hand have no cost.
+
+### 22.1 Variety, appearance and photos (EP-31)
+
+A colour word is ambiguous (many reds; a rose can be red-edged white), so items carry an optional
+**variety** (cultivar, ≤ 60 chars, part of the identity key `name|colour|variety`) and an
+**appearance** suggested by AI from a photo and confirmed by the florist.
+
+| Method | Path | Body / query | Success |
+|---|---|---|---|
+| POST | `/vendor/stock/{id}/photos` | multipart `photo` (JPEG/PNG/WebP, re-encoded) + `clientPhotoId?` (replay = no-op) | 201 `StockPhotoDto` (first photo becomes main; ≤ 5 per item) |
+| DELETE | `/vendor/stock/{id}/photos/{photoId}` | — | 204 (next photo becomes main) |
+| PUT | `/vendor/stock/{id}/photos/{photoId}/primary` | — | 204 |
+| GET | `/vendor/stock/photos/{photoId}/content` | — | 200 `image/jpeg` (private — send the token; never bind the URL) |
+| POST | `/vendor/stock/photos/{photoId}/describe` | optional `Idempotency-Key` | 200 `StockAppearanceSuggestionDto` (nothing is saved) |
+| POST | `/vendor/stock/photo-suggestions` | multipart `photo` + `clientPhotoId?`, optional `Idempotency-Key` | 200 `StockPhotoSuggestionDto` — pending photo (24 h) + suggestion, or `notice` when AI is off / over quota |
+| GET | `/vendor/stock/ai-usage` | — | 200 `StockAiUsageDto` |
+
+- Items: `StockItemDto` adds `variety`, `appearance`, `primaryPhoto`; `StockItemDetailsDto` adds `photos`.
+- `appearance`: `{ description?, pattern: Solid|Bicolour|Edged|Gradient|Speckled|Multicolour,
+  palette: [{ name, hex: "#RRGGBB", share: 0–100 }] (≤ 5, shares ≤ 100), source: Manual|Ai, summary, updatedAt }`.
+- POST `/vendor/stock` also accepts `variety?`, `appearance?`, `pendingPhotoId?` (attaches the pending photo).
+  PUT accepts `variety?`, `appearance?` — an **omitted** field is left unchanged; an explicit `null` clears it.
+- `consume` lines accept `variety?`; `stockItemId` wins over the key.
+- Suggestion: `{ photoId, kind?, name?, variety?, colorLabel?, description?, pattern, palette, confidence?, provider, replayed }`.
+  Usage: `{ enabled, provider, used, limit, remaining, resetsAt }`.
+- Recognition is gated like the assistant (`BouquetDesign:Enabled`, `PilotVendorIds`, global $ cap) but has
+  its **own monthly quota** (`BouquetDesign:Limits:StockRecognitionsPerMonth`, default 100). The ledger row
+  is written before the provider call; a replayed key returns the stored suggestion, a key reused for
+  another photo is refused. Provider: `BouquetDesign:StockRecognition:Provider` = `Palette` (free, local
+  dominant colours) or `OpenAI`.
+- Assistant: stock lines carry `stockItemId` + `variety`; recognition links bench photos to stock items,
+  recipes know each item's palette, and previews use the stock items' main photos as references.
+
+| Status | `code` (EP-31) |
+|---|---|
+| 400 | `invalid-photo`, `invalid-request` (e.g. a key reused for another photo) |
+| 403 | `feature-disabled` |
+| 409 | `in-progress` |
+| 422 | `photo-limit` |
+| 429 | `quota-exhausted`, `spend-cap-reached` |
+| 502 | `provider-failed` (the reservation is released) |

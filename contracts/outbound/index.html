@@ -1793,6 +1793,41 @@
       <td>Vendor mobile app (assistant “I made it”)</td>
     </tr>
     <tr>
+      <td>POST/DELETE/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/{id}/photos[/{photoId}[/primary]]</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code> + <code class="language-plaintext highlighter-rouge">clientPhotoId?</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockPhotoDto</code> / 204 (EP-31)</td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/photos/{photoId}/content</code></td>
+      <td>—</td>
+      <td>private JPEG bytes</td>
+      <td>Vendor Portal (proxy), vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/photos/{photoId}/describe</code></td>
+      <td>optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockAppearanceSuggestionDto</code> (EP-31, AI)</td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/photo-suggestions</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code> + <code class="language-plaintext highlighter-rouge">clientPhotoId?</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockPhotoSuggestionDto</code> (pending photo + suggestion)</td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/ai-usage</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">StockAiUsageDto</code></td>
+      <td>Vendor Portal, vendor mobile app</td>
+    </tr>
+    <tr>
       <td>GET</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor-accounts/debug/token-claims</code></td>
       <td>—</td>

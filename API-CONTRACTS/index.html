@@ -4586,6 +4586,120 @@ delta, quantityAfter, unitCost, note, reference, occurredAt }</code>. <code clas
 <code class="language-plaintext highlighter-rouge">StockConsumeResultDto</code>: <code class="language-plaintext highlighter-rouge">{ items: StockItemDto[], replayed }</code>. <code class="language-plaintext highlighter-rouge">totalValue</code> adds priced items only;
 <code class="language-plaintext highlighter-rouge">unpricedCount</code> says how many items with stock on hand have no cost.</p>
 
+<h3 id="221-variety-appearance-and-photos-ep-31">22.1 Variety, appearance and photos (EP-31)</h3>
+
+<p>A colour word is ambiguous (many reds; a rose can be red-edged white), so items carry an optional
+<strong>variety</strong> (cultivar, ≤ 60 chars, part of the identity key <code class="language-plaintext highlighter-rouge">name|colour|variety</code>) and an
+<strong>appearance</strong> suggested by AI from a photo and confirmed by the florist.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body / query</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}/photos</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code> (JPEG/PNG/WebP, re-encoded) + <code class="language-plaintext highlighter-rouge">clientPhotoId?</code> (replay = no-op)</td>
+      <td>201 <code class="language-plaintext highlighter-rouge">StockPhotoDto</code> (first photo becomes main; ≤ 5 per item)</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}/photos/{photoId}</code></td>
+      <td>—</td>
+      <td>204 (next photo becomes main)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/{id}/photos/{photoId}/primary</code></td>
+      <td>—</td>
+      <td>204</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/photos/{photoId}/content</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">image/jpeg</code> (private — send the token; never bind the URL)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/photos/{photoId}/describe</code></td>
+      <td>optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockAppearanceSuggestionDto</code> (nothing is saved)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/photo-suggestions</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code> + <code class="language-plaintext highlighter-rouge">clientPhotoId?</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockPhotoSuggestionDto</code> — pending photo (24 h) + suggestion, or <code class="language-plaintext highlighter-rouge">notice</code> when AI is off / over quota</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/ai-usage</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockAiUsageDto</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>Items: <code class="language-plaintext highlighter-rouge">StockItemDto</code> adds <code class="language-plaintext highlighter-rouge">variety</code>, <code class="language-plaintext highlighter-rouge">appearance</code>, <code class="language-plaintext highlighter-rouge">primaryPhoto</code>; <code class="language-plaintext highlighter-rouge">StockItemDetailsDto</code> adds <code class="language-plaintext highlighter-rouge">photos</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">appearance</code>: <code class="language-plaintext highlighter-rouge">{ description?, pattern: Solid|Bicolour|Edged|Gradient|Speckled|Multicolour,
+palette: [{ name, hex: "#RRGGBB", share: 0–100 }] (≤ 5, shares ≤ 100), source: Manual|Ai, summary, updatedAt }</code>.</li>
+  <li>POST <code class="language-plaintext highlighter-rouge">/vendor/stock</code> also accepts <code class="language-plaintext highlighter-rouge">variety?</code>, <code class="language-plaintext highlighter-rouge">appearance?</code>, <code class="language-plaintext highlighter-rouge">pendingPhotoId?</code> (attaches the pending photo).
+PUT accepts <code class="language-plaintext highlighter-rouge">variety?</code>, <code class="language-plaintext highlighter-rouge">appearance?</code> — an <strong>omitted</strong> field is left unchanged; an explicit <code class="language-plaintext highlighter-rouge">null</code> clears it.</li>
+  <li><code class="language-plaintext highlighter-rouge">consume</code> lines accept <code class="language-plaintext highlighter-rouge">variety?</code>; <code class="language-plaintext highlighter-rouge">stockItemId</code> wins over the key.</li>
+  <li>Suggestion: <code class="language-plaintext highlighter-rouge">{ photoId, kind?, name?, variety?, colorLabel?, description?, pattern, palette, confidence?, provider, replayed }</code>.
+Usage: <code class="language-plaintext highlighter-rouge">{ enabled, provider, used, limit, remaining, resetsAt }</code>.</li>
+  <li>Recognition is gated like the assistant (<code class="language-plaintext highlighter-rouge">BouquetDesign:Enabled</code>, <code class="language-plaintext highlighter-rouge">PilotVendorIds</code>, global $ cap) but has
+its <strong>own monthly quota</strong> (<code class="language-plaintext highlighter-rouge">BouquetDesign:Limits:StockRecognitionsPerMonth</code>, default 100). The ledger row
+is written before the provider call; a replayed key returns the stored suggestion, a key reused for
+another photo is refused. Provider: <code class="language-plaintext highlighter-rouge">BouquetDesign:StockRecognition:Provider</code> = <code class="language-plaintext highlighter-rouge">Palette</code> (free, local
+dominant colours) or <code class="language-plaintext highlighter-rouge">OpenAI</code>.</li>
+  <li>Assistant: stock lines carry <code class="language-plaintext highlighter-rouge">stockItemId</code> + <code class="language-plaintext highlighter-rouge">variety</code>; recognition links bench photos to stock items,
+recipes know each item’s palette, and previews use the stock items’ main photos as references.</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th><code class="language-plaintext highlighter-rouge">code</code> (EP-31)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>400</td>
+      <td><code class="language-plaintext highlighter-rouge">invalid-photo</code>, <code class="language-plaintext highlighter-rouge">invalid-request</code> (e.g. a key reused for another photo)</td>
+    </tr>
+    <tr>
+      <td>403</td>
+      <td><code class="language-plaintext highlighter-rouge">feature-disabled</code></td>
+    </tr>
+    <tr>
+      <td>409</td>
+      <td><code class="language-plaintext highlighter-rouge">in-progress</code></td>
+    </tr>
+    <tr>
+      <td>422</td>
+      <td><code class="language-plaintext highlighter-rouge">photo-limit</code></td>
+    </tr>
+    <tr>
+      <td>429</td>
+      <td><code class="language-plaintext highlighter-rouge">quota-exhausted</code>, <code class="language-plaintext highlighter-rouge">spend-cap-reached</code></td>
+    </tr>
+    <tr>
+      <td>502</td>
+      <td><code class="language-plaintext highlighter-rouge">provider-failed</code> (the reservation is released)</td>
+    </tr>
+  </tbody>
+</table>
+
     </div>
   </main>
 </div>
