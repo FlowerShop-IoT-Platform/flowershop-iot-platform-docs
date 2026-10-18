@@ -201,7 +201,7 @@ curl -fsS https://flowershop-keycloak.fly.dev/realms/flowershop/.well-known/open
 
 **Do:**
 
-The API is the Fly app **`flower-shop-backend-core`**, deployed via the repo's **`fly.toml`** (region `fra`, 1 GB VM, always-on). Ignore the stale, unused `fly.api.toml` orphan.
+The API is the Fly app **`flower-shop-backend-core`**, deployed via the repo's **`fly.toml`** (region `fra`, 1 GB VM, always-on).
 
 ```bash
 fly launch --no-deploy --copy-config --name flower-shop-backend-core --region fra --yes

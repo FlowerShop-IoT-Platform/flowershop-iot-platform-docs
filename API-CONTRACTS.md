@@ -172,6 +172,28 @@ Triggers Keycloak to resend the email verification link. Rate-limited (policy `a
 **Response 202:** Verification email queued by Keycloak.
 **Response 204:** No content — the user is already verified (treated as an idempotent success).
 **Response 429:** Rate limited — max 1 request per 60 seconds.
+**Response 503:** Keycloak could not send the email (e.g. SMTP misconfigured) — Problem Details.
+
+---
+
+### GET /api/v1/auth/me
+
+Returns the caller's sign-in account read **live from Keycloak** (not from JWT claims), so email changes and verification are visible without re-login. Used by the Vendor Portal verification banner and Profile page.
+
+**Auth:** Required (any role)
+
+**Response 200:**
+```json
+{
+  "username": "rosegardenadmin",
+  "email": "owner@example.com",
+  "emailVerified": false
+}
+```
+
+**Response 401:** Missing/invalid token.
+**Response 404:** No Keycloak user matches the token `sub` (e.g. dev tokens without Keycloak).
+**Response 503:** Keycloak unreachable — Problem Details. Clients should fall back to JWT claims.
 
 ---
 
@@ -1349,6 +1371,67 @@ Resets the vendor's pricing strategy to the platform default (Standard 3-day sch
 
 ---
 
+### PUT /api/v1/vendors/{id}/opening-hours
+
+Saves the vendor's weekly schedule. Read back as `weeklyOpeningHours` on `GET /api/v1/vendors/{id}` (vendor-scoped detail).
+
+**Auth:** Required (`VendorAccess`; a vendor may only change its own record, platform admins any)
+
+**Request:**
+
+```json
+{ "schedule": [ { "day": "Monday", "isOpen": true, "openTime": "09:00", "closeTime": "18:00" },
+                { "day": "Sunday", "isOpen": false, "openTime": null, "closeTime": null } ] }
+```
+
+**Response 200:** Saved. **Response 400:** Unknown/duplicate day, times not `HH:mm`, or closing not after opening (`detail` names the day). **Response 403:** Another vendor's record. **Response 404:** Vendor not found.
+
+---
+
+### PUT /api/v1/vendors/{id}/location
+
+Moves the vendor's shop (traditional shop: physical location; freelance florist: home location, privacy radius kept). Customers' map places every bouquet at the vendor's location, so this moves all of the vendor's active bouquets.
+
+**Auth:** Required (`VendorAccess`; own record only, platform admins any)
+
+**Request:**
+
+```json
+{ "address": "Marszałkowska 10", "city": "Warszawa", "postalCode": "00-001", "country": "Polska",
+  "latitude": 52.2297, "longitude": 21.0122 }
+```
+
+`address` may also be a whole address line or, for a map pin with no street address, the coordinates as text. For shops the parts are stored as one line: `"Marszałkowska 10, 00-001 Warszawa, Polska"`.
+
+**Response 200:** Saved. **Response 400:** Coordinates out of range or `(0,0)`, or `address` empty. **Response 403:** Another vendor's record. **Response 404:** Vendor not found.
+
+---
+
+### GET /api/v1/vendors/address-lookup/search?query={text}
+
+Validates a typed address (OpenStreetMap Nominatim). Returns up to five candidates, most relevant first.
+
+**Auth:** Anonymous (used by the sign-up wizard too). Rate-limited per user/IP: 20 requests/minute (`429`).
+
+**Response 200:**
+
+```json
+[ { "latitude": 52.2297, "longitude": 21.0122, "displayName": "Marszałkowska 10, Śródmieście, Warszawa, 00-001, Polska",
+    "street": "Marszałkowska 10", "city": "Warszawa", "postalCode": "00-001", "country": "Polska" } ]
+```
+
+**Response 400:** `query` shorter than 3 or longer than 300 characters. **Response 404:** No match. **Response 503:** Geocoder unavailable.
+
+---
+
+### GET /api/v1/vendors/address-lookup/reverse?latitude={lat}&longitude={lng}
+
+Resolves a map point to the nearest address. Same auth, rate limit and candidate shape as search; the returned coordinates are the requested point, not the snapped building.
+
+**Response 200:** One candidate. **Response 400:** Coordinates out of range. **Response 404:** No address at that point (e.g. open water). **Response 503:** Geocoder unavailable.
+
+---
+
 ## 8. Customer Profile Endpoints
 
 ### GET /api/v1/profile
@@ -2263,3 +2346,106 @@ The following fields are always returned as-is, regardless of locale:
 - Vendor-authored content (`vendorName`, `description`, `vendorOpeningHours`) — stored in the vendor's language
 - Monetary values and currency codes
 - Coordinates, dates, URLs
+
+---
+
+## 21. AI Bouquet Assistant (EP-28)
+
+Vendor-only (`VendorAccess` policy). The tenant always comes from the JWT (`vendor_id`,
+`vendor_type`) via `ITenantContextService`; `X-Vendor-Id` never overrides it. A session of another
+vendor answers **404**, exactly like a missing one. All routes are under `/api/v1/vendor`.
+Enums are strings, ids are plain GUIDs, money is a JSON number in PLN (2 dp).
+
+| Method | Path | Body / query | Success |
+|---|---|---|---|
+| GET | `/design-assistant/usage` | — | 200 `DesignUsageDto` (feature flags, quota, limits, styles) |
+| POST | `/design-sessions` | `{ "inputMode": "Photos" \| "Manual" }`, optional `Idempotency-Key` | 201 `DesignSessionDto` (same key → same session) |
+| GET | `/design-sessions?skip=0&take=20` | — | 200 `DesignSessionSummaryDto[]`, newest first |
+| GET | `/design-sessions/{id}` | — | 200 `DesignSessionDto` — the polling target |
+| DELETE | `/design-sessions/{id}` | — | 204; queued work cancelled, private media purged |
+| POST | `/design-sessions/{id}/photos` | multipart: file field **`photo`** (JPEG/PNG/WebP ≤ 8 MB raw; re-encoded server-side to ≤ 1600 px JPEG, EXIF stripped), optional form field `clientPhotoId` | 201 `DesignSessionDto` (replayed `clientPhotoId` is a no-op) |
+| DELETE | `/design-sessions/{id}/photos/{photoId}` | — | 200 `DesignSessionDto` |
+| GET | `/design-sessions/{id}/photos/{photoId}/content` | — | 200 `image/jpeg`, `Cache-Control: private, no-store` |
+| POST | `/design-sessions/{id}/recognize` | `{ "expectedVersion": 3 }`, **required** `Idempotency-Key` | 202 `DesignSessionDto` (state `Recognizing`) |
+| PUT | `/design-sessions/{id}/inventory` | `{ "expectedVersion": 4, "confirmed": true, "items": [ { "id": null\|guid, "kind": "Flower\|Greenery\|Material", "name": "Pink rose", "color": "Pink", "quantity": 12, "unit": "Stem\|Item", "unitPrice": 4.00\|null } ] }` | 200 `DesignSessionDto` |
+| POST | `/design-sessions/{id}/recipes` | `{ "expectedVersion": 5, "size": "M", "mode": "AvailableOnly", "count": 3, "style": "Soft & natural"\|null, "costCeiling": 100\|null }`, **required** `Idempotency-Key` | 202 `DesignSessionDto` (state `Composing`) |
+| POST | `/design-sessions/{id}/recipes/{recipeId}/preview` | `{}`, **required** `Idempotency-Key` | 202 `DesignSessionDto` (preview `Queued`); 200 if a preview is already `Ready` |
+| GET | `/design-sessions/{id}/recipes/{recipeId}/preview/content` | — | 200 image bytes, `private, no-store` |
+| PUT | `/design-sessions/{id}/recipes/{recipeId}/saved` | `{ "saved": true }` | 200 `DesignSessionDto` |
+| GET | `/design-sessions/{id}/recipes/{recipeId}/cost?sellingPrice=120` | optional `sellingPrice` | 200 `RecipeCostDto` (margin only when cost is complete) |
+| GET | `/design-recipes?saved=true` | — | 200 `DesignRecipeDto[]` (saved recipes across sessions, newest first) |
+| GET | `/design-cost-profile` | — | 200 `DesignCostProfileDto` (created with defaults on first read) |
+| PUT | `/design-cost-profile` | `{ "expectedVersion": 1, "basis": "Gross", "laborMinutes": 30, "hourlyRate": 40, "overheadPercent": 10 }` | 200 `DesignCostProfileDto` |
+
+**Session states**: `Draft → Recognizing → InventoryReady → InventoryConfirmed → Composing → RecipesReady`
+(manual entry: `Draft → InventoryConfirmed` by saving inventory with `confirmed: true`). `Deleted` is
+never returned (404). Editing confirmed stock bumps `stockRevision` and drops **unsaved** recipes.
+
+**Preview states** (per recipe): `NotRequested | Queued | Running | Ready | Failed | OutcomeUnknown`.
+Previews never change the session state; a recipe is usable and saveable without one.
+
+**Polling**: while `state` is `Recognizing`/`Composing` or any preview is `Queued`/`Running`, GET the
+session every 2 s for the first 60 s, then every 5 s; stop when backgrounded and re-read on resume.
+After 120 s show "Still working" with leave/resume. Never re-POST a billable start to "retry" a
+poll — reuse the same `Idempotency-Key` if the original response was lost.
+
+**Inventory rules**: ≤ 100 lines, quantity 1–9999, flowers/greenery in `Stem`, materials in `Item`
+(or `Stem`), name ≤ 80 chars. A `null` `unitPrice` is filled from the vendor's remembered price
+for the same name+colour when one exists; explicit prices are remembered for next time.
+Size **M** = 11–21 flower+greenery stems (materials excluded).
+
+**Cost**: `total` is `null` and `isComplete` is `false` while any line lacks a price —
+`knownSubtotal` is shown as "Known cost" with "N prices missing". Margin = (price − total) ÷
+price × 100 (gross margin, not markup). A `costCeiling` needs every stock line priced (422
+`cost-profile-incomplete` otherwise).
+
+**Errors**: RFC 7807 ProblemDetails `{ status, title, detail, code }`; `detail` is safe to show.
+
+| Status | `code` |
+|---|---|
+| 400 | `invalid-request`, `invalid-inventory`, `invalid-photo`, `photo-limit` |
+| 403 | `feature-disabled` (kill switch / not in pilot) |
+| 404 | `not-found` (absent or another vendor's) |
+| 409 | `version-conflict` (refresh, keep the user's edits), `invalid-state`, `idempotency-conflict` |
+| 422 | `insufficient-stock`, `cost-profile-incomplete` |
+| 429 | `quota-exhausted`, `spend-cap-reached`, `too-many-active` (+ `Retry-After` seconds) |
+
+Example `DesignSessionDto` (abridged):
+
+```json
+{
+  "id": "6f0c…", "version": 7, "stockRevision": 1, "state": "RecipesReady", "inputMode": "Photos",
+  "createdAt": "2026-10-14T09:00:00Z", "updatedAt": "2026-10-14T09:01:10Z",
+  "photos": [{ "id": "…", "clientPhotoId": "a1", "status": "Uploaded",
+               "contentUrl": "/api/v1/vendor/design-sessions/6f0c…/photos/…/content", "width": 1600, "height": 1200 }],
+  "inventory": { "confirmed": true, "items": [
+    { "id": "…", "kind": "Flower", "name": "Pink rose", "color": "Pink", "quantity": 12, "unit": "Stem",
+      "unitPrice": 4.0, "confidence": null, "estimated": false } ] },
+  "settings": { "size": "M", "mode": "AvailableOnly", "count": 3, "style": "Soft & natural", "costCeiling": null },
+  "recipes": [{ "id": "…", "sessionId": "6f0c…", "title": "Blush garden", "description": "…",
+    "assemblyInstructions": "1. …", "palette": ["Pink", "White", "Sage"], "stockRevision": 1,
+    "matchesCurrentStock": true, "totalStems": 14,
+    "lines": [{ "inventoryItemId": "…", "kind": "Flower", "name": "Pink rose", "color": "Pink", "quantity": 7, "unit": "Stem" }],
+    "cost": { "currency": "PLN", "basis": "Gross", "lines": [ … ], "flowersSubtotal": 52.0, "materialsSubtotal": 12.0,
+              "labor": 0, "overhead": 0, "knownSubtotal": 64.0, "total": 64.0, "isComplete": true, "unknownItemIds": [] },
+    "preview": { "state": "NotRequested", "contentUrl": null, "errorMessage": null, "updatedAt": null },
+    "saved": false, "createdAt": "…", "savedAt": null }],
+  "jobs": [{ "id": "…", "kind": "Composition", "state": "Completed", "recipeId": null,
+             "submittedAt": "…", "completedAt": "…", "errorCode": null, "errorMessage": null }],
+  "activeJob": null,
+  "notice": null
+}
+```
+
+`DesignUsageDto`: `{ enabled, previewsEnabled, recognitionsUsed, recognitionsLimit, recognitionsRemaining,
+compositionsUsed, compositionsLimit, compositionsRemaining, previewsUsed, previewsLimit, previewsRemaining,
+resetsAt, maxPhotos, maxPhotoBytes, maxLongEdgePixels, sizes: ["M"], modes: ["AvailableOnly"],
+styles: ["Soft & natural", …], minStems: 11, maxStems: 21 }`.
+
+`RecipeCostDto`: `{ cost: CostBreakdownDto, sellingPrice, marginAmount, marginPercent, marginUnavailableReason }`.
+
+`DesignCostProfileDto`: `{ version, basis, laborMinutes, hourlyRate, overheadPercent, prices: [{ name, color, unitPrice, updatedAt }] }`.
+
+`DesignSessionSummaryDto`: `{ id, state, inputMode, inventoryItemCount, recipeCount, savedRecipeCount, createdAt, updatedAt }`.
+
+Canonical copy for the mobile client: `flower-shop-vendor-mobile-app/docs/superpowers/specs/2026-10-14-ai-bouquet-assistant-api-contract.md`.

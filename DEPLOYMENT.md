@@ -23,8 +23,6 @@
 | HTTPS | Enforced (`force_https = true`) |
 | Config | `fly.toml` |
 
-> **Note:** `fly.api.toml` (app `flowershop-api`, region `waw`) is a stale, unused orphan config left over from an earlier plan. The live API deploys from `fly.toml` (app `flower-shop-backend-core`, region `fra`).
-
 ### PostgreSQL
 
 | Setting | Value |

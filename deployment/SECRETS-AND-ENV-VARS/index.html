@@ -1128,6 +1128,45 @@
 
 <p>Account ID + bucket + public URL live in <code class="language-plaintext highlighter-rouge">appsettings.Production.json</code>; only the two credentials are Fly secrets.</p>
 
+<h3 id="sms-phone-verification-ep-29">SMS phone verification (EP-29)</h3>
+
+<p>Setup steps: <a href="/deployment/TWILIO-VERIFY-SETUP/">TWILIO-VERIFY-SETUP.md</a>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Value</th>
+      <th>Consumer</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Sms__Provider</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Twilio</code> (unset/<code class="language-plaintext highlighter-rouge">Null</code> in Production = send-code answers 503 “sms-not-configured”)</td>
+      <td>A</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Sms__Twilio__AccountSid</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AC...</code> — Twilio Console → Account Info</td>
+      <td>A</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Sms__Twilio__AuthToken</code></td>
+      <td>Twilio Console → Account Info (secret)</td>
+      <td>A</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Sms__Twilio__VerifyServiceSid</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VA...</code> — Verify → Services</td>
+      <td>A</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Set all four together: <code class="language-plaintext highlighter-rouge">Provider=Twilio</code> with a missing credential makes the API throw when the SMS
+service is first resolved. Abuse limits (<code class="language-plaintext highlighter-rouge">Sms:Limits:*</code>) are non-secret defaults in <code class="language-plaintext highlighter-rouge">appsettings*.json</code>.</p>
+
 <hr />
 
 <h2 id="github-actions-secrets">GitHub Actions secrets</h2>

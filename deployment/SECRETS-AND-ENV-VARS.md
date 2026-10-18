@@ -100,6 +100,20 @@ AdminPortal and VendorPortal authenticate through the **`flowershop-api` client 
 
 Account ID + bucket + public URL live in `appsettings.Production.json`; only the two credentials are Fly secrets.
 
+### SMS phone verification (EP-29)
+
+Setup steps: [TWILIO-VERIFY-SETUP.md](TWILIO-VERIFY-SETUP.md).
+
+| Key | Value | Consumer |
+|---|---|---|
+| `Sms__Provider` | `Twilio` (unset/`Null` in Production = send-code answers 503 "sms-not-configured") | A |
+| `Sms__Twilio__AccountSid` | `AC...` — Twilio Console → Account Info | A |
+| `Sms__Twilio__AuthToken` | Twilio Console → Account Info (secret) | A |
+| `Sms__Twilio__VerifyServiceSid` | `VA...` — Verify → Services | A |
+
+Set all four together: `Provider=Twilio` with a missing credential makes the API throw when the SMS
+service is first resolved. Abuse limits (`Sms:Limits:*`) are non-secret defaults in `appsettings*.json`.
+
 ---
 
 ## GitHub Actions secrets

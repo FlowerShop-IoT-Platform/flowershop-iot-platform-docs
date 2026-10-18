@@ -234,6 +234,16 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | GET | `/api/v1/vendors/{vendorId}/employees/{employeeId}/activity` | Query: `pageNumber, pageSize` | `PagedResult<EmployeeActivityDto>` | Vendor Portal |
 | GET | `/api/v1/vendor/payments` | Query: `filter?, page, pageSize` | `VendorPaymentListResult` (EP-18) — tenant-scoped, no Stripe-internal ids | Vendor Portal (payments dashboard) |
 | GET | `/api/v1/vendor/payments/metrics` | Query: `fromDate?, toDate?` | `VendorPaymentMetricsDto` (EP-18) | Vendor Portal (payments dashboard) |
+| GET | `/api/v1/vendor/design-assistant/usage` | — | `DesignUsageDto` (EP-28 — flags, monthly quota, limits, styles) | Vendor mobile app |
+| POST/GET | `/api/v1/vendor/design-sessions` | POST `{ inputMode }` + optional `Idempotency-Key`; GET `?skip&take` | 201 `DesignSessionDto` / `DesignSessionSummaryDto[]` (EP-28) | Vendor mobile app |
+| GET/DELETE | `/api/v1/vendor/design-sessions/{id}` | — | `DesignSessionDto` (polling target) / 204 | Vendor mobile app |
+| POST/DELETE | `/api/v1/vendor/design-sessions/{id}/photos[/{photoId}]` | multipart `photo` + `clientPhotoId` | `DesignSessionDto` | Vendor mobile app |
+| GET | `/api/v1/vendor/design-sessions/{id}/photos/{photoId}/content`, `/recipes/{rid}/preview/content` | — | private image bytes (`private, no-store`) | Vendor mobile app |
+| POST | `/api/v1/vendor/design-sessions/{id}/recognize`, `/recipes`, `/recipes/{rid}/preview` | `{ expectedVersion }` / `{ expectedVersion, size, mode, count, style?, costCeiling? }` / `{}` + **required** `Idempotency-Key` | 202 `DesignSessionDto` (billable, quota-checked) | Vendor mobile app |
+| PUT | `/api/v1/vendor/design-sessions/{id}/inventory` | `{ expectedVersion, confirmed, items[] }` | `DesignSessionDto` | Vendor mobile app |
+| PUT/GET | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/saved` / `/cost?sellingPrice=` | `{ saved }` | `DesignSessionDto` / `RecipeCostDto` | Vendor mobile app |
+| GET | `/api/v1/vendor/design-recipes?saved=true` | — | `DesignRecipeDto[]` | Vendor mobile app |
+| GET/PUT | `/api/v1/vendor/design-cost-profile` | `{ expectedVersion, basis, laborMinutes, hourlyRate, overheadPercent }` | `DesignCostProfileDto` | Vendor mobile app |
 | GET | `/api/v1/vendor-accounts/debug/token-claims` | — | Token claims | Dev tooling |
 
 ### 2d. Platform Admin Endpoints (Policy: `PlatformAdmin`)
@@ -474,6 +484,12 @@ Consequently: `customer_id` may be **absent on the first Google token** and is p
 | `Features:MaxVasesPerVendor` | int | Business rule limit | `10` |
 | `Features:MaxBouquetsPerVendor` | int | Business rule limit | `50` |
 | `Cors:AllowedOrigins` | string[] | CORS origins | `["*"]` (dev) |
+| `BouquetDesign:Enabled` / `PreviewsEnabled` | bool | EP-28 kill switches for new paid AI work (existing recipes stay readable) | `true` |
+| `BouquetDesign:PilotVendorIds` | Guid[] | Pilot allow-list; empty = all vendors | `[]` |
+| `BouquetDesign:{Recognition,Composition,Preview}:Provider` | string | `Fake`/`OpenAI`; `Deterministic`/`OpenAI`; `Placeholder`/`Bfl`/`OpenAI` | free defaults |
+| `BouquetDesign:OpenAI:ApiKey`, `BouquetDesign:Bfl:ApiKey` | secret | Provider keys (Fly secrets only) | empty |
+| `BouquetDesign:Storage:*` | object | `Local` (dev folder) or `R2` private bucket `flowershop-design-private` | `Local` |
+| `BouquetDesign:Limits:*`, `Worker:*`, `Retention:*` | object | Quotas, $ cap, worker concurrency/lease, retention days | see `BouquetDesignOptions` |
 
 ### 6b. Docker Compose Environment Variables
 

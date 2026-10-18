@@ -1682,6 +1682,76 @@
     </tr>
     <tr>
       <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-assistant/usage</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignUsageDto</code> (EP-28 — flags, monthly quota, limits, styles)</td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST/GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions</code></td>
+      <td>POST <code class="language-plaintext highlighter-rouge">{ inputMode }</code> + optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>; GET <code class="language-plaintext highlighter-rouge">?skip&amp;take</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> / <code class="language-plaintext highlighter-rouge">DesignSessionSummaryDto[]</code> (EP-28)</td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (polling target) / 204</td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/photos[/{photoId}]</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code> + <code class="language-plaintext highlighter-rouge">clientPhotoId</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/photos/{photoId}/content</code>, <code class="language-plaintext highlighter-rouge">/recipes/{rid}/preview/content</code></td>
+      <td>—</td>
+      <td>private image bytes (<code class="language-plaintext highlighter-rouge">private, no-store</code>)</td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/recognize</code>, <code class="language-plaintext highlighter-rouge">/recipes</code>, <code class="language-plaintext highlighter-rouge">/recipes/{rid}/preview</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code> / <code class="language-plaintext highlighter-rouge">{ expectedVersion, size, mode, count, style?, costCeiling? }</code> / <code class="language-plaintext highlighter-rouge">{}</code> + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (billable, quota-checked)</td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/inventory</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion, confirmed, items[] }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>PUT/GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/recipes/{rid}/saved</code> / <code class="language-plaintext highlighter-rouge">/cost?sellingPrice=</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ saved }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> / <code class="language-plaintext highlighter-rouge">RecipeCostDto</code></td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-recipes?saved=true</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignRecipeDto[]</code></td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-cost-profile</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion, basis, laborMinutes, hourlyRate, overheadPercent }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignCostProfileDto</code></td>
+      <td>Vendor mobile app</td>
+    </tr>
+    <tr>
+      <td>GET</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor-accounts/debug/token-claims</code></td>
       <td>—</td>
       <td>Token claims</td>
@@ -2709,6 +2779,42 @@
       <td>string[]</td>
       <td>CORS origins</td>
       <td><code class="language-plaintext highlighter-rouge">["*"]</code> (dev)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Enabled</code> / <code class="language-plaintext highlighter-rouge">PreviewsEnabled</code></td>
+      <td>bool</td>
+      <td>EP-28 kill switches for new paid AI work (existing recipes stay readable)</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:PilotVendorIds</code></td>
+      <td>Guid[]</td>
+      <td>Pilot allow-list; empty = all vendors</td>
+      <td><code class="language-plaintext highlighter-rouge">[]</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:{Recognition,Composition,Preview}:Provider</code></td>
+      <td>string</td>
+      <td><code class="language-plaintext highlighter-rouge">Fake</code>/<code class="language-plaintext highlighter-rouge">OpenAI</code>; <code class="language-plaintext highlighter-rouge">Deterministic</code>/<code class="language-plaintext highlighter-rouge">OpenAI</code>; <code class="language-plaintext highlighter-rouge">Placeholder</code>/<code class="language-plaintext highlighter-rouge">Bfl</code>/<code class="language-plaintext highlighter-rouge">OpenAI</code></td>
+      <td>free defaults</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:OpenAI:ApiKey</code>, <code class="language-plaintext highlighter-rouge">BouquetDesign:Bfl:ApiKey</code></td>
+      <td>secret</td>
+      <td>Provider keys (Fly secrets only)</td>
+      <td>empty</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Storage:*</code></td>
+      <td>object</td>
+      <td><code class="language-plaintext highlighter-rouge">Local</code> (dev folder) or <code class="language-plaintext highlighter-rouge">R2</code> private bucket <code class="language-plaintext highlighter-rouge">flowershop-design-private</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Local</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Limits:*</code>, <code class="language-plaintext highlighter-rouge">Worker:*</code>, <code class="language-plaintext highlighter-rouge">Retention:*</code></td>
+      <td>object</td>
+      <td>Quotas, $ cap, worker concurrency/lease, retention days</td>
+      <td>see <code class="language-plaintext highlighter-rouge">BouquetDesignOptions</code></td>
     </tr>
   </tbody>
 </table>

@@ -3,6 +3,8 @@
 > **Target**: `findmyflowers.pl` demo / early-access deployment
 > **Cost target**: low-cost showcase, always-on where it matters
 > **Status**: shipped — live at `findmyflowers.pl`. The final topology diverged from this proposal in two big ways: **all three portals run on Fly.io (not Render)** and **PostgreSQL runs on Fly (not Aiven)**. Redis and RabbitMQ were never provisioned in prod (dev-only). The sections below have been updated to reflect what actually shipped.
+>
+> **Cost-saving update (scale-to-zero)**: every Fly app now runs `auto_stop_machines = "suspend"` with `min_machines_running = 0`. When an app has no inbound traffic Fly suspends it (snapshots RAM, $0 compute) and auto-resumes it on the next request (~1s from suspend). This overrides the "always-on / must stay awake" language in the matrix and risk table below. **Consequence for the API**: its in-process MQTT subscriber and background workers only run while the machine is awake, so IoT ingest and the timed jobs pause during idle windows. **Fly Postgres is deliberately left always-on** (stateful; the store of record). See the "Scale-to-zero behavior" section at the end.
 
 ## Diagrams
 
@@ -129,6 +131,51 @@ The Admin and Vendor portals authenticate through the `flowershop-api` client vi
 - **Railway end-to-end** — better DX but only $5 one-time credit; not truly free long-term.
 - **Supabase Auth instead of Keycloak** — removes a VM from the diagram, but the code already integrates with Keycloak (`KeycloakAdminClient`, `VendorOnboardingService`). Re-platforming auth is a separate epic, not a deployment task.
 - **Azure Container Apps free tier** — generous free grant but requires a credit card and the 180k-vCPU-sec cap runs out fast with 5 background workers ticking. Rejected.
+
+## Scale-to-zero behavior
+
+All Fly apps are configured for `$0 compute when idle`:
+
+```
+auto_stop_machines   = "suspend"   # snapshot RAM + power down when no inbound traffic
+auto_start_machines  = true        # Fly proxy boots/resumes the machine on the next request
+min_machines_running = 0           # nothing kept warm
+```
+
+**What counts as "in use"**: only inbound connections routed through the Fly proxy for
+`[http_service]` (HTTPS requests to the app). Internal timers and the API's *outbound*
+MQTT connection to HiveMQ do **not** keep a machine awake — so the API suspends during
+idle windows even though it would otherwise want to hold the MQTT subscription.
+
+**Warm-up (cold-hit) latency** — first request after an idle period:
+
+| App | Resume from suspend | Notes |
+|---|---|---|
+| Portals (admin/vendor/customer) | ~1–2 s | RAM restored; .NET stays warmed, no JIT re-warm |
+| Keycloak | ~1–2 s | Suspend avoids a full JVM cold boot (~30–60 s) |
+| API | ~1–3 s | RAM restored; EF migrations are **not** re-run on resume (only on a full stop/redeploy). MQTT client reconnects to HiveMQ a few seconds after resume |
+| Postgres | n/a | Left always-on; the store of record for both the app and Keycloak |
+
+If Fly ever fully **stops** a machine instead of suspending (e.g. after a redeploy or a
+suspend failure), the first hit is a true cold start: ~10–60 s for the API (process boot +
+`Database.MigrateAsync()` with retry) and up to ~60 s for Keycloak's JVM.
+
+**Cost floor**: with the apps at zero, the only always-on component billed is Fly Postgres
+(smallest shared tier, ≈ a couple of USD/month). Reaching literal $0 would require also
+autostopping the Postgres machine, which is not done here to avoid DB cold-start/wake risk.
+
+**Operational caveats to watch**:
+- **IoT ingest gaps**: vase MQTT heartbeats/sensor messages sent while the API is suspended
+  are only delivered if HiveMQ retains them (QoS 1 + persistent session/retained). Otherwise
+  they are missed until a request wakes the API. If continuous ingest matters, keep the API
+  app on `min_machines_running = 1` and only scale the portals + Keycloak to zero.
+- **Timed jobs drift**: outbox dispatch, freshness updates, reservation-expiry, and payment
+  reconciliation run late (they resume when the machine wakes, then catch up). Fine for a
+  showcase; revisit before real order volume.
+- **Stripe webhooks**: `POST /api/stripe/webhook` is inbound HTTP, so it wakes the API on its
+  own and is processed on resume. Stripe also retries failed deliveries, so nothing is lost.
+- **Keep-warm option**: if you want the site instantly responsive during, say, a demo, set
+  `min_machines_running = 1` on the app(s) you care about, or hit the URL on a cron.
 
 ## Upgrade path (when demo graduates)
 

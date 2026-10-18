@@ -1030,7 +1030,7 @@ curl <span class="nt">-fsS</span> https://flowershop-keycloak.fly.dev/health/rea
 
 <p><strong>Do:</strong></p>
 
-<p>The API is the Fly app <strong><code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code></strong>, deployed via the repo’s <strong><code class="language-plaintext highlighter-rouge">fly.toml</code></strong> (region <code class="language-plaintext highlighter-rouge">fra</code>, 1 GB VM, always-on). Ignore the stale, unused <code class="language-plaintext highlighter-rouge">fly.api.toml</code> orphan.</p>
+<p>The API is the Fly app <strong><code class="language-plaintext highlighter-rouge">flower-shop-backend-core</code></strong>, deployed via the repo’s <strong><code class="language-plaintext highlighter-rouge">fly.toml</code></strong> (region <code class="language-plaintext highlighter-rouge">fra</code>, 1 GB VM, always-on).</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fly launch <span class="nt">--no-deploy</span> <span class="nt">--copy-config</span> <span class="nt">--name</span> flower-shop-backend-core <span class="nt">--region</span> fra <span class="nt">--yes</span>
 

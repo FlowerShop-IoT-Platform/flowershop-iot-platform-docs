@@ -1049,7 +1049,28 @@ grant_type=refresh_token
 
 <p><strong>Response 202:</strong> Verification email queued by Keycloak.
 <strong>Response 204:</strong> No content — the user is already verified (treated as an idempotent success).
-<strong>Response 429:</strong> Rate limited — max 1 request per 60 seconds.</p>
+<strong>Response 429:</strong> Rate limited — max 1 request per 60 seconds.
+<strong>Response 503:</strong> Keycloak could not send the email (e.g. SMTP misconfigured) — Problem Details.</p>
+
+<hr />
+
+<h3 id="get-apiv1authme">GET /api/v1/auth/me</h3>
+
+<p>Returns the caller’s sign-in account read <strong>live from Keycloak</strong> (not from JWT claims), so email changes and verification are visible without re-login. Used by the Vendor Portal verification banner and Profile page.</p>
+
+<p><strong>Auth:</strong> Required (any role)</p>
+
+<p><strong>Response 200:</strong></p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rosegardenadmin"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"owner@example.com"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"emailVerified"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Response 401:</strong> Missing/invalid token.
+<strong>Response 404:</strong> No Keycloak user matches the token <code class="language-plaintext highlighter-rouge">sub</code> (e.g. dev tokens without Keycloak).
+<strong>Response 503:</strong> Keycloak unreachable — Problem Details. Clients should fall back to JWT claims.</p>
 
 <hr />
 
@@ -2746,6 +2767,64 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
 
 <hr />
 
+<h3 id="put-apiv1vendorsidopening-hours">PUT /api/v1/vendors/{id}/opening-hours</h3>
+
+<p>Saves the vendor’s weekly schedule. Read back as <code class="language-plaintext highlighter-rouge">weeklyOpeningHours</code> on <code class="language-plaintext highlighter-rouge">GET /api/v1/vendors/{id}</code> (vendor-scoped detail).</p>
+
+<p><strong>Auth:</strong> Required (<code class="language-plaintext highlighter-rouge">VendorAccess</code>; a vendor may only change its own record, platform admins any)</p>
+
+<p><strong>Request:</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w"> </span><span class="nl">"schedule"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"day"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Monday"</span><span class="p">,</span><span class="w"> </span><span class="nl">"isOpen"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nl">"openTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"09:00"</span><span class="p">,</span><span class="w"> </span><span class="nl">"closeTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"18:00"</span><span class="w"> </span><span class="p">},</span><span class="w">
+                </span><span class="p">{</span><span class="w"> </span><span class="nl">"day"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sunday"</span><span class="p">,</span><span class="w"> </span><span class="nl">"isOpen"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nl">"openTime"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nl">"closeTime"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Response 200:</strong> Saved. <strong>Response 400:</strong> Unknown/duplicate day, times not <code class="language-plaintext highlighter-rouge">HH:mm</code>, or closing not after opening (<code class="language-plaintext highlighter-rouge">detail</code> names the day). <strong>Response 403:</strong> Another vendor’s record. <strong>Response 404:</strong> Vendor not found.</p>
+
+<hr />
+
+<h3 id="put-apiv1vendorsidlocation">PUT /api/v1/vendors/{id}/location</h3>
+
+<p>Moves the vendor’s shop (traditional shop: physical location; freelance florist: home location, privacy radius kept). Customers’ map places every bouquet at the vendor’s location, so this moves all of the vendor’s active bouquets.</p>
+
+<p><strong>Auth:</strong> Required (<code class="language-plaintext highlighter-rouge">VendorAccess</code>; own record only, platform admins any)</p>
+
+<p><strong>Request:</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w"> </span><span class="nl">"address"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Marszałkowska 10"</span><span class="p">,</span><span class="w"> </span><span class="nl">"city"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Warszawa"</span><span class="p">,</span><span class="w"> </span><span class="nl">"postalCode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"00-001"</span><span class="p">,</span><span class="w"> </span><span class="nl">"country"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Polska"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w"> </span><span class="nl">"longitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">address</code> may also be a whole address line or, for a map pin with no street address, the coordinates as text. For shops the parts are stored as one line: <code class="language-plaintext highlighter-rouge">"Marszałkowska 10, 00-001 Warszawa, Polska"</code>.</p>
+
+<p><strong>Response 200:</strong> Saved. <strong>Response 400:</strong> Coordinates out of range or <code class="language-plaintext highlighter-rouge">(0,0)</code>, or <code class="language-plaintext highlighter-rouge">address</code> empty. <strong>Response 403:</strong> Another vendor’s record. <strong>Response 404:</strong> Vendor not found.</p>
+
+<hr />
+
+<h3 id="get-apiv1vendorsaddress-lookupsearchquerytext">GET /api/v1/vendors/address-lookup/search?query={text}</h3>
+
+<p>Validates a typed address (OpenStreetMap Nominatim). Returns up to five candidates, most relevant first.</p>
+
+<p><strong>Auth:</strong> Anonymous (used by the sign-up wizard too). Rate-limited per user/IP: 20 requests/minute (<code class="language-plaintext highlighter-rouge">429</code>).</p>
+
+<p><strong>Response 200:</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w"> </span><span class="nl">"longitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w"> </span><span class="nl">"displayName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Marszałkowska 10, Śródmieście, Warszawa, 00-001, Polska"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"street"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Marszałkowska 10"</span><span class="p">,</span><span class="w"> </span><span class="nl">"city"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Warszawa"</span><span class="p">,</span><span class="w"> </span><span class="nl">"postalCode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"00-001"</span><span class="p">,</span><span class="w"> </span><span class="nl">"country"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Polska"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Response 400:</strong> <code class="language-plaintext highlighter-rouge">query</code> shorter than 3 or longer than 300 characters. <strong>Response 404:</strong> No match. <strong>Response 503:</strong> Geocoder unavailable.</p>
+
+<hr />
+
+<h3 id="get-apiv1vendorsaddress-lookupreverselatitudelatlongitudelng">GET /api/v1/vendors/address-lookup/reverse?latitude={lat}&amp;longitude={lng}</h3>
+
+<p>Resolves a map point to the nearest address. Same auth, rate limit and candidate shape as search; the returned coordinates are the requested point, not the snapped building.</p>
+
+<p><strong>Response 200:</strong> One candidate. <strong>Response 400:</strong> Coordinates out of range. <strong>Response 404:</strong> No address at that point (e.g. open water). <strong>Response 503:</strong> Geocoder unavailable.</p>
+
+<hr />
+
 <h2 id="8-customer-profile-endpoints">8. Customer Profile Endpoints</h2>
 
 <h3 id="get-apiv1profile">GET /api/v1/profile</h3>
@@ -4148,6 +4227,234 @@ If-None-Match: "abc123"
   <li>Monetary values and currency codes</li>
   <li>Coordinates, dates, URLs</li>
 </ul>
+
+<hr />
+
+<h2 id="21-ai-bouquet-assistant-ep-28">21. AI Bouquet Assistant (EP-28)</h2>
+
+<p>Vendor-only (<code class="language-plaintext highlighter-rouge">VendorAccess</code> policy). The tenant always comes from the JWT (<code class="language-plaintext highlighter-rouge">vendor_id</code>,
+<code class="language-plaintext highlighter-rouge">vendor_type</code>) via <code class="language-plaintext highlighter-rouge">ITenantContextService</code>; <code class="language-plaintext highlighter-rouge">X-Vendor-Id</code> never overrides it. A session of another
+vendor answers <strong>404</strong>, exactly like a missing one. All routes are under <code class="language-plaintext highlighter-rouge">/api/v1/vendor</code>.
+Enums are strings, ids are plain GUIDs, money is a JSON number in PLN (2 dp).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body / query</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-assistant/usage</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignUsageDto</code> (feature flags, quota, limits, styles)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "inputMode": "Photos" \| "Manual" }</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (same key → same session)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions?skip=0&amp;take=20</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionSummaryDto[]</code>, newest first</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — the polling target</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}</code></td>
+      <td>—</td>
+      <td>204; queued work cancelled, private media purged</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/photos</code></td>
+      <td>multipart: file field <strong><code class="language-plaintext highlighter-rouge">photo</code></strong> (JPEG/PNG/WebP ≤ 8 MB raw; re-encoded server-side to ≤ 1600 px JPEG, EXIF stripped), optional form field <code class="language-plaintext highlighter-rouge">clientPhotoId</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (replayed <code class="language-plaintext highlighter-rouge">clientPhotoId</code> is a no-op)</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/photos/{photoId}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/photos/{photoId}/content</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">image/jpeg</code>, <code class="language-plaintext highlighter-rouge">Cache-Control: private, no-store</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recognize</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "expectedVersion": 3 }</code>, <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (state <code class="language-plaintext highlighter-rouge">Recognizing</code>)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/inventory</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "expectedVersion": 4, "confirmed": true, "items": [ { "id": null\|guid, "kind": "Flower\|Greenery\|Material", "name": "Pink rose", "color": "Pink", "quantity": 12, "unit": "Stem\|Item", "unitPrice": 4.00\|null } ] }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "expectedVersion": 5, "size": "M", "mode": "AvailableOnly", "count": 3, "style": "Soft &amp; natural"\|null, "costCeiling": 100\|null }</code>, <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (state <code class="language-plaintext highlighter-rouge">Composing</code>)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/preview</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{}</code>, <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (preview <code class="language-plaintext highlighter-rouge">Queued</code>); 200 if a preview is already <code class="language-plaintext highlighter-rouge">Ready</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/preview/content</code></td>
+      <td>—</td>
+      <td>200 image bytes, <code class="language-plaintext highlighter-rouge">private, no-store</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/saved</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "saved": true }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/cost?sellingPrice=120</code></td>
+      <td>optional <code class="language-plaintext highlighter-rouge">sellingPrice</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">RecipeCostDto</code> (margin only when cost is complete)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-recipes?saved=true</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignRecipeDto[]</code> (saved recipes across sessions, newest first)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-cost-profile</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignCostProfileDto</code> (created with defaults on first read)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-cost-profile</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "expectedVersion": 1, "basis": "Gross", "laborMinutes": 30, "hourlyRate": 40, "overheadPercent": 10 }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignCostProfileDto</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Session states</strong>: <code class="language-plaintext highlighter-rouge">Draft → Recognizing → InventoryReady → InventoryConfirmed → Composing → RecipesReady</code>
+(manual entry: <code class="language-plaintext highlighter-rouge">Draft → InventoryConfirmed</code> by saving inventory with <code class="language-plaintext highlighter-rouge">confirmed: true</code>). <code class="language-plaintext highlighter-rouge">Deleted</code> is
+never returned (404). Editing confirmed stock bumps <code class="language-plaintext highlighter-rouge">stockRevision</code> and drops <strong>unsaved</strong> recipes.</p>
+
+<p><strong>Preview states</strong> (per recipe): <code class="language-plaintext highlighter-rouge">NotRequested | Queued | Running | Ready | Failed | OutcomeUnknown</code>.
+Previews never change the session state; a recipe is usable and saveable without one.</p>
+
+<p><strong>Polling</strong>: while <code class="language-plaintext highlighter-rouge">state</code> is <code class="language-plaintext highlighter-rouge">Recognizing</code>/<code class="language-plaintext highlighter-rouge">Composing</code> or any preview is <code class="language-plaintext highlighter-rouge">Queued</code>/<code class="language-plaintext highlighter-rouge">Running</code>, GET the
+session every 2 s for the first 60 s, then every 5 s; stop when backgrounded and re-read on resume.
+After 120 s show “Still working” with leave/resume. Never re-POST a billable start to “retry” a
+poll — reuse the same <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> if the original response was lost.</p>
+
+<p><strong>Inventory rules</strong>: ≤ 100 lines, quantity 1–9999, flowers/greenery in <code class="language-plaintext highlighter-rouge">Stem</code>, materials in <code class="language-plaintext highlighter-rouge">Item</code>
+(or <code class="language-plaintext highlighter-rouge">Stem</code>), name ≤ 80 chars. A <code class="language-plaintext highlighter-rouge">null</code> <code class="language-plaintext highlighter-rouge">unitPrice</code> is filled from the vendor’s remembered price
+for the same name+colour when one exists; explicit prices are remembered for next time.
+Size <strong>M</strong> = 11–21 flower+greenery stems (materials excluded).</p>
+
+<p><strong>Cost</strong>: <code class="language-plaintext highlighter-rouge">total</code> is <code class="language-plaintext highlighter-rouge">null</code> and <code class="language-plaintext highlighter-rouge">isComplete</code> is <code class="language-plaintext highlighter-rouge">false</code> while any line lacks a price —
+<code class="language-plaintext highlighter-rouge">knownSubtotal</code> is shown as “Known cost” with “N prices missing”. Margin = (price − total) ÷
+price × 100 (gross margin, not markup). A <code class="language-plaintext highlighter-rouge">costCeiling</code> needs every stock line priced (422
+<code class="language-plaintext highlighter-rouge">cost-profile-incomplete</code> otherwise).</p>
+
+<p><strong>Errors</strong>: RFC 7807 ProblemDetails <code class="language-plaintext highlighter-rouge">{ status, title, detail, code }</code>; <code class="language-plaintext highlighter-rouge">detail</code> is safe to show.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th><code class="language-plaintext highlighter-rouge">code</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>400</td>
+      <td><code class="language-plaintext highlighter-rouge">invalid-request</code>, <code class="language-plaintext highlighter-rouge">invalid-inventory</code>, <code class="language-plaintext highlighter-rouge">invalid-photo</code>, <code class="language-plaintext highlighter-rouge">photo-limit</code></td>
+    </tr>
+    <tr>
+      <td>403</td>
+      <td><code class="language-plaintext highlighter-rouge">feature-disabled</code> (kill switch / not in pilot)</td>
+    </tr>
+    <tr>
+      <td>404</td>
+      <td><code class="language-plaintext highlighter-rouge">not-found</code> (absent or another vendor’s)</td>
+    </tr>
+    <tr>
+      <td>409</td>
+      <td><code class="language-plaintext highlighter-rouge">version-conflict</code> (refresh, keep the user’s edits), <code class="language-plaintext highlighter-rouge">invalid-state</code>, <code class="language-plaintext highlighter-rouge">idempotency-conflict</code></td>
+    </tr>
+    <tr>
+      <td>422</td>
+      <td><code class="language-plaintext highlighter-rouge">insufficient-stock</code>, <code class="language-plaintext highlighter-rouge">cost-profile-incomplete</code></td>
+    </tr>
+    <tr>
+      <td>429</td>
+      <td><code class="language-plaintext highlighter-rouge">quota-exhausted</code>, <code class="language-plaintext highlighter-rouge">spend-cap-reached</code>, <code class="language-plaintext highlighter-rouge">too-many-active</code> (+ <code class="language-plaintext highlighter-rouge">Retry-After</code> seconds)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Example <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (abridged):</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6f0c…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nl">"stockRevision"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nl">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RecipesReady"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Photos"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T09:00:00Z"</span><span class="p">,</span><span class="w"> </span><span class="nl">"updatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T09:01:10Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"photos"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"clientPhotoId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1"</span><span class="p">,</span><span class="w"> </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Uploaded"</span><span class="p">,</span><span class="w">
+               </span><span class="nl">"contentUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/api/v1/vendor/design-sessions/6f0c…/photos/…/content"</span><span class="p">,</span><span class="w"> </span><span class="nl">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">1600</span><span class="p">,</span><span class="w"> </span><span class="nl">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">1200</span><span class="w"> </span><span class="p">}],</span><span class="w">
+  </span><span class="nl">"inventory"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"confirmed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flower"</span><span class="p">,</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pink rose"</span><span class="p">,</span><span class="w"> </span><span class="nl">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pink"</span><span class="p">,</span><span class="w"> </span><span class="nl">"quantity"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nl">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Stem"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"unitPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">4.0</span><span class="p">,</span><span class="w"> </span><span class="nl">"confidence"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nl">"estimated"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"settings"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"size"</span><span class="p">:</span><span class="w"> </span><span class="s2">"M"</span><span class="p">,</span><span class="w"> </span><span class="nl">"mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AvailableOnly"</span><span class="p">,</span><span class="w"> </span><span class="nl">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nl">"style"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Soft &amp; natural"</span><span class="p">,</span><span class="w"> </span><span class="nl">"costCeiling"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"recipes"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"sessionId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6f0c…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Blush garden"</span><span class="p">,</span><span class="w"> </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"assemblyInstructions"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1. …"</span><span class="p">,</span><span class="w"> </span><span class="nl">"palette"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Pink"</span><span class="p">,</span><span class="w"> </span><span class="s2">"White"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Sage"</span><span class="p">],</span><span class="w"> </span><span class="nl">"stockRevision"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"matchesCurrentStock"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nl">"totalStems"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"lines"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"inventoryItemId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flower"</span><span class="p">,</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pink rose"</span><span class="p">,</span><span class="w"> </span><span class="nl">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pink"</span><span class="p">,</span><span class="w"> </span><span class="nl">"quantity"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nl">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Stem"</span><span class="w"> </span><span class="p">}],</span><span class="w">
+    </span><span class="nl">"cost"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w"> </span><span class="nl">"basis"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Gross"</span><span class="p">,</span><span class="w"> </span><span class="nl">"lines"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">…</span><span class="w"> </span><span class="p">],</span><span class="w"> </span><span class="nl">"flowersSubtotal"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.0</span><span class="p">,</span><span class="w"> </span><span class="nl">"materialsSubtotal"</span><span class="p">:</span><span class="w"> </span><span class="mf">12.0</span><span class="p">,</span><span class="w">
+              </span><span class="nl">"labor"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nl">"overhead"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nl">"knownSubtotal"</span><span class="p">:</span><span class="w"> </span><span class="mf">64.0</span><span class="p">,</span><span class="w"> </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mf">64.0</span><span class="p">,</span><span class="w"> </span><span class="nl">"isComplete"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nl">"unknownItemIds"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"preview"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NotRequested"</span><span class="p">,</span><span class="w"> </span><span class="nl">"contentUrl"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nl">"errorMessage"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nl">"updatedAt"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"saved"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"savedAt"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}],</span><span class="w">
+  </span><span class="nl">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Composition"</span><span class="p">,</span><span class="w"> </span><span class="nl">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Completed"</span><span class="p">,</span><span class="w"> </span><span class="nl">"recipeId"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w">
+             </span><span class="nl">"submittedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"completedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nl">"errorCode"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nl">"errorMessage"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}],</span><span class="w">
+  </span><span class="nl">"activeJob"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"notice"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">DesignUsageDto</code>: <code class="language-plaintext highlighter-rouge">{ enabled, previewsEnabled, recognitionsUsed, recognitionsLimit, recognitionsRemaining,
+compositionsUsed, compositionsLimit, compositionsRemaining, previewsUsed, previewsLimit, previewsRemaining,
+resetsAt, maxPhotos, maxPhotoBytes, maxLongEdgePixels, sizes: ["M"], modes: ["AvailableOnly"],
+styles: ["Soft &amp; natural", …], minStems: 11, maxStems: 21 }</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">RecipeCostDto</code>: <code class="language-plaintext highlighter-rouge">{ cost: CostBreakdownDto, sellingPrice, marginAmount, marginPercent, marginUnavailableReason }</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">DesignCostProfileDto</code>: <code class="language-plaintext highlighter-rouge">{ version, basis, laborMinutes, hourlyRate, overheadPercent, prices: [{ name, color, unitPrice, updatedAt }] }</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">DesignSessionSummaryDto</code>: <code class="language-plaintext highlighter-rouge">{ id, state, inputMode, inventoryItemCount, recipeCount, savedRecipeCount, createdAt, updatedAt }</code>.</p>
+
+<p>Canonical copy for the mobile client: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app/docs/superpowers/specs/2026-10-14-ai-bouquet-assistant-api-contract.md</code>.</p>
 
     </div>
   </main>

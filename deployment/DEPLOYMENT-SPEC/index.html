@@ -762,6 +762,8 @@
   <p><strong>Target</strong>: <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code> demo / early-access deployment
 <strong>Cost target</strong>: low-cost showcase, always-on where it matters
 <strong>Status</strong>: shipped — live at <code class="language-plaintext highlighter-rouge">findmyflowers.pl</code>. The final topology diverged from this proposal in two big ways: <strong>all three portals run on Fly.io (not Render)</strong> and <strong>PostgreSQL runs on Fly (not Aiven)</strong>. Redis and RabbitMQ were never provisioned in prod (dev-only). The sections below have been updated to reflect what actually shipped.</p>
+
+  <p><strong>Cost-saving update (scale-to-zero)</strong>: every Fly app now runs <code class="language-plaintext highlighter-rouge">auto_stop_machines = "suspend"</code> with <code class="language-plaintext highlighter-rouge">min_machines_running = 0</code>. When an app has no inbound traffic Fly suspends it (snapshots RAM, $0 compute) and auto-resumes it on the next request (~1s from suspend). This overrides the “always-on / must stay awake” language in the matrix and risk table below. <strong>Consequence for the API</strong>: its in-process MQTT subscriber and background workers only run while the machine is awake, so IoT ingest and the timed jobs pause during idle windows. <strong>Fly Postgres is deliberately left always-on</strong> (stateful; the store of record). See the “Scale-to-zero behavior” section at the end.</p>
 </blockquote>
 
 <h2 id="diagrams">Diagrams</h2>
@@ -1039,6 +1041,77 @@ Authentication__PostLoginRedirectUri=https://app.findmyflowers.pl/          # Cu
   <li><strong>Railway end-to-end</strong> — better DX but only $5 one-time credit; not truly free long-term.</li>
   <li><strong>Supabase Auth instead of Keycloak</strong> — removes a VM from the diagram, but the code already integrates with Keycloak (<code class="language-plaintext highlighter-rouge">KeycloakAdminClient</code>, <code class="language-plaintext highlighter-rouge">VendorOnboardingService</code>). Re-platforming auth is a separate epic, not a deployment task.</li>
   <li><strong>Azure Container Apps free tier</strong> — generous free grant but requires a credit card and the 180k-vCPU-sec cap runs out fast with 5 background workers ticking. Rejected.</li>
+</ul>
+
+<h2 id="scale-to-zero-behavior">Scale-to-zero behavior</h2>
+
+<p>All Fly apps are configured for <code class="language-plaintext highlighter-rouge">$0 compute when idle</code>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>auto_stop_machines   = "suspend"   # snapshot RAM + power down when no inbound traffic
+auto_start_machines  = true        # Fly proxy boots/resumes the machine on the next request
+min_machines_running = 0           # nothing kept warm
+</code></pre></div></div>
+
+<p><strong>What counts as “in use”</strong>: only inbound connections routed through the Fly proxy for
+<code class="language-plaintext highlighter-rouge">[http_service]</code> (HTTPS requests to the app). Internal timers and the API’s <em>outbound</em>
+MQTT connection to HiveMQ do <strong>not</strong> keep a machine awake — so the API suspends during
+idle windows even though it would otherwise want to hold the MQTT subscription.</p>
+
+<p><strong>Warm-up (cold-hit) latency</strong> — first request after an idle period:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>App</th>
+      <th>Resume from suspend</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Portals (admin/vendor/customer)</td>
+      <td>~1–2 s</td>
+      <td>RAM restored; .NET stays warmed, no JIT re-warm</td>
+    </tr>
+    <tr>
+      <td>Keycloak</td>
+      <td>~1–2 s</td>
+      <td>Suspend avoids a full JVM cold boot (~30–60 s)</td>
+    </tr>
+    <tr>
+      <td>API</td>
+      <td>~1–3 s</td>
+      <td>RAM restored; EF migrations are <strong>not</strong> re-run on resume (only on a full stop/redeploy). MQTT client reconnects to HiveMQ a few seconds after resume</td>
+    </tr>
+    <tr>
+      <td>Postgres</td>
+      <td>n/a</td>
+      <td>Left always-on; the store of record for both the app and Keycloak</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>If Fly ever fully <strong>stops</strong> a machine instead of suspending (e.g. after a redeploy or a
+suspend failure), the first hit is a true cold start: ~10–60 s for the API (process boot +
+<code class="language-plaintext highlighter-rouge">Database.MigrateAsync()</code> with retry) and up to ~60 s for Keycloak’s JVM.</p>
+
+<p><strong>Cost floor</strong>: with the apps at zero, the only always-on component billed is Fly Postgres
+(smallest shared tier, ≈ a couple of USD/month). Reaching literal $0 would require also
+autostopping the Postgres machine, which is not done here to avoid DB cold-start/wake risk.</p>
+
+<p><strong>Operational caveats to watch</strong>:</p>
+<ul>
+  <li><strong>IoT ingest gaps</strong>: vase MQTT heartbeats/sensor messages sent while the API is suspended
+are only delivered if HiveMQ retains them (QoS 1 + persistent session/retained). Otherwise
+they are missed until a request wakes the API. If continuous ingest matters, keep the API
+app on <code class="language-plaintext highlighter-rouge">min_machines_running = 1</code> and only scale the portals + Keycloak to zero.</li>
+  <li><strong>Timed jobs drift</strong>: outbox dispatch, freshness updates, reservation-expiry, and payment
+reconciliation run late (they resume when the machine wakes, then catch up). Fine for a
+showcase; revisit before real order volume.</li>
+  <li><strong>Stripe webhooks</strong>: <code class="language-plaintext highlighter-rouge">POST /api/stripe/webhook</code> is inbound HTTP, so it wakes the API on its
+own and is processed on resume. Stripe also retries failed deliveries, so nothing is lost.</li>
+  <li><strong>Keep-warm option</strong>: if you want the site instantly responsive during, say, a demo, set
+<code class="language-plaintext highlighter-rouge">min_machines_running = 1</code> on the app(s) you care about, or hit the URL on a cron.</li>
 </ul>
 
 <h2 id="upgrade-path-when-demo-graduates">Upgrade path (when demo graduates)</h2>
