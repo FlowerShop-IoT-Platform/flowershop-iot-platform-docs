@@ -416,6 +416,22 @@
       padding-bottom: 1.5rem;
     }
 
+    /* Docs version banner on home */
+    .version-banner {
+      display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+      margin: -1rem 0 2rem;
+      font-size: .9rem;
+      color: var(--text-muted);
+    }
+    .version-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
     /* Cards grid on home */
     .card-grid {
       display: grid;
@@ -631,7 +647,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs</span>
+    <span class="topbar-badge">Docs v1.0.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <a href="/architecture/" class="topbar-link">Architecture</a>
@@ -747,6 +763,7 @@
         <a class="sidebar-link" href="/manuals/">Overview</a>
         <a class="sidebar-link" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
         <a class="sidebar-link" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" href="/manuals/customer-app-manual.html">Customer App Manual</a>
       </div>
     </div>
@@ -1171,6 +1188,7 @@ session — which must be driven by a human operator. Record the run results in 
     { path: '/manuals/',                                                           title: 'User Manuals Overview' },
     { path: '/manuals/admin-portal-manual.html',                                   title: 'Admin Portal Manual' },
     { path: '/manuals/vendor-portal-manual.html',                                  title: 'Vendor Portal Manual' },
+    { path: '/manuals/vendor-mobile-app-manual.html',                              title: 'Vendor Mobile App Manual' },
     { path: '/manuals/customer-app-manual.html',                                   title: 'Customer App Manual' },
   ];
 
