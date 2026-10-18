@@ -758,9 +758,9 @@
     <div class="content">
       <h1 id="user-manuals">User Manuals</h1>
 
-<p class="page-lead">Step-by-step visual guides for each portal of the FlowerShop IoT Platform. Each manual is a self-contained HTML file with embedded screenshots — open it directly in any browser, no internet connection required.</p>
+<p class="page-lead">Step-by-step visual guides for each portal and app of the FlowerShop IoT Platform. Each manual is a self-contained HTML file with embedded screenshots — open it directly in any browser, no internet connection required.</p>
 
-<h2 id="portal-manuals">Portal Manuals</h2>
+<h2 id="portal--app-manuals">Portal &amp; App Manuals</h2>
 
 <div class="card-grid">
   <a class="card" href="/manuals/admin-portal-manual.html">
@@ -771,7 +771,12 @@
   <a class="card" href="/manuals/vendor-portal-manual.html">
     <div class="card-icon">🌹</div>
     <div class="card-title">Vendor Portal Manual</div>
-    <div class="card-desc">Complete guide for flower shop owners and freelance florists — self sign-up, billing, bouquets, vases, vase ordering, orders, analytics and settings at <code>vendors.findmyflowers.pl</code></div>
+    <div class="card-desc">Complete guide for flower shop owners and freelance florists — self sign-up, dashboard, bouquets, live vase status, vase ordering, orders, stock, payments, analytics, billing and settings at <code>vendors.findmyflowers.pl</code></div>
+  </a>
+  <a class="card" href="/manuals/vendor-mobile-app-manual.html">
+    <div class="card-icon">📱</div>
+    <div class="card-title">Vendor Mobile App Manual</div>
+    <div class="card-desc">Guide to the <strong>FindMyFlowers Business</strong> Android app — sign-up, photographing and pricing bouquets at the vase, QR scanning, vase status, orders, alerts, stock and the AI bouquet assistant</div>
   </a>
   <a class="card" href="/manuals/customer-app-manual.html">
     <div class="card-icon">📘</div>
@@ -800,8 +805,14 @@
     </tr>
     <tr>
       <td>Vendor Portal</td>
-      <td>22 pages</td>
-      <td>Authentication, Dashboard, Bouquets, Vases, Orders, Payments, Feedback, Analytics, Settings, <strong>Self Sign-Up</strong>, <strong>Billing</strong>, <strong>Vase Ordering</strong></td>
+      <td>30 pages</td>
+      <td>Authentication, Self Sign-Up, Dashboard, Bouquets, Smart Vases (online / offline), Vase Ordering, Orders, <strong>Stock</strong>, Payments, Feedback, Analytics, Settings, Billing, Support</td>
+      <td>Green</td>
+    </tr>
+    <tr>
+      <td>Vendor Mobile App</td>
+      <td>49 screens</td>
+      <td>Getting Started, <strong>Native Sign-Up</strong>, Home, Smart Vases &amp; QR, Bouquets &amp; Map, Orders, Alerts, <strong>Stock</strong>, <strong>AI Bouquet Assistant</strong>, Business Settings, Vase Ordering, Insights, Billing</td>
       <td>Green</td>
     </tr>
     <tr>
@@ -814,8 +825,10 @@
 </table>
 
 <blockquote>
-  <p>Sections in <strong>bold</strong> cover the EP-19–22 features (vendor self-registration, SaaS platform subscription, smart-vase hardware ordering, and asset-recovery incidents).</p>
+  <p>Sections in <strong>bold</strong> for the Admin Portal cover the EP-19–22 features (vendor self-registration, SaaS platform subscription, smart-vase hardware ordering, and asset-recovery incidents); for the vendor manuals they mark the newest features (EP-28 AI Bouquet Assistant, EP-30 / EP-M11 stock management, native mobile sign-up).</p>
 </blockquote>
+
+<p>The vendor manuals are generated from <code class="language-plaintext highlighter-rouge">scripts/manuals/*.json</code> with <code class="language-plaintext highlighter-rouge">python scripts/manuals/build_manual.py &lt;spec.json&gt;</code>; screenshots live in <code class="language-plaintext highlighter-rouge">docs/manuals/screenshots/vendor</code> and <code class="language-plaintext highlighter-rouge">vendor-mobile</code>.</p>
 
     </div>
   </main>
