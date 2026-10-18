@@ -1,6 +1,6 @@
 # Epics, Stories & Tasks — Option K (Stock photos & AI appearance)
 
-> Companion to EPICS-J.md (EP-30 Stock management) and EPICS-H.md (EP-28 AI Bouquet Assistant).
+> Companion to EPICS-J.md (EP-30 Stock management) and EPICS-H.md (EP-28 AI Florist).
 > Epic is numbered EP-31 to continue the sequence.
 > Task tracker (ground truth): `docs/tasks/tasks-ep31-stock-photos-ai-appearance.json`.
 > Requirements: `docs/tasks/REQ-GAPS-K.md` (REQ-STKPH-01 … REQ-STKPH-13).

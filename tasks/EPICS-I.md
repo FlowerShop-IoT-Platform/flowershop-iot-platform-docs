@@ -2,7 +2,7 @@
 
 > Companion to EPICS.md (EP-01–09), EPICS-B.md (EP-10–18), EPICS-C.md (EP-19–23),
 > EPICS-D.md (EP-24), EPICS-E.md (EP-25), EPICS-F.md (EP-26), EPICS-G.md (EP-27) and EPICS-H.md (EP-28).
-> Epic is numbered EP-29 to continue the sequence (EP-28 is the AI Bouquet Assistant, `EPICS-H.md`).
+> Epic is numbered EP-29 to continue the sequence (EP-28 is the AI Florist, `EPICS-H.md`).
 > Task tracker (ground truth): `docs/tasks/tasks-ep29-phone-verification-abuse-protection.json`.
 > Requirements: `docs/tasks/REQ-GAPS-I.md` (REQ-SMSABUSE-01 … REQ-SMSABUSE-13).
 > Analysis date: 2026-10-16

@@ -1,4 +1,4 @@
-# Epics, Stories & Tasks — Option H (AI Bouquet Assistant)
+# Epics, Stories & Tasks — Option H (AI Florist)
 
 > Companion to EPICS.md (EP-01–09), EPICS-B.md (EP-10–18), EPICS-C.md (EP-19–23),
 > EPICS-D.md (EP-24), EPICS-E.md (EP-25), EPICS-F.md (EP-26) and EPICS-G.md (EP-27).
@@ -11,7 +11,7 @@
 
 ---
 
-## EP-28: AI Bouquet Assistant
+## EP-28: AI Florist
 
 **Priority**: P1-high
 **Dependencies**: EP-02 (vendor auth / tenant context), EP-15 (R2 storage pattern), EP-24 (Fly.io

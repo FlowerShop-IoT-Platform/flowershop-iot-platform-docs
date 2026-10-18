@@ -2,7 +2,7 @@
 
 > Companion to REQ-GAPS.md (Mobile API), REQ-GAPS-B.md (Portals/Analytics/IoT),
 > REQ-GAPS-C.md (Vendor onboarding/subscription/vase), REQ-GAPS-D.md (Showcase deployment),
-> REQ-GAPS-F.md (Customer portal mobile redesign), REQ-GAPS-G.md (Contact us) and REQ-GAPS-H.md (AI Bouquet Assistant).
+> REQ-GAPS-F.md (Customer portal mobile redesign), REQ-GAPS-G.md (Contact us) and REQ-GAPS-H.md (AI Florist).
 > Requirement refs point at the tasks in `tasks-ep29-phone-verification-abuse-protection.json`.
 > Analysis date: 2026-10-16
 > Status: all 13 requirements implemented (EP-29 done — see `EPICS-I.md`).

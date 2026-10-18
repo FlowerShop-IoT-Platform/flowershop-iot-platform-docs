@@ -1,6 +1,6 @@
 # Requirement Gaps — Option K (Stock photos & AI appearance)
 
-> Companion to REQ-GAPS-J.md (Stock management, EP-30) and REQ-GAPS-H.md (AI Bouquet Assistant, EP-28).
+> Companion to REQ-GAPS-J.md (Stock management, EP-30) and REQ-GAPS-H.md (AI Florist, EP-28).
 > Requirement refs point at the tasks in `tasks-ep31-stock-photos-ai-appearance.json`; the mobile side
 > is tracked in the vendor app repo (`docs/tasks/tasks-ep-m12-stock-photos.json`).
 > Analysis date: 2026-10-18
@@ -15,7 +15,7 @@ of the same flower ('Freedom', 'Explorer', 'Vendela'…). A word cannot carry th
 
 Goal: every stock item can hold photos, and an AI option reads a photo into a precise,
 confirmable **appearance** — variety, short colour label, a colour palette with swatches, a pattern
-and a plain-language description. The AI Bouquet Assistant then uses that appearance and those
+and a plain-language description. The AI Florist then uses that appearance and those
 photos. Product decisions (2026-10-18): add a **variety** to the item identity; the assistant uses
 stock photos for previews, colour descriptions for recipes and matches bench photos to stock; AI
 recognition has its **own monthly quota** under the assistant's kill switch and global $ cap.

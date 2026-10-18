@@ -33,7 +33,7 @@ so the history explains every number.
  Stock-take ─Counted──▶ └────────────┘
                               │ unit cost
                               ▼
-               AI Bouquet Assistant fills missing prices
+               AI Florist fills missing prices
 ```
 
 ### Design decisions

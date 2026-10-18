@@ -1,6 +1,6 @@
-# AI Bouquet Assistant — deployment, costs, testing & validation (EP-28 / EP-M10)
+# AI Florist — deployment, costs, testing & validation (EP-28 / EP-M10)
 
-> Scope: what has to change in production to run the AI Bouquet Assistant as an **in-app pilot**,
+> Scope: what has to change in production to run the AI Florist as an **in-app pilot**,
 > how to switch on (and later self-host) the image model, what it costs, and how to test and
 > validate it. Design: `docs/superpowers/specs/2026-10-13-ai-bouquet-assistant-design.md`.
 > Cost research: `docs/superpowers/plans/2026-10-13-ai-bouquet-assistant-costs.md`.
@@ -15,7 +15,7 @@
 | Job worker | `DesignJobWorkerService`, **inside the API process** | Claims jobs from PostgreSQL, ≤ 2 concurrent provider calls, lease recovery every 15 s, retention sweep hourly |
 | Private media | `IDesignMediaStore` → private R2 bucket in prod | Stock photos + previews; **never** on `img.findmyflowers.pl` |
 | Providers | config `BouquetDesign:{Recognition,Composition,Preview}:Provider` | Defaults are **free**: `Fake` / `Deterministic` / `Placeholder` |
-| Mobile app | vendor app EP-M10 | Home quick action + More → "Bouquet assistant" |
+| Mobile app | vendor app EP-M10 | Home quick action + More → "AI Florist" |
 
 ```
 Vendor app ──HTTPS──▶ Fly: flower-shop-backend-core (API + in-process design worker, always on)
@@ -66,12 +66,25 @@ Cost: one more `shared-cpu-1x` 512 MB–1 GB machine (≈ $3–6/month).
 
 ### 2.3 Cloudflare R2 — private bucket
 
+**Manual prerequisite:** Fly deployments and database migrations do not create this bucket or its
+credentials. Create it in Cloudflare before testing stock-photo uploads. Stock photos and AI Florist
+media use this private store; deploying the application alone is not enough.
+
 1. Cloudflare → R2 → **Create bucket** `flowershop-design-private`, location EU (same account as
    `flowershop-bouquets`). **Do not** connect a custom domain and leave *Public access* disabled.
 2. R2 → *Manage API tokens* → **Create token**: permission *Object Read & Write*, scoped to **only**
    `flowershop-design-private`. Copy the Access Key ID / Secret.
 3. `appsettings.Production.json` already points `BouquetDesign:Storage` at this bucket and the account
    endpoint; only the keys are secrets.
+
+Set `BouquetDesign__Storage__AccessKeyId` and `BouquetDesign__Storage__SecretAccessKey` on the Fly app
+`flower-shop-backend-core` as shown below. Keep this bucket private; do not substitute the public
+bouquet bucket or attach a public domain.
+
+Verify setup through **Stock → item → Photos & appearance → Add photo**. Reload the item and check
+that the photo still displays. Uploads do not require an OpenAI key; OpenAI recognition and generation
+require separate provider configuration. On 2026-10-18, stock uploads returned HTTP 500 before the
+bucket and credentials were provisioned, then persisted and displayed successfully after setup.
 
 Cost: R2 free tier covers 10 GB storage + 1 M writes + 10 M reads/month. A pilot stores ~5 × 300 KB
 photos per session (purged after 7 days) plus ~150 KB per preview — well inside the free tier.
@@ -260,7 +273,7 @@ photo bytes.
 
 1. `GET https://api.findmyflowers.pl/health/ready` → 200; logs show *Design job worker started*.
 2. Log into a **Release** build of the vendor app (it targets `api.findmyflowers.pl`) as a test vendor.
-3. Home → *Bouquet assistant* → take 1–2 photos → *Review stock*: estimates appear with the
+3. Home → *AI Florist* → take 1–2 photos → *Review stock*: estimates appear with the
    "Counts are estimates" banner (Fake recogniser = roses / lisianthus / eucalyptus / wrap / ribbon).
 4. Edit a count, add prices for some lines, *Confirm stock* → *Create 3 recipes* → three recipes
    appear within ~5 s. One missing price ⇒ "Known cost … · 1 price missing", no margin.

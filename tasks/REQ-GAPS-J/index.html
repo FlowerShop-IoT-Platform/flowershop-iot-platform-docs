@@ -762,7 +762,7 @@
   <p>Companion to REQ-GAPS.md (Mobile API), REQ-GAPS-B.md (Portals/Analytics/IoT),
 REQ-GAPS-C.md (Vendor onboarding/subscription/vase), REQ-GAPS-D.md (Showcase deployment),
 REQ-GAPS-F.md (Customer portal mobile redesign), REQ-GAPS-G.md (Contact us),
-REQ-GAPS-H.md (AI Bouquet Assistant) and REQ-GAPS-I.md (Phone verification abuse protection).
+REQ-GAPS-H.md (AI Florist) and REQ-GAPS-I.md (Phone verification abuse protection).
 Requirement refs point at the tasks in <code class="language-plaintext highlighter-rouge">tasks-ep30-stock-management.json</code>; the mobile side is
 tracked in the vendor app repo (<code class="language-plaintext highlighter-rouge">docs/tasks/tasks-ep-m11-stock.json</code>).
 Analysis date: 2026-10-18
@@ -771,7 +771,7 @@ Status: REQ-STOCK-01 … 11 implemented (EP-30, see <code class="language-plaint
 
 <h2 id="context">Context</h2>
 
-<p>The AI Bouquet Assistant (EP-28) introduced “stock” — but only as a <strong>per-session snapshot</strong>: the
+<p>The AI Florist (EP-28) introduced “stock” — but only as a <strong>per-session snapshot</strong>: the
 florist photographs or types what is on the bench, confirms it, and the snapshot dies with the
 session (unit prices are remembered in <code class="language-plaintext highlighter-rouge">DesignCostProfile</code>, quantities are not). EP-28 explicitly
 left “automatic stock subtraction” out of scope.</p>
@@ -835,7 +835,7 @@ name + colour, matched by catalogue key; duplicates are summed first.
 <strong>Accept</strong>: any unknown line → 422 <code class="language-plaintext highlighter-rouge">unknown-item</code>, any short line → 422 <code class="language-plaintext highlighter-rouge">insufficient-stock</code>; the
 message names every problem line; on failure nothing is deducted.</p>
 
-<h2 id="req-stock-08--stock-feeds-the-ai-bouquet-assistant--p1">REQ-STOCK-08 — Stock feeds the AI Bouquet Assistant — P1</h2>
+<h2 id="req-stock-08--stock-feeds-the-ai-florist--p1">REQ-STOCK-08 — Stock feeds the AI Florist — P1</h2>
 <p>When the assistant fills a missing unit price (manual save or recognition), a matching stock item’s
 unit cost is used first, then the remembered assistant price. The vendor app can import current
 stock (quantity &gt; 0) into a session’s inventory, and deduct a made recipe from stock (REQ-STOCK-07).

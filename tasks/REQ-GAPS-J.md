@@ -3,7 +3,7 @@
 > Companion to REQ-GAPS.md (Mobile API), REQ-GAPS-B.md (Portals/Analytics/IoT),
 > REQ-GAPS-C.md (Vendor onboarding/subscription/vase), REQ-GAPS-D.md (Showcase deployment),
 > REQ-GAPS-F.md (Customer portal mobile redesign), REQ-GAPS-G.md (Contact us),
-> REQ-GAPS-H.md (AI Bouquet Assistant) and REQ-GAPS-I.md (Phone verification abuse protection).
+> REQ-GAPS-H.md (AI Florist) and REQ-GAPS-I.md (Phone verification abuse protection).
 > Requirement refs point at the tasks in `tasks-ep30-stock-management.json`; the mobile side is
 > tracked in the vendor app repo (`docs/tasks/tasks-ep-m11-stock.json`).
 > Analysis date: 2026-10-18
@@ -11,7 +11,7 @@
 
 ## Context
 
-The AI Bouquet Assistant (EP-28) introduced "stock" — but only as a **per-session snapshot**: the
+The AI Florist (EP-28) introduced "stock" — but only as a **per-session snapshot**: the
 florist photographs or types what is on the bench, confirms it, and the snapshot dies with the
 session (unit prices are remembered in `DesignCostProfile`, quantities are not). EP-28 explicitly
 left "automatic stock subtraction" out of scope.
@@ -75,7 +75,7 @@ name + colour, matched by catalogue key; duplicates are summed first.
 **Accept**: any unknown line → 422 `unknown-item`, any short line → 422 `insufficient-stock`; the
 message names every problem line; on failure nothing is deducted.
 
-## REQ-STOCK-08 — Stock feeds the AI Bouquet Assistant — P1
+## REQ-STOCK-08 — Stock feeds the AI Florist — P1
 When the assistant fills a missing unit price (manual save or recognition), a matching stock item's
 unit cost is used first, then the remembered assistant price. The vendor app can import current
 stock (quantity > 0) into a session's inventory, and deduct a made recipe from stock (REQ-STOCK-07).

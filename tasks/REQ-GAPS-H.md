@@ -1,4 +1,4 @@
-# Requirement Gaps — Option H (AI Bouquet Assistant)
+# Requirement Gaps — Option H (AI Florist)
 
 > Companion to REQ-GAPS.md (Mobile API), REQ-GAPS-B.md (Portals/Analytics/IoT),
 > REQ-GAPS-C.md (Vendor onboarding/subscription/vase), REQ-GAPS-D.md (Showcase deployment),

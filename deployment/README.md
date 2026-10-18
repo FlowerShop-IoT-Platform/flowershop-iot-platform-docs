@@ -24,7 +24,7 @@ All deployment documentation for `findmyflowers.pl`. Read in roughly this order.
 |---|---|
 | [OBSERVABILITY.md](OBSERVABILITY.md) | Where logs, health endpoints, and metrics live. First thing to read when something is wrong. |
 | [ROLLBACK-AND-RECOVERY.md](ROLLBACK-AND-RECOVERY.md) | Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist |
-| [AI-BOUQUET-ASSISTANT.md](AI-BOUQUET-ASSISTANT.md) | EP-28 AI Bouquet Assistant: always-on API machine, private R2 bucket, provider secrets, image-model hosting, costs, test & validation flow |
+| [AI-BOUQUET-ASSISTANT.md](AI-BOUQUET-ASSISTANT.md) | EP-28 AI Florist: always-on API machine, private R2 bucket, provider secrets, image-model hosting, costs, test & validation flow |
 
 ## Automation
 

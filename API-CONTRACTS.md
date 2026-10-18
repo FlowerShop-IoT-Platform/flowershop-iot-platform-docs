@@ -2349,7 +2349,7 @@ The following fields are always returned as-is, regardless of locale:
 
 ---
 
-## 21. AI Bouquet Assistant (EP-28)
+## 21. AI Florist (EP-28)
 
 Vendor-only (`VendorAccess` policy). The tenant always comes from the JWT (`vendor_id`,
 `vendor_type`) via `ITenantContextService`; `X-Vendor-Id` never overrides it. A session of another

@@ -25,7 +25,7 @@ Cross-repo contract changes, newest first. Breaking changes state the safe deplo
 - **Deployment order**: backend first (migration applies on start), then the Vendor Portal, then the
   mobile build. An older app never calls the new endpoints.
 
-## 2026-10-14 — EP-28 AI Bouquet Assistant (additive, non-breaking)
+## 2026-10-14 — EP-28 AI Florist (additive, non-breaking)
 
 - **What changed**: new vendor endpoints under `/api/v1/vendor/design-sessions`, `/design-recipes`,
   `/design-cost-profile`, `/design-assistant/usage` (see `outbound.md` §2c and `API-CONTRACTS.md` §21);
