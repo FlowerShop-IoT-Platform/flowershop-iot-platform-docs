@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Requirement Gaps — Option N (AI Florist: two wizard modes, stock count from photos, cost assessor) — FlowerShop IoT Platform</title>
+  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --topbar-bg: rgba(15,17,23,.9);
+      --content-text: #c8d0dc;
+      --link-hover: #9bb5ff;
+      --code-color: #a5d6ff;
+      --pre-code-color: #c9d1d9;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    html.light {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface2: #eef1f7;
+      --border: #d1d8e8;
+      --accent: #4361ee;
+      --accent2: #7c3aed;
+      --text: #111827;
+      --text-muted: #374151;
+      --text-dim: #374151;
+    }
+    html.light body { background: var(--bg); color: var(--text); }
+    html.light .topbar { background: rgba(245,247,251,.96) !important; border-bottom-color: var(--border) !important; }
+    html.light .topbar-logo { color: var(--text) !important; }
+    html.light .topbar-badge { background: var(--surface2) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+    html.light .topbar-link { color: var(--text-muted) !important; }
+    html.light .topbar-link:hover { color: var(--text) !important; background: var(--surface2) !important; }
+    html.light .topbar-hamburger { color: var(--text-muted) !important; }
+    html.light .sidebar { background: var(--surface); border-right-color: var(--border); }
+    html.light .sidebar-link { color: var(--text-muted); }
+    html.light .sidebar-link:hover { color: var(--text); background: var(--surface2); }
+    html.light .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(67,97,238,.07); }
+    html.light .content code { background: var(--surface2); border-color: var(--border); }
+    html.light .content pre { background: var(--surface2); border-color: var(--border); }
+    html.light .content blockquote { background: rgba(124,58,237,.05); border-left-color: var(--accent2); }
+    html.light .content blockquote p { color: var(--text-muted); }
+    html.light .content thead th { background: var(--surface2); color: var(--text); }
+    html.light .content tbody tr:hover { background: var(--surface2); }
+    html.light .mermaid { background: var(--surface2); border-color: var(--border); }
+    html.light .card { background: var(--surface); border-color: var(--border); }
+    html.light .card:hover { border-color: var(--accent); }
+    html.light .page-nav-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+    html.light .page-nav-btn:hover { background: var(--surface2); border-color: var(--accent); }
+    html.light .diagram-modal-toolbar { background: var(--surface); border-bottom-color: var(--border); }
+    html.light .dm-btn { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    html.light .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    html.light .diagram-modal-canvas { background: var(--surface2); border-color: var(--border); }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--topbar-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1;
+      transition: color .15s, background .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+      font-family: var(--font);
+    }
+    .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 32px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: var(--link-hover);
+      border-bottom-color: var(--link-hover);
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--code-color);
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: var(--pre-code-color);
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: var(--content-text);
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Docs version banner on home */
+    .version-banner {
+      display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+      margin: -1rem 0 2rem;
+      font-size: .9rem;
+      color: var(--text-muted);
+    }
+    .version-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── DIAGRAM WRAPPER ── */
+    .mermaid-wrap {
+      position: relative;
+      margin: 1.25rem 0;
+    }
+    .mermaid-wrap .mermaid {
+      margin: 0;
+      cursor: zoom-in;
+      transition: box-shadow .2s;
+    }
+    .mermaid-wrap .mermaid:hover {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .mermaid-expand-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(15,17,23,.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: color .15s, border-color .15s, background .15s;
+      backdrop-filter: blur(6px);
+      font-family: var(--font);
+    }
+    .mermaid-expand-btn:hover { color: var(--text); border-color: var(--accent); background: rgba(15,17,23,.95); }
+
+    /* ── DIAGRAM MODAL ── */
+    .diagram-modal {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(4px);
+      flex-direction: column;
+    }
+    .diagram-modal.open { display: flex; }
+
+    .diagram-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .diagram-modal-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .dm-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background .15s, border-color .15s;
+      line-height: 1;
+    }
+    .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    .dm-btn.close-btn { color: #f87171; }
+    .dm-zoom-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .diagram-modal-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      min-height: 0;
+      cursor: grab;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .diagram-modal-body.grabbing { cursor: grabbing; user-select: none; }
+
+    .diagram-modal-canvas {
+      flex-shrink: 0;
+      line-height: 0;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .diagram-modal-canvas svg {
+      display: block;
+      max-width: none !important;
+    }
+
+    /* ── PAGE NAV ── */
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 40px 60px;
+    }
+
+    .page-nav-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s, background .15s;
+      min-width: 0;
+      max-width: 46%;
+    }
+    .page-nav-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+      text-decoration: none;
+      color: var(--text);
+    }
+    .page-nav-btn.next { text-align: right; margin-left: auto; }
+    .page-nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .page-nav-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+      .page-nav { padding: 0 20px 40px; }
+      .page-nav-btn { max-width: 48%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs v1.0.0</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <a href="/architecture/" class="topbar-link">Architecture</a>
+  <a href="/deployment/" class="topbar-link">Deployment</a>
+  <a href="/API-CONTRACTS" class="topbar-link">API</a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">☀️</span>
+    <span id="themeLabel">Light</span>
+  </button>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" href="/architecture/">Overview</a>
+        <a class="sidebar-link" href="/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" href="/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" href="/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" href="/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" href="/architecture/cross-cutting">Cross-cutting</a>
+        <a class="sidebar-link" href="/architecture/view-functional">Functional View</a>
+        <a class="sidebar-link" href="/architecture/view-information">Information View</a>
+        <a class="sidebar-link" href="/architecture/view-concurrency">Concurrency View</a>
+        <a class="sidebar-link" href="/architecture/view-development">Development View</a>
+        <a class="sidebar-link" href="/architecture/view-deployment">Deployment View</a>
+        <a class="sidebar-link" href="/architecture/view-operational">Operational View</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" href="/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" href="/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" href="/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" href="/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" href="/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" href="/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" href="/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" href="/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" href="/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" href="/deployment/">Overview</a>
+        <a class="sidebar-link" href="/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" href="/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" href="/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" href="/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" href="/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" href="/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" href="/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" href="/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" href="/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" href="/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" href="/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-group-btn" data-target="nav-manuals">
+        <span class="sidebar-group-icon">📖</span> User Manuals
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-manuals">
+        <a class="sidebar-link" href="/manuals/">Overview</a>
+        <a class="sidebar-link" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
+        <a class="sidebar-link" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
+        <a class="sidebar-link" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="requirement-gaps--option-n-ai-florist-two-wizard-modes-stock-count-from-photos-cost-assessor">Requirement Gaps — Option N (AI Florist: two wizard modes, stock count from photos, cost assessor)</h1>
+
+<blockquote>
+  <p>Companion to REQ-GAPS-H.md (AI Florist, EP-28), REQ-GAPS-K.md (Stock photos &amp; AI appearance, EP-31),
+REQ-GAPS-L.md (portal wizard, EP-32) and REQ-GAPS-M.md (feedback loop, EP-33).
+Requirement refs point at the tasks in <code class="language-plaintext highlighter-rouge">tasks-ep34-design-visual-stock-start.json</code>,
+<code class="language-plaintext highlighter-rouge">tasks-ep35-design-from-bouquet-photos.json</code> and <code class="language-plaintext highlighter-rouge">tasks-ep36-ai-bouquet-cost-assessor.json</code>.
+Analysis date: 2026-10-20
+Status: REQ-VSS-01 … 10 (EP-34), REQ-INSP-01 … 11 (EP-35), REQ-ASSESS-01 … 10 (EP-36) planned
+(see <code class="language-plaintext highlighter-rouge">EPICS-N.md</code>).</p>
+</blockquote>
+
+<h2 id="context">Context</h2>
+
+<p>The wizard’s step 2 (“Check your stock”, <code class="language-plaintext highlighter-rouge">Pages/Design/Session.cshtml</code>) is a plain form table:
+Kind is a <code class="language-plaintext highlighter-rouge">&lt;select&gt;</code> with the words Flower / Greenery / Material, Colour is a free-text input, and
+“Fill from my stock” (<code class="language-plaintext highlighter-rouge">OnPostFillStockAsync</code>) dumps every stock item into the table at once. EP-31
+already stores what the UI needs to make this visual: a main photo per stock item (private,
+<code class="language-plaintext highlighter-rouge">IDesignMediaStore</code>), an appearance palette with shares (<code class="language-plaintext highlighter-rouge">PaletteColourDto</code>, rendered by
+<code class="language-plaintext highlighter-rouge">Pages/Stock/_Swatches.cshtml</code>) and a variety.</p>
+
+<p>“Start from photos” (EP-28) means “photograph your <strong>bench</strong>”: the recognizer counts the stock
+laid out in front of the vendor, so the wizard mixes two jobs, <strong>updating stock</strong> and <strong>designing
+a bouquet</strong>. The Stock page’s AI (EP-31) only <em>describes</em> one item per photo (kind, name, variety,
+palette) and creates one item from a photo. It never counts quantities or updates stock levels.</p>
+
+<p><strong>Decision (2026-10-20): separate the flows.</strong></p>
+<ul>
+  <li><strong>Stock updates live on the Stock page.</strong> Bench counting moves out of the wizard into
+“Count stock from photos” on the Stock page. It writes reviewed <code class="language-plaintext highlighter-rouge">Counted</code> movements to the EP-30
+ledger (REQ-VSS-08).</li>
+  <li><strong>The AI Florist wizard has exactly two modes:</strong>
+    <ol>
+      <li><strong>Start from my stock</strong>: drag-and-drop stock items into a working area for the initial set
+(EP-34).</li>
+      <li><strong>Reconstruct a bouquet from photos</strong>: “reverse engineering” of a bouquet in 1–5 images, for
+example when a customer placed an order or request with an image. The wizard lists what is in
+it, maps it to the vendor’s stock and shows what is missing (EP-35).</li>
+    </ol>
+  </li>
+</ul>
+
+<p>A closely related need is pricing a finished bouquet: “what is it made of and what does it cost me
+at my stock prices?” (EP-36).</p>
+
+<p>EP-35 and EP-36 share one new capability, <strong>bouquet photo analysis</strong>: detect the items in 1–5
+photos of one bouquet, then map each detected item to the vendor’s stock with a match score. Code
+does the mapping and the arithmetic. The model only describes what it sees.</p>
+
+<p><strong>Principles kept from EP-28 / EP-31 / EP-33</strong></p>
+<ol>
+  <li>Nothing the model says is trusted: stock links, quantities and prices are decided and
+validated in code; detected items are suggestions until the vendor confirms them.</li>
+  <li>Vendor data sent to the model (stock catalogue candidates, notes) is labelled JSON <strong>data</strong>,
+never part of the system prompt.</li>
+  <li>Strict tenant isolation: only the calling vendor’s stock is ever a match candidate.</li>
+  <li>Every paid call goes through quota, $ cap, kill switch, pilot list and ledger-before-call.</li>
+  <li>Photos are private (<code class="language-plaintext highlighter-rouge">IDesignMediaStore</code>), re-encoded ≤ 1600 px JPEG with EXIF stripped, and
+follow the session retention rules.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-34--wizard-mode-1-start-from-my-stock-visual-drag-and-drop--stock-count-on-the-stock-page">EP-34 — Wizard mode 1: start from my stock (visual, drag-and-drop) + stock count on the Stock page</h2>
+
+<h3 id="req-vss-01--thumbnail-per-stock-line--p0">REQ-VSS-01 — Thumbnail per stock line — P0</h3>
+<p>Every row in step 2 shows a square thumbnail (48 px):</p>
+<ul>
+  <li>row linked to a stock item (<code class="language-plaintext highlighter-rouge">stockItemId</code>) → the item’s main photo (EP-31) through the portal’s
+same-origin media proxy (<code class="language-plaintext highlighter-rouge">Pages/Design/Media</code>, extended to stock photos);</li>
+  <li>unlinked row, or stock item without a photo → the kind pictogram (REQ-VSS-02) on a tinted tile.</li>
+</ul>
+
+<p>The thumbnail id comes with the data already loaded (<code class="language-plaintext highlighter-rouge">mainPhotoId</code> on the stock list DTO and on
+the inventory line DTO). There are no per-row API calls.
+<strong>Accept</strong>: a 100-line inventory renders with one stock list call; thumbnails are <code class="language-plaintext highlighter-rouge">loading="lazy"</code>
+and <code class="language-plaintext highlighter-rouge">Cache-Control: private</code>.</p>
+
+<h3 id="req-vss-02--kind-as-pictograms--p0">REQ-VSS-02 — Kind as pictograms — P0</h3>
+<p>The Kind column shows three pictograms instead of words: <strong>flower</strong> (Flower), <strong>leaf</strong> (Greenery),
+<strong>ribbon/wrap</strong> (Material). Shipped as local SVGs (<code class="language-plaintext highlighter-rouge">wwwroot/img/kinds/*.svg</code>), not a CDN.</p>
+<ul>
+  <li>Editable rows use a three-button segmented control (radio group) with the pictograms; the
+posted value stays <code class="language-plaintext highlighter-rouge">Flower|Greenery|Material</code>, so the API is unchanged.</li>
+  <li>Each pictogram has <code class="language-plaintext highlighter-rouge">aria-label</code>/visually-hidden text and a tooltip; selection is not conveyed by
+colour alone.</li>
+</ul>
+
+<p><strong>Accept</strong>: keyboard (arrow keys) changes the kind; works without JS (styled radio inputs).</p>
+
+<h3 id="req-vss-03--colours-as-swatches--p0">REQ-VSS-03 — Colours as swatches — P0</h3>
+<p>The Colour column shows colour <strong>swatches like the stock appearance</strong> (EP-31, <code class="language-plaintext highlighter-rouge">_Swatches</code>):</p>
+<ul>
+  <li>stock-linked row with an appearance → the item’s palette, widths proportional to share, tooltip
+“Peach 60 %”;</li>
+  <li>otherwise → swatches from the <strong>colour words in the phrase</strong>. Stock colours are descriptive
+(“Creamy white with light green”, “Peachy pink with yellow highlights”), so a whole-phrase
+lookup would fail. A shared colour-term table splits the phrase into known terms. The first term
+is dominant (≈ 70 %) and the rest share the remainder. Modifiers (light/pale/deep/dark/creamy)
+adjust the base colour, and every hex goes through <code class="language-plaintext highlighter-rouge">StockLabels.SafeHex</code>. If no term is
+recognised, the swatch is neutral and hatched. The full phrase stays as a tooltip / secondary
+line.</li>
+</ul>
+
+<p>Editing: a click on the swatch opens a small picker of the known colour names (chips with
+swatches) plus free text; the posted <code class="language-plaintext highlighter-rouge">color</code> stays a string (≤ 40 chars).
+<strong>Accept</strong>: the swatch updates live as the vendor types or picks; no hex value ever comes from the
+model or the user without <code class="language-plaintext highlighter-rouge">SafeHex</code>.</p>
+
+<h3 id="req-vss-10--show-the-price-that-will-be-used-tell-same-name-rows-apart--p1">REQ-VSS-10 — Show the price that will be used; tell same-name rows apart — P1</h3>
+<p>Today every price cell shows “—” even when the stock item has a unit cost, although the page says
+missing prices are filled from stock costs. An empty price input shows the fill-in value as its
+placeholder (“4.00 · stock cost”, “3.50 · remembered”), or “no price yet” with a link to the stock
+item. Rows with the same name (e.g. three “Rose” lines) show the variety or the main colour term
+next to the name (“Rose · peachy pink”).
+<strong>Accept</strong>: the inventory line DTO carries <code class="language-plaintext highlighter-rouge">fallbackUnitPrice</code> + <code class="language-plaintext highlighter-rouge">fallbackSource</code>; no extra calls.</p>
+
+<h3 id="req-vss-04--drag-and-drop-starting-set--p0">REQ-VSS-04 — Drag-and-drop starting set — P0</h3>
+<p>“Start from my stock” (hub) and “Fill from my stock” (step 2) open a <strong>two-pane picker</strong> instead of
+dumping all stock into the table:</p>
+<ul>
+  <li><strong>My stock</strong> (left): active, non-archived items with quantity &gt; 0. Each card shows the thumbnail,
+kind pictogram, swatches, name/variety, available quantity, unit cost and low-stock badge.
+Filters: kind pictograms, colour chips, text search. Sort: name, quantity, recently used.</li>
+  <li><strong>Starting set</strong> (right): a drop area (“Drag flowers here to start”). Dropping a card adds a line
+linked to that stock item with a default quantity of <code class="language-plaintext highlighter-rouge">min(available, 5)</code> for stems and 1 for
+items. The quantity is editable in place. Dropping the same item again increases the quantity.</li>
+  <li>Non-drag alternatives (WCAG 2.5.7): an <strong>Add</strong> button on each card, keyboard (Enter adds), and
+multi-select + “Add selected”.</li>
+  <li>“Add all” keeps today’s behaviour as an explicit action.</li>
+  <li><strong>Use as my stock</strong> writes the starting set as the session inventory (<code class="language-plaintext highlighter-rouge">PUT …/inventory</code> with
+<code class="language-plaintext highlighter-rouge">stockItemId</code> per line) and goes on to the table (REQ-VSS-01..03) for final checks.</li>
+</ul>
+
+<p><strong>Accept</strong>: works with mouse, touch (portal on tablets) and keyboard; without JS the picker
+degrades to a checkbox list with quantity inputs; the starting set survives a reload (kept in the
+session inventory draft, not local storage).</p>
+
+<h3 id="req-vss-05--quantity-guard-against-stock--p1">REQ-VSS-05 — Quantity guard against stock — P1</h3>
+<p>A starting-set or table quantity above the stock item’s available quantity shows a warning (“only
+8 in stock”) but is allowed. Recipes still use the confirmed inventory, and the vendor may hold
+stock they haven’t recorded. “Use stock” (EP-30 consume) keeps its all-or-nothing rule.
+<strong>Accept</strong>: the warning uses the quantity read when the picker opened; a stale read is resolved by
+the consume step, not by the wizard.</p>
+
+<h3 id="req-vss-06--design-tokens-and-accessibility--p1">REQ-VSS-06 — Design tokens and accessibility — P1</h3>
+<p>Pictograms, swatches and the drop area use the portal’s theme variables (light/dark), 4.5:1
+contrast for text, and visible focus. The drop area announces additions through an <code class="language-plaintext highlighter-rouge">aria-live</code>
+region (“Added 5 × Peach rose”).
+<strong>Accept</strong>: axe check of the step-2 page has no serious violations.</p>
+
+<h3 id="req-vss-07--vendor-app-parity--p2">REQ-VSS-07 — Vendor app parity — P2</h3>
+<p>Vendor app (EP-M14): thumbnail, pictograms and swatches in the stock check list; the starting set
+via long-press drag <strong>and</strong> tap-to-add.
+<strong>Accept</strong>: same API calls as the portal; no new endpoints beyond REQ-VSS-01’s DTO fields.</p>
+
+<h3 id="req-vss-08--count-stock-from-photos-stock-page--p1">REQ-VSS-08 — Count stock from photos (Stock page) — P1</h3>
+<p>Bench recognition moves out of the wizard to the Stock page: <strong>Count stock from photos</strong> (1–5
+photos of the bench or cold room).</p>
+<ul>
+  <li>The existing EP-28 recognizer (<code class="language-plaintext highlighter-rouge">inventory</code> prompt, with REQ-STKPH-11 catalogue linking) runs as
+a stock job and returns estimated lines linked to stock items where possible.</li>
+  <li>Review list: thumbnail, pictogram, swatches (EP-34 components), <strong>current quantity → counted
+quantity</strong> with the delta, confidence, “please check” below 0.6. Unlinked lines offer “Link to
+an item” or “Create item” (prefilled; the photo becomes a pending photo as in REQ-STKPH-05).</li>
+  <li><strong>Apply counts</strong> writes one <code class="language-plaintext highlighter-rouge">Counted</code> movement per confirmed line to the EP-30 ledger in one
+all-or-nothing batch with an <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>. Lines the vendor didn’t confirm are not written.</li>
+</ul>
+
+<p>Quota: the EP-31 stock AI monthly quota (not the AI Florist recognition quota), under the same kill
+switch, pilot list and $ cap.
+<strong>Accept</strong>: nothing changes stock until <strong>Apply counts</strong>; replaying the batch key is a no-op;
+another vendor’s item can’t be linked.</p>
+
+<h3 id="req-vss-09--wizard-modes-only--p0">REQ-VSS-09 — Wizard modes only — P0</h3>
+<p>The wizard hub offers two starts: <strong>Start from my stock</strong> (this epic) and <strong>Reconstruct a bouquet
+from photos</strong> (EP-35). “Photograph your stock” and “Enter stock by hand instead” leave the wizard
+entry. The working area table (REQ-VSS-01..03) stays for adjusting quantities and adding a line
+by hand. <code class="language-plaintext highlighter-rouge">inputMode: "Photos"</code> is no longer offered for new sessions once the vendor app has
+migrated (EP-M14). Existing <code class="language-plaintext highlighter-rouge">Photos</code> sessions stay readable and usable.
+The step bar follows the mode: mode 1 shows <strong>1. Your stock → 2. Choose design → 3. Recipes</strong>;
+mode 2 shows <strong>1. Bouquet photos → 2. Match to stock → 3. Choose design → 4. Recipes</strong>. Today a
+“from stock” session still shows “1. Photos”.
+<strong>Accept</strong>: <code class="language-plaintext highlighter-rouge">GET usage</code> lists <code class="language-plaintext highlighter-rouge">inputModes: ["Stock", "BouquetPhotos"]</code> (plus <code class="language-plaintext highlighter-rouge">Photos</code> until the
+app migration flag is off); the <code class="language-plaintext highlighter-rouge">recognize</code> endpoint keeps working for old sessions.</p>
+
+<hr />
+
+<h2 id="ep-35--wizard-mode-2-reconstruct-a-bouquet-from-photos">EP-35 — Wizard mode 2: reconstruct a bouquet from photos</h2>
+
+<h3 id="req-insp-01--new-input-mode-bouquetphotos--p0">REQ-INSP-01 — New input mode “BouquetPhotos” — P0</h3>
+<p>A design session can start with <code class="language-plaintext highlighter-rouge">inputMode: "BouquetPhotos"</code>. In the portal hub it is
+<strong>Reconstruct a bouquet from photos</strong>: “Add 1–5 photos of the bouquet you want to make, e.g. the
+picture a customer sent”. This is a reverse-engineering assistant, not a stock update. It never
+changes stock levels. Bench counting is on the Stock page (REQ-VSS-08), and the wizard has only
+the two modes of REQ-VSS-09.
+<strong>Accept</strong>: existing <code class="language-plaintext highlighter-rouge">Photos</code> sessions keep working unchanged; <code class="language-plaintext highlighter-rouge">GET usage</code> reports the new mode in
+<code class="language-plaintext highlighter-rouge">inputModes</code>.</p>
+
+<h3 id="req-insp-02--detect-the-bouquets-items--p0">REQ-INSP-02 — Detect the bouquet’s items — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">POST /design-sessions/{id}/analyze</code> (required <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>, counts as one recognition)
+queues a <code class="language-plaintext highlighter-rouge">BouquetAnalysis</code> job (shared with EP-36). The analyzer (<code class="language-plaintext highlighter-rouge">bouquet-analysis-v1</code> prompt)
+returns per detected item: kind, common name, colour(s), variety guess (optional), estimated
+quantity, visibility note (<code class="language-plaintext highlighter-rouge">partly-hidden</code>), and a model confidence 0–1. It returns one list for
+the bouquet across all photos, not one per photo. Photos of different bouquets → the analyzer
+says so (<code class="language-plaintext highlighter-rouge">mixed-bouquets</code>) and the job asks the vendor to keep one bouquet.
+<strong>Accept</strong>: ≤ 40 detected items; names ≤ 80 chars; quantity 1–200; invalid output fails the job
+with a safe message; the free deterministic provider (<code class="language-plaintext highlighter-rouge">Palette</code>-style) exists for dev/tests.</p>
+
+<h3 id="req-insp-03--map-detected-items-to-stock-with-a-match-score--p0">REQ-INSP-03 — Map detected items to stock with a match score — P0</h3>
+<p>For each detected item, code ranks the vendor’s stock items (active + archived-but-in-stock
+excluded) and keeps the best match plus up to 2 alternatives with a <strong>match score 0–100 %</strong>:</p>
+<ul>
+  <li>name/synonym similarity (normalised catalogue key <code class="language-plaintext highlighter-rouge">name|colour[|variety]</code>, <code class="language-plaintext highlighter-rouge">InventoryLine.NormalizeKey</code>),</li>
+  <li>kind must agree (hard filter),</li>
+  <li>colour: palette distance between the detected colours and the stock appearance palette,</li>
+  <li>variety bonus when both are known,</li>
+  <li>the model’s confidence as a multiplier.</li>
+</ul>
+
+<p>Bands: <strong>High ≥ 80 %</strong>, <strong>Medium 50–79 %</strong>, <strong>Low &lt; 50 %</strong> (no automatic link below 50 %). The
+score is labelled “match”, not “probability”, and the factors are shown on hover (“name ✓, colour
+close, variety unknown”).
+Optional second pass (config <code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:ModelAssistedMatching</code>): send the top 10
+code-ranked candidates per item to the model as JSON data and let it pick one by id. The pick is
+accepted only if it is in the candidate list.
+<strong>Accept</strong>: another vendor’s stock is never a candidate; matching runs in code in &lt; 200 ms for
+500 stock items; deterministic for the same input.</p>
+
+<h3 id="req-insp-04--review-screen-matched-short-missing--p0">REQ-INSP-04 — Review screen: matched, short, missing — P0</h3>
+<p>Step 2 for this mode shows the inspiration photos and three groups:</p>
+<ol>
+  <li><strong>Matched</strong>: detected item → stock card (thumbnail, pictogram, swatches from EP-34), score
+badge, needed vs available quantity. The vendor can switch to an alternative, search any stock
+item, or mark “not in my stock”.</li>
+  <li><strong>Short</strong>: matched but available &lt; needed, showing the shortfall.</li>
+  <li><strong>Missing</strong> (bottom of the page): detected items with no match ≥ 50 % or marked “not in my
+stock”. Shows kind, name, colour swatch, needed quantity and a reference crop if available.</li>
+</ol>
+
+<p><strong>Accept</strong>: every change is recomputed in code without a model call; the vendor’s link choices are
+stored as <code class="language-plaintext highlighter-rouge">RecognitionCorrection</code> rows when EP-33 is present (REQ-FBK-10).</p>
+
+<h3 id="req-insp-05--missing-items--procurement-hook--p1">REQ-INSP-05 — Missing items → procurement hook — P1</h3>
+<p>The missing (and short) list has <strong>Order missing items</strong> with a “coming soon” state and two
+actions that work today: <strong>Copy list</strong> and <strong>Download CSV</strong> (name, colour, variety, quantity,
+unit). Server side, an <code class="language-plaintext highlighter-rouge">IFlowerSupplierCatalog</code> port (no-op implementation
+<code class="language-plaintext highlighter-rouge">NullFlowerSupplierCatalog</code>) defines <code class="language-plaintext highlighter-rouge">SearchAsync(items) → offers</code> and <code class="language-plaintext highlighter-rouge">CreateOrderAsync</code>, so a
+future supplier-integration epic only adds adapters.
+<strong>Accept</strong>: the DTO has <code class="language-plaintext highlighter-rouge">procurement: { available: false, providers: [] }</code>; no external call is
+made in this epic.</p>
+
+<h3 id="req-insp-06--from-inspiration-to-recipes--p0">REQ-INSP-06 — From inspiration to recipes — P0</h3>
+<p><strong>Use matched items</strong> writes the inventory (matched lines, quantities = detected quantity capped
+at the vendor’s edit, linked by <code class="language-plaintext highlighter-rouge">stockItemId</code>) and confirms it. Composition (step 3) receives the
+detected bouquet as a <code class="language-plaintext highlighter-rouge">target</code> data field (lines + palette). The composer is asked for recipes
+that stay as close to the target as the stock allows, plus one “best substitute” variant when
+items are missing. Recipes still pass <code class="language-plaintext highlighter-rouge">RecipeValidator</code> and the cost ceiling.
+<strong>Accept</strong>: a recipe never uses a missing item; the “why” line (EP-33 REQ-FBK-14, if present)
+names the substitutions.</p>
+
+<h3 id="req-insp-07--inspiration-photo-as-preview-reference--p2">REQ-INSP-07 — Inspiration photo as preview reference — P2</h3>
+<p>Preview rendering may use the first inspiration photo as a style reference (composition, wrap,
+colours) next to stock main photos.
+<strong>Accept</strong>: off by default (<code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:UseInspirationAsPreviewReference</code>); the
+vendor sees a note that reference photos are sent to the image provider.</p>
+
+<h3 id="req-insp-08--quota-cost-and-limits--p0">REQ-INSP-08 — Quota, cost and limits — P0</h3>
+<p>An analysis counts as one recognition against the monthly quota and is reserved against the $ cap
+before the call. Max 5 photos, 8 MB raw each. One active analysis per session; 429
+<code class="language-plaintext highlighter-rouge">too-many-active</code> otherwise.
+<strong>Accept</strong>: replaying the same <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> returns the same job; the kill switch stops new
+analyses.</p>
+
+<h3 id="req-insp-09--api-contract--p0">REQ-INSP-09 — API contract — P0</h3>
+<p>§21 gets: input mode <code class="language-plaintext highlighter-rouge">BouquetPhotos</code>, <code class="language-plaintext highlighter-rouge">POST …/analyze</code>, <code class="language-plaintext highlighter-rouge">analysis</code> on <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>
+(<code class="language-plaintext highlighter-rouge">detectedItems[] { id, kind, name, colors[], variety, quantity, confidence, visibility, match {
+stockItemId, score, band, factors[] }, alternatives[], status: Matched|Short|Missing }</code>,
+<code class="language-plaintext highlighter-rouge">missing[]</code>, <code class="language-plaintext highlighter-rouge">procurement</code>), <code class="language-plaintext highlighter-rouge">PUT …/analysis/items/{itemId}</code> (choose match / not in stock /
+quantity), and session states <code class="language-plaintext highlighter-rouge">Analyzing → AnalysisReady</code>.
+<strong>Accept</strong>: <code class="language-plaintext highlighter-rouge">contracts-check</code> run; vendor app contract copy updated.</p>
+
+<h3 id="req-insp-10--vendor-app-parity--p2">REQ-INSP-10 — Vendor app parity — P2</h3>
+<p>Vendor app (EP-M15): camera/gallery 1–5 photos, review groups, missing list share sheet.</p>
+
+<h3 id="req-insp-11--reconstruct-from-a-customers-request-or-order--p1">REQ-INSP-11 — Reconstruct from a customer’s request or order — P1</h3>
+<p>The main use case: a customer sent a picture (EP-37 bouquet request, or a custom order). On a
+request the vendor can see (and on their own accepted custom order), <strong>Reconstruct with AI
+Florist</strong> creates a <code class="language-plaintext highlighter-rouge">BouquetPhotos</code> session pre-loaded with the request’s images (server-side
+copy into the private design media, no re-upload) and linked to the request (<code class="language-plaintext highlighter-rouge">sourceRequestId</code>).
+The review screen then also shows:</p>
+<ul>
+  <li>an <strong>estimated cost</strong> of the reconstruction from stock prices (EP-36 calculator), with missing
+items marked “price unknown”;</li>
+  <li>a <strong>draft offer note</strong>: for each missing item, the best in-stock alternative (“no peonies — I’d
+use garden roses”), which the vendor can copy into the EP-37 offer.</li>
+</ul>
+
+<p><strong>Accept</strong>: only images the vendor is allowed to see (REQ-BRQ-06/14) can be copied; the link to
+the request never exposes customer PII in the session; deleting the session doesn’t touch the
+request.</p>
+
+<hr />
+
+<h2 id="ep-36--ai-bouquet-items--cost-assessor">EP-36 — AI Bouquet Items &amp; Cost Assessor</h2>
+
+<h3 id="req-assess-01--cost-assessment-entry-point--p0">REQ-ASSESS-01 — Cost assessment entry point — P0</h3>
+<p>A new vendor feature <strong>Cost assessor</strong>, separate from design sessions: Vendor Portal
+<code class="language-plaintext highlighter-rouge">Pages/Design/Assess/*</code> (hub tile “What does this bouquet cost me?”) and a vendor app screen.
+The vendor adds 1–5 photos of one <strong>finished</strong> bouquet and an optional note (≤ 200 chars, e.g.
+“hidden: 3 eucalyptus inside”).
+<strong>Accept</strong>: same photo rules as design sessions (private, re-encoded, EXIF stripped).</p>
+
+<h3 id="req-assess-02--costassessment-aggregate--p0">REQ-ASSESS-02 — CostAssessment aggregate — P0</h3>
+<p>Vendor-scoped <code class="language-plaintext highlighter-rouge">CostAssessment</code>: photos, state (<code class="language-plaintext highlighter-rouge">Draft → Analyzing → Ready | Failed</code>), detected
+items (same shape as REQ-INSP-02), confirmed lines (stock link, quantity, unit cost + its source),
+optional selling price, timestamps, <code class="language-plaintext highlighter-rouge">Provider</code>/<code class="language-plaintext highlighter-rouge">Model</code>/<code class="language-plaintext highlighter-rouge">PromptVersion</code> of the analysis job.
+Photos follow the design-session retention. Lines and totals are kept until the vendor deletes
+the assessment.
+<strong>Accept</strong>: another vendor’s assessment → 404; delete purges photos.</p>
+
+<h3 id="req-assess-03--analysis-reuses-the-bouquet-analysis-engine--p0">REQ-ASSESS-03 — Analysis reuses the bouquet-analysis engine — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">POST /vendor/cost-assessments/{id}/analyze</code> (required <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>) runs the same
+<code class="language-plaintext highlighter-rouge">BouquetAnalysis</code> job and stock mapping as EP-35 (REQ-INSP-02/03). It uses the assessor prompt
+variant (<code class="language-plaintext highlighter-rouge">bouquet-analysis-v1</code>, purpose <code class="language-plaintext highlighter-rouge">Assessment</code>), which asks for countable stems and hidden
+fillers (“likely 2–3 hidden greenery stems”) and returns a quantity range (min/likely/max) per
+item.
+<strong>Accept</strong>: one engine, one prompt registry entry with a purpose field; no duplicated matching code.</p>
+
+<h3 id="req-assess-04--cost-from-stock-prices--p0">REQ-ASSESS-04 — Cost from stock prices — P0</h3>
+<p>Per confirmed line, the unit cost comes from (first hit wins):</p>
+<ol>
+  <li>the linked <code class="language-plaintext highlighter-rouge">StockItem</code> unit cost (EP-30);</li>
+  <li>the vendor’s remembered price for the catalogue key (<code class="language-plaintext highlighter-rouge">DesignCostProfile.prices</code>);</li>
+  <li>unknown → the line is marked “price missing” and the total is incomplete.</li>
+</ol>
+
+<p>Totals (shared <code class="language-plaintext highlighter-rouge">CostBreakdown</code> code from EP-28): flowers subtotal, materials subtotal, labour
+(cost profile minutes × hourly rate), overhead %, <strong>known cost</strong> and <strong>total</strong> (null while any
+price is missing), plus a <strong>range</strong> from the min/max quantities (“118–141 PLN”).
+<strong>Accept</strong>: the arithmetic is in code and unit-tested; the model never returns prices.</p>
+
+<h3 id="req-assess-05--edit-and-recalculate--p0">REQ-ASSESS-05 — Edit and recalculate — P0</h3>
+<p>The vendor can change any line’s match (same picker as REQ-INSP-04), quantity, or unit cost
+override (one-off, or “remember this price”), add a missed item from stock, or remove a false
+detection. Totals recalculate instantly without a model call.
+<strong>Accept</strong>: <code class="language-plaintext highlighter-rouge">PUT /vendor/cost-assessments/{id}/lines</code> with <code class="language-plaintext highlighter-rouge">expectedVersion</code> (409 on conflict).</p>
+
+<h3 id="req-assess-06--selling-price-and-margin--p1">REQ-ASSESS-06 — Selling price and margin — P1</h3>
+<p>Optional selling price → margin amount and gross margin % (same formula as <code class="language-plaintext highlighter-rouge">RecipeCostDto</code>).
+<strong>Suggested price</strong> at a target margin from the cost profile (new field <code class="language-plaintext highlighter-rouge">targetMarginPercent</code>,
+default 60 %), rounded to whole PLN.
+<strong>Accept</strong>: no margin and no suggestion while the cost is incomplete; the reason is shown.</p>
+
+<h3 id="req-assess-07--act-on-the-result--p2">REQ-ASSESS-07 — Act on the result — P2</h3>
+<ul>
+  <li><strong>Deduct from stock</strong>: <code class="language-plaintext highlighter-rouge">POST /vendor/stock/consume</code> with reference <code class="language-plaintext highlighter-rouge">cost-assessment:{id}</code>
+(all-or-nothing, idempotent), for bouquets the vendor has already made.</li>
+  <li><strong>Open in AI Florist</strong>: start a design session (<code class="language-plaintext highlighter-rouge">BouquetPhotos</code> mode) pre-filled with the
+assessment’s lines.</li>
+  <li><strong>Create listing</strong>: prefill the bouquet create form with the first photo and the suggested price.</li>
+  <li><strong>Print / PDF</strong> summary.</li>
+</ul>
+
+<p><strong>Accept</strong>: each action is explicit; nothing happens automatically.</p>
+
+<h3 id="req-assess-08--history--p1">REQ-ASSESS-08 — History — P1</h3>
+<p>List of past assessments (thumbnail, date, total, margin), newest first, paged; delete.</p>
+
+<h3 id="req-assess-09--quota-and-kill-switch--p0">REQ-ASSESS-09 — Quota and kill switch — P0</h3>
+<p>Separate monthly quota <code class="language-plaintext highlighter-rouge">BouquetDesign:Assessment:MonthlyLimit</code> (default 30). It sits under the
+assistant’s kill switch, pilot list and global $ cap, with ledger-before-call. It shows in
+<code class="language-plaintext highlighter-rouge">DesignUsageDto</code> (<code class="language-plaintext highlighter-rouge">assessmentsUsed/Limit/Remaining</code>).
+<strong>Accept</strong>: 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code> with <code class="language-plaintext highlighter-rouge">Retry-After</code> at the reset date.</p>
+
+<h3 id="req-assess-10--api-contract-and-vendor-app--p1">REQ-ASSESS-10 — API contract and vendor app — P1</h3>
+<p>New §21.2 “Cost assessor” in <code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> (routes under <code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments</code>).
+Vendor app EP-M16.</p>
+
+<hr />
+
+<h2 id="cross-cutting">Cross-cutting</h2>
+
+<ul>
+  <li><strong>Migrations</strong>: <code class="language-plaintext highlighter-rouge">DesignSession.InputMode</code> gains <code class="language-plaintext highlighter-rouge">BouquetPhotos</code>; <code class="language-plaintext highlighter-rouge">DesignAnalysis</code> (detected
+items + matches, JSON snapshot on the session); <code class="language-plaintext highlighter-rouge">CostAssessments</code> + <code class="language-plaintext highlighter-rouge">CostAssessmentLines</code>;
+<code class="language-plaintext highlighter-rouge">DesignCostProfile.TargetMarginPercent</code>; <code class="language-plaintext highlighter-rouge">StockItem</code> list DTO <code class="language-plaintext highlighter-rouge">mainPhotoId</code> (no schema change).</li>
+  <li><strong>Prompt registry</strong>: <code class="language-plaintext highlighter-rouge">bouquet-analysis-v1</code> (purposes <code class="language-plaintext highlighter-rouge">Inspiration</code>, <code class="language-plaintext highlighter-rouge">Assessment</code>) is added to the
+EP-33 registry if it has landed, otherwise as a <code class="language-plaintext highlighter-rouge">const</code> with the same id so it moves cleanly.</li>
+  <li><strong>Admin quality dashboard</strong> (EP-33 REQ-FBK-12): analysis jobs per purpose, match-band
+distribution, vendor-changed-match rate (the main accuracy signal).</li>
+  <li><strong>Privacy</strong>: inspiration photos may show third-party work or people. They stay private,
+are never shown to customers, and are deleted with the session.</li>
+</ul>
+
+<h2 id="explicitly-out-of-scope">Explicitly out of scope</h2>
+<ul>
+  <li>Real supplier integrations and ordering (only the port + null adapter; future epic).</li>
+  <li>Pricing advice from market data or competitors.</li>
+  <li>Recognising a bouquet from a URL or social-media link.</li>
+  <li>Automatic stock deduction or listing creation.</li>
+</ul>
+
+    </div>
+  </main>
+</div>
+
+<!-- DIAGRAM MODAL -->
+<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
+  <div class="diagram-modal-toolbar">
+    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
+    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
+    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
+    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
+    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
+    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
+  </div>
+  <div class="diagram-modal-body" id="dmBody">
+    <div class="diagram-modal-canvas" id="dmCanvas"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  // ── 1. Convert Jekyll ```mermaid blocks → <div class="mermaid"> ──
+  document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid-wrap';
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    const btn = document.createElement('button');
+    btn.className = 'mermaid-expand-btn';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand';
+    wrap.appendChild(div);
+    wrap.appendChild(btn);
+    code.parentElement.replaceWith(wrap);
+  });
+
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
+
+  // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
+  const modal    = document.getElementById('diagramModal');
+  const dmCanvas = document.getElementById('dmCanvas');
+  const dmBody   = document.getElementById('dmBody');
+  const dmTitle  = document.getElementById('modalTitle');
+  const dmLabel  = document.getElementById('dmZoomLabel');
+
+  let natW = 800, natH = 600, curScale = 1;
+
+  function setSvgSize() {
+    const svg = dmCanvas.querySelector('svg');
+    if (!svg) return;
+    svg.setAttribute('width',  Math.round(natW * curScale));
+    svg.setAttribute('height', Math.round(natH * curScale));
+    dmLabel.textContent = Math.round(curScale * 100) + '%';
+  }
+
+  function fitToView() {
+    const bw = dmBody.clientWidth  - 48;
+    const bh = dmBody.clientHeight - 48;
+    curScale = Math.min(bw / natW, bh / natH, 1.5);
+    setSvgSize();
+    // scroll to centre
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = (dmCanvas.offsetWidth  - dmBody.clientWidth)  / 2;
+      dmBody.scrollTop  = (dmCanvas.offsetHeight - dmBody.clientHeight) / 2;
+    });
+  }
+
+  function openModal(svgEl, title) {
+    dmTitle.textContent = title || 'Diagram';
+    dmCanvas.innerHTML  = '';
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    natW = (vb && vb.width  > 0) ? vb.width  : (parseFloat(svgEl.getAttribute('width'))  || 1200);
+    natH = (vb && vb.height > 0) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 800);
+
+    const clone = svgEl.cloneNode(true);
+    // remove any style that might constrain size
+    clone.style.cssText = 'display:block;max-width:none;';
+    dmCanvas.appendChild(clone);
+
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(fitToView);
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function changeZoom(factor) {
+    curScale = Math.min(Math.max(curScale * factor, 0.05), 10);
+    // remember scroll centre so zoom feels anchored
+    const cx = dmBody.scrollLeft + dmBody.clientWidth  / 2;
+    const cy = dmBody.scrollTop  + dmBody.clientHeight / 2;
+    const relX = cx / (natW * (curScale / factor));
+    const relY = cy / (natH * (curScale / factor));
+    setSvgSize();
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = relX * natW * curScale - dmBody.clientWidth  / 2;
+      dmBody.scrollTop  = relY * natH * curScale - dmBody.clientHeight / 2;
+    });
+  }
+
+  document.getElementById('dmClose').addEventListener('click', closeModal);
+  document.getElementById('dmZoomIn').addEventListener('click',  () => changeZoom(1.4));
+  document.getElementById('dmZoomOut').addEventListener('click', () => changeZoom(1 / 1.4));
+  document.getElementById('dmReset').addEventListener('click',   fitToView);
+
+  // Ctrl/Cmd+wheel zoom (plain wheel = scroll handled by browser natively)
+  dmBody.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    changeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+
+  // Drag-to-scroll / pan
+  let dragging = false, dragSX, dragSY, scrollLX, scrollLY;
+  dmBody.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragging = true; dragSX = e.clientX; dragSY = e.clientY;
+    scrollLX = dmBody.scrollLeft; scrollLY = dmBody.scrollTop;
+    dmBody.classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    dmBody.scrollLeft = scrollLX - (e.clientX - dragSX);
+    dmBody.scrollTop  = scrollLY - (e.clientY - dragSY);
+  });
+  window.addEventListener('mouseup', () => { dragging = false; dmBody.classList.remove('grabbing'); });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── 3. Wire expand buttons — look up SVG fresh on every click ──
+  // Do NOT capture svg in a closure: Mermaid may not have rendered yet
+  // when the observer fires, so always call querySelector at click time.
+  function wireDiagramWrap(wrap) {
+    if (wrap.dataset.wired) return;
+    wrap.dataset.wired = '1';
+    const mermaidDiv = wrap.querySelector('.mermaid');
+    const expandBtn  = wrap.querySelector('.mermaid-expand-btn');
+    const activate = () => {
+      const svg = mermaidDiv && mermaidDiv.querySelector('svg');
+      if (svg) openModal(svg, document.title);
+    };
+    if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
+    if (mermaidDiv) mermaidDiv.addEventListener('click', activate);
+  }
+
+  // Wire immediately for any wraps already in DOM, then watch for new ones
+  document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // ── 4. Sidebar accordion ──
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // ── 5. Active link highlight ──
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // ── 6. Mobile hamburger ──
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+
+  // ── 7. Global page navigation (Next / Back) ──
+  const NAV_PAGES = [
+    { path: '/',                                                                   title: 'Home' },
+    { path: '/architecture/',                                                      title: 'Architecture Overview' },
+    { path: '/architecture/c4-context',                                            title: 'C4 Context' },
+    { path: '/architecture/c4-containers',                                         title: 'C4 Containers' },
+    { path: '/architecture/c4-components',                                         title: 'C4 Components' },
+    { path: '/architecture/domain-model',                                          title: 'Domain Model' },
+    { path: '/architecture/cross-cutting',                                         title: 'Cross-cutting' },
+    { path: '/architecture/view-functional',                                       title: 'Functional View' },
+    { path: '/architecture/view-information',                                      title: 'Information View' },
+    { path: '/architecture/view-concurrency',                                      title: 'Concurrency View' },
+    { path: '/architecture/view-development',                                      title: 'Development View' },
+    { path: '/architecture/view-deployment',                                       title: 'Deployment View' },
+    { path: '/architecture/view-operational',                                      title: 'Operational View' },
+    { path: '/architecture/flows-auth',                                            title: 'Authentication Flows' },
+    { path: '/architecture/flows-customer',                                        title: 'Customer Flows' },
+    { path: '/architecture/flows-vendor',                                          title: 'Vendor Flows' },
+    { path: '/architecture/flows-admin',                                           title: 'Admin Flows' },
+    { path: '/architecture/flows-iot',                                             title: 'IoT Flows' },
+    { path: '/architecture/flows-payments',                                        title: 'Payment Flows' },
+    { path: '/architecture/flows-realtime',                                        title: 'Real-time Flows' },
+    { path: '/API-CONTRACTS',                                                      title: 'Mobile API Contracts' },
+    { path: '/contracts/outbound',                                                 title: 'Outbound Contracts' },
+    { path: '/deployment/',                                                        title: 'Deployment Overview' },
+    { path: '/deployment/DEPLOYMENT-SPEC',                                         title: 'Deployment Spec' },
+    { path: '/deployment/REGISTRATION-AND-CICD',                                   title: 'Registration & CI/CD' },
+    { path: '/deployment/SECRETS-AND-ENV-VARS',                                    title: 'Secrets & Env Vars' },
+    { path: '/deployment/DEPLOYMENT-RUNBOOK',                                      title: 'Runbook' },
+    { path: '/deployment/POST-DEPLOY-SMOKE-TESTS',                                 title: 'Smoke Tests' },
+    { path: '/deployment/OBSERVABILITY',                                           title: 'Observability' },
+    { path: '/deployment/ROLLBACK-AND-RECOVERY',                                   title: 'Rollback & Recovery' },
+    { path: '/EPIC-FEATURES-GUIDE',                                                title: 'Epic Features Guide' },
+    { path: '/STRIPE-BLIK-INTEGRATION',                                            title: 'Stripe + BLIK' },
+    { path: '/COMPLETE_WORKFLOW',                                                   title: 'Complete Workflow' },
+    { path: '/firmware/Smart_Vase_Registration_Workflows_Minimal',                 title: 'Vase Registration Workflows' },
+    { path: '/manuals/',                                                           title: 'User Manuals Overview' },
+    { path: '/manuals/admin-portal-manual.html',                                   title: 'Admin Portal Manual' },
+    { path: '/manuals/vendor-portal-manual.html',                                  title: 'Vendor Portal Manual' },
+    { path: '/manuals/vendor-mobile-app-manual.html',                              title: 'Vendor Mobile App Manual' },
+    { path: '/manuals/customer-app-manual.html',                                   title: 'Customer App Manual' },
+  ];
+
+  (function () {
+    const norm = p => p.replace(/\/$/, '') || '/';
+    const cur  = norm(window.location.pathname);
+    const idx  = NAV_PAGES.findIndex(p => norm(p.path) === cur);
+    if (idx === -1) return;
+
+    const prev = idx > 0              ? NAV_PAGES[idx - 1] : null;
+    const next = idx < NAV_PAGES.length - 1 ? NAV_PAGES[idx + 1] : null;
+
+    const nav = document.createElement('div');
+    nav.className = 'page-nav';
+
+    if (prev) {
+      nav.innerHTML += `<a class="page-nav-btn back" href="${prev.path}">
+        <span class="page-nav-label">← Back</span>
+        <span class="page-nav-title">${prev.title}</span>
+      </a>`;
+    } else {
+      nav.innerHTML += `<span></span>`;
+    }
+
+    if (next) {
+      nav.innerHTML += `<a class="page-nav-btn next" href="${next.path}">
+        <span class="page-nav-label">Next →</span>
+        <span class="page-nav-title">${next.title}</span>
+      </a>`;
+    }
+
+    document.querySelector('.main').appendChild(nav);
+  })();
+
+  // ── 8. Dark / light mode toggle ──
+  (function () {
+    const root = document.documentElement;
+    const btn  = document.getElementById('themeToggle');
+    const icon = document.getElementById('themeIcon');
+    const lbl  = document.getElementById('themeLabel');
+    const LIGHT = {'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'};
+    const DARK  = {'--bg':'#0f1117','--surface':'#1a1d27','--surface2':'#22263a','--border':'#2e3350','--accent':'#6c8cff','--accent2':'#a78bfa','--text':'#e2e8f0','--text-muted':'#8892a4','--text-dim':'#566070','--topbar-bg':'rgba(15,17,23,.9)','--content-text':'#c8d0dc','--link-hover':'#9bb5ff','--code-color':'#a5d6ff','--pre-code-color':'#c9d1d9'};
+
+    function applyTheme(mode) {
+      const vars = mode === 'light' ? LIGHT : DARK;
+      Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+      if (mode === 'light') {
+        root.classList.add('light');
+        if (icon) icon.innerHTML = '&#127769;';
+        if (lbl)  lbl.textContent = 'Dark';
+      } else {
+        root.classList.remove('light');
+        if (icon) icon.innerHTML = '&#9728;&#65039;';
+        if (lbl)  lbl.textContent = 'Light';
+      }
+    }
+
+    const saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved);
+
+    if (btn) btn.addEventListener('click', () => {
+      const next = root.classList.contains('light') ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
+  })();
+</script>
+</body>
+</html>
