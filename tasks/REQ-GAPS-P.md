@@ -4,7 +4,7 @@
 > deployment) trackers.
 > Requirement refs point at the tasks in `tasks-ep38-docs-portal-access-control.json`.
 > Analysis date: 2026-10-20
-> Status: REQ-DOCS-01 … 16 planned (EP-38, see `EPICS-P.md`).
+> Status: REQ-DOCS-01 … 16 implemented in code (EP-38, see `EPICS-P.md`); REQ-DOCS-02 (retiring the public copy) and the production cut-over are operational steps in `docs/deployment/DOCS-PORTAL.md`; REQ-DOCS-13 is vendor app EP-M18.
 
 ## Context
 

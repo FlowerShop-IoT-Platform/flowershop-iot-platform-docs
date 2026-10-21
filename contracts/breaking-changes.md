@@ -2,6 +2,20 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-21 — EP-38 Docs portal access control (additive; docs hosting moves)
+
+- **What changed**: new `POST /api/v1/docs/handoff` (any signed-in role), `POST /api/v1/docs/handoff/redeem` and
+  `POST /api/v1/docs/roles` (docs portal client credentials only, policy `DocsPortalClient`) — `API-CONTRACTS.md` §24.
+  New Keycloak client `flowershop-docs` with client roles and the `docs_roles` claim; realm roles `User`, `VendorAdmin`,
+  `PlatformAdmin` become composites; new group `developers`. New app `FlowerShop.DocsPortal` (`fly.docs-portal.toml`)
+  serves `docs.findmyflowers.pl` behind sign-in; GitHub Pages publishing stops once `DOCS_PORTAL_DEPLOY` is set.
+  Config `Docs:*`. No database migration.
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M18 Help), customer mobile app (Help follow-up); docs links
+  everywhere now need a signed-in user.
+- **Deployment order**: Keycloak client (`scripts/keycloak/setup-docs-client.sh`) → API → DocsPortal (Fly secret
+  `Docs__Keycloak__ClientSecret`) → DNS cut-over → portals (Help) → retire the public docs repo
+  (`docs/deployment/DOCS-PORTAL.md`).
+
 ## 2026-10-21 — EP-37 Customer bouquet requests (additive; two behaviour changes on vendor orders)
 
 - **What changed**: new `/api/v1/customer/bouquet-requests`, `/api/v1/vendor/bouquet-requests`, `/vendor/custom-orders`,

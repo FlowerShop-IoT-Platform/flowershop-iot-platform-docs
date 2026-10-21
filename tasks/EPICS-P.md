@@ -14,7 +14,7 @@
 **Priority**: P1-high
 **Dependencies**: EP-23 (Keycloak Google IdP, JIT customers), EP-24 (Fly.io + Cloudflare)
 **Requirement refs**: REQ-DOCS-01 through REQ-DOCS-16
-**State**: todo — trackers done (T-38-001).
+**State**: in progress — implemented and tested (`FlowerShop.DocsPortal`, `/api/v1/docs/handoff` §24, Keycloak client `flowershop-docs` in the realm export + `scripts/keycloak/setup-docs-client.sh`, audience manifest/search build, Vendor Portal + Customer App Help, `fly.docs-portal.toml`, `deploy-docs-portal.yml`). Open: production cut-over and retiring the public copy (T-38-011, `docs/deployment/DOCS-PORTAL.md`), vendor app EP-M18 (T-38-016), customer mobile app Help (T-38-021).
 
 > `docs.findmyflowers.pl` stops being public. Developers see everything, vendors see the vendor
 > site and vendor app docs, and registered customers see the customer app docs. Help in each app

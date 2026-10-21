@@ -165,6 +165,9 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | GET | `/api/v1/reference/freshness-labels` | None | — | `List<{ minScore, maxScore, label, colour }>` | Mobile App |
 | GET | `/api/v1/config` | None | — | `{ stripePublishableKey, supportEmail, termsUrl, privacyPolicyUrl, minAppVersion, forceUpdate }` | Mobile App |
 | POST | `/api/v1/vendor-accounts/accept-invitation/{token}` | None | `{ temporaryPassword, newPassword, acceptTerms, deviceInfo? }` | `InvitationAcceptanceResult` | Email link → Mobile/Browser |
+| POST | `/api/v1/docs/handoff` | Bearer (any signed-in role; rate limit `docs-handoff` 20/min) | `{ returnPath? }` (relative docs path) | `{ url, expiresAt }` — `https://docs.findmyflowers.pl/auth/handoff?code=…&next=…`, code single-use, 60 s (EP-38) | Vendor Portal, Customer App, vendor app (EP-M18), customer mobile app |
+| POST | `/api/v1/docs/handoff/redeem` | Bearer, `DocsPortalClient` (client-credentials token of `flowershop-docs`) | `{ code }` | `{ subject, name, roles[], returnPath, sessionExpiresAt }` / 404 `invalid-code` (EP-38) | FlowerShop.DocsPortal |
+| POST | `/api/v1/docs/roles` | Bearer, `DocsPortalClient` | `{ subject }` | `{ subject, roles[], known, active }` — session re-validation every 15 min (EP-38) | FlowerShop.DocsPortal |
 
 ### 2b. Customer Endpoints (Policy: `CustomerAccess`)
 
@@ -451,6 +454,9 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | `customer_id` | `string` (GUID) | Keycloak custom | Customer's ID | `TenantResolutionMiddleware` → `CustomerContext` |
 | `ClaimTypes.Role` | `string` | Keycloak standard | User role string | Auth policy checks |
 | `realm_access.roles[]` | `string[]` | Keycloak JWT | Array of realm roles | Role-based policy evaluation |
+| `docs_roles[]` | `string[]` | Keycloak client-role mapper on `flowershop-docs` | `docs-developer` / `docs-vendor` / `docs-customer` (composites of `PlatformAdmin`+group `developers` / `VendorAdmin` / `User`) | FlowerShop.DocsPortal sign-in (EP-38) |
+| `azp` / `client_id` | `string` | Keycloak standard | Client that obtained the token | `DocsPortalClient` policy (must equal `Docs:ClientId`) |
+| `groups[]` | `string[]` | Keycloak group mapper (optional) | Group paths; `/developers` grants docs developer. Without it the API reads groups through the admin API | Docs handoff (EP-38) |
 
 ### 5b. Auth Policies
 
@@ -460,6 +466,7 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | `VendorAccess` | Role must be `VendorAdmin` + valid `vendor_id` + `vendor_type` claims | All vendor bouquet / vase / analytics / employee endpoints |
 | `PlatformAdmin` | Role must be `PlatformAdmin` | All `/api/v1/admin/*`, vase registration, platform analytics |
 | `ShopAdmin` | Role must be `ShopAdmin` (employee sub-role) | Employee management write operations |
+| `DocsPortalClient` | `azp` or `client_id` = `Docs:ClientId` (`flowershop-docs`, client credentials) | `POST /api/v1/docs/handoff/redeem`, `POST /api/v1/docs/roles` (EP-38) |
 
 ### 5c. Keycloak Server Configuration (Dev)
 
@@ -487,6 +494,10 @@ Customers may sign in with Google (configured as an Identity Provider in the `fl
 
 Consequently: `customer_id` may be **absent on the first Google token** and is populated mid-request; Google emails are treated as verified (no separate email-verification step); a Google login auto-links to any existing account with the same verified email.
 
+
+### 5e. Docs portal client (EP-38)
+
+Confidential client **`flowershop-docs`** (authorization code + PKCE S256, service account for the back-channel). Redirect `https://docs.findmyflowers.pl/signin-oidc`, post-logout `https://docs.findmyflowers.pl/*`. Client roles `docs-developer`, `docs-vendor`, `docs-customer` are emitted as the `docs_roles` claim (id, access and userinfo tokens); an audience mapper adds `flowershop-api` so its client-credentials token is accepted by the API. Composites: realm `User` → `docs-customer`, `VendorAdmin` → `docs-vendor`, `PlatformAdmin` → `docs-developer`; group `developers` → `docs-developer`. Dev: `docker/keycloak/flowershop-realm.json` (secret `dev-docs-portal-secret-change-me`); prod: `scripts/keycloak/setup-docs-client.sh` (idempotent). Customer creation paths verify the `User` realm role (`EnsureRealmRoleAsync`); a nightly job reports customers without it.
 ---
 
 ## 6. Shared Config Keys & Environment Variables
@@ -542,6 +553,12 @@ Consequently: `customer_id` may be **absent on the first Google token** and is p
 | `Marketplace:RequireVerifiedEmail` | bool | Verified email needed to create requests | `true` |
 | `Marketplace:TimeZone` / `CustomerAppUrl` / `VendorPortalUrl` | string | Quiet hours / email links | `Europe/Warsaw` / empty |
 | `Marketplace:MonitorEnabled` | bool | Background monitor (expiry, payment lapse, time-change auto-accept, SLA alerts) | `true` |
+| `Docs:PublicUrl` | string | Docs host the handoff URL points at (API, Vendor Portal, Customer App) (EP-38) | `https://docs.findmyflowers.pl` |
+| `Docs:ClientId` / `HandoffCodeSeconds` / `HandoffSessionHours` | string / int / int | Docs client allowed to redeem; code TTL; handoff session cap (API) | `flowershop-docs` / `60` / `8` |
+| `Docs:ReconciliationEnabled` / `ReconciliationHourUtc` | bool / int | Nightly report of customers lacking realm role `User` (API, Keycloak only) | `true` / `3` |
+| `Docs:SitePath`, `Docs:ApiBaseUrl`, `Docs:Keycloak:{Authority,ClientId,ClientSecret}` | string | FlowerShop.DocsPortal: built `_site`, API back-channel, OIDC client | `_site`, `http://localhost:8080`, local Keycloak |
+| `Docs:AuthDisabled` | bool | DocsPortal: every request reads as developer — **Development only**, logged and ignored elsewhere | `false` |
+| `Docs:RevalidateMinutes` / `SlidingHours` / `AbsoluteHours` | int | DocsPortal session: role re-read, sliding and absolute lifetime | `15` / `8` / `24` |
 
 ### 6b. Docker Compose Environment Variables
 

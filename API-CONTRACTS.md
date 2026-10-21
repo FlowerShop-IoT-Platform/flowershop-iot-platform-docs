@@ -2777,3 +2777,31 @@ sends the "no offers yet" reminder 2 h before the deadline, expires requests, la
 auto-accepts unanswered time changes after 30 min, and raises SLA alerts once per order and rule (start soon, not ready,
 late, +30 min, > 2 h with an admin escalation). Push (FCM, EP-06) and real email delivery are not wired yet — the email
 channel calls `IEmailService.SendMarketplaceEmailAsync` (no-op stub today).
+
+---
+
+## 24. Docs Portal Handoff (EP-38)
+
+`docs.findmyflowers.pl` is served by `FlowerShop.DocsPortal` behind Keycloak (client `flowershop-docs`). Readers are
+`developer` (everything), `vendor` (vendor manuals) or `customer` (customer manual); several roles see the union. Apps
+open the docs **without putting a token in a URL**: they trade their current access token for a one-time code.
+
+| Method | Path | Auth | Body | Success |
+|---|---|---|---|---|
+| POST | `/docs/handoff` | Bearer (any signed-in role) | `{ returnPath? }` — relative docs path, e.g. `/manuals/vendor-portal-manual.html#s8`; empty = docs home | `{ url, expiresAt }`. `url` = `https://docs.findmyflowers.pl/auth/handoff?code=…&next=…`; open it in a browser tab (mobile: Custom Tabs / SFSafariViewController). The code is single-use and expires after 60 s |
+| POST | `/docs/handoff/redeem` | docs portal only (client-credentials token of `flowershop-docs`) | `{ code }` | `{ subject, name, roles[], returnPath, sessionExpiresAt }` |
+| POST | `/docs/roles` | docs portal only | `{ subject }` | `{ subject, roles[], known, active }` (session re-validation every 15 min; `known = false` = identity provider unavailable) |
+
+Roles follow the Keycloak composites: realm `User` → `customer`, `VendorAdmin` → `vendor`, `PlatformAdmin` or group
+`developers` → `developer`. Errors (ProblemDetails `code`): 400 `invalid-request` (`returnPath` not relative — absolute
+URLs, `//host`, backslashes and control characters are refused), 403 `no-docs-access` (no docs role), 404
+`invalid-code` (unknown, used or expired), 429 rate limit (20 handoffs per user per minute).
+
+**Client behaviour**: on any failure (expired token after a refresh attempt, 4xx/5xx, network) open
+`https://docs.findmyflowers.pl/signin?returnUrl=<returnPath>` instead — the docs portal signs the user in with Keycloak
+and continues to the page. Never log the code or the URL that carries it, and keep both out of analytics events.
+
+**Docs portal endpoints** (browser): `/signin?returnUrl=&prompt=login`, `/signout?returnUrl=&switch=true`
+(RP-initiated logout), `/auth/handoff?code=&next=`, `/search.json` (the reader's search index), `/health` (public).
+Content responses are `Cache-Control: private, no-store` and `X-Robots-Tag: noindex`; forbidden pages return 403 with
+an account switch, unknown ones 404.

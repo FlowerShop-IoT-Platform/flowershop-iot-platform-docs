@@ -25,13 +25,15 @@ All deployment documentation for `findmyflowers.pl`. Read in roughly this order.
 | [OBSERVABILITY.md](OBSERVABILITY.md) | Where logs, health endpoints, and metrics live. First thing to read when something is wrong. |
 | [ROLLBACK-AND-RECOVERY.md](ROLLBACK-AND-RECOVERY.md) | Rollback procedures per component, dependency outage playbook, DB backup/restore, incident checklist |
 | [AI-BOUQUET-ASSISTANT.md](AI-BOUQUET-ASSISTANT.md) | EP-28 AI Florist: always-on API machine, private R2 bucket, provider secrets, image-model hosting, costs, test & validation flow |
+| [DOCS-PORTAL.md](DOCS-PORTAL.md) | EP-38 docs behind sign-in: Keycloak client, Fly app, DNS cut-over, retiring the public GitHub Pages copy, audiences for authors |
 
 ## Automation
 
 | Workflow | What it does |
 |---|---|
 | [`.github/workflows/db-backup.yml`](../../.github/workflows/db-backup.yml) | Weekly (Mondays 03:17 UTC) `pg_dump -F c` of both DBs to Cloudflare R2, via `flyctl proxy` |
-| [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) | Publishes these docs (Jekyll → gh-pages) to `docs.findmyflowers.pl` (custom domain via `docs/CNAME`) |
+| [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) | Publishes these docs (Jekyll → gh-pages) to `docs.findmyflowers.pl` until the EP-38 cut-over (`DOCS_PORTAL_DEPLOY`) |
+| [`.github/workflows/deploy-docs-portal.yml`](../../.github/workflows/deploy-docs-portal.yml) | EP-38: builds the docs into `FlowerShop.DocsPortal` and deploys it to Fly (after cut-over) |
 
 ## Diagrams
 

@@ -631,7 +631,15 @@
       .page-nav { padding: 0 20px 40px; }
       .page-nav-btn { max-width: 48%; }
     }
-  </style>
+  
+/* Docs search (EP-38) */
+.topbar-search { position: relative; margin-right: 12px; }
+.topbar-search input { width: 220px; max-width: 40vw; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; }
+.topbar-search-results { position: absolute; top: 110%; right: 0; width: 320px; max-width: 80vw; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 200; }
+.topbar-search-results:empty { display: none; }
+.topbar-search-hit, .topbar-search-empty { display: block; padding: 8px 12px; font-size: 13px; color: var(--text); text-decoration: none; }
+.topbar-search-hit:hover { background: var(--surface2); }
+</style>
 </head>
 <body>
 
@@ -647,12 +655,16 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.0.0</span>
+    <span class="topbar-badge">Docs v1.1.0</span>
   </a>
   <div class="topbar-spacer"></div>
-  <a href="/architecture/" class="topbar-link">Architecture</a>
-  <a href="/deployment/" class="topbar-link">Deployment</a>
-  <a href="/API-CONTRACTS" class="topbar-link">API</a>
+  <div class="topbar-search" id="docsSearch" hidden>
+    <input type="search" id="docsSearchInput" placeholder="Search docs" aria-label="Search the documentation" autocomplete="off">
+    <div class="topbar-search-results" id="docsSearchResults" role="listbox"></div>
+  </div>
+  <a data-audience="developer" href="/architecture/" class="topbar-link">Architecture</a>
+  <a data-audience="developer" href="/deployment/" class="topbar-link">Deployment</a>
+  <a data-audience="developer" href="/API-CONTRACTS" class="topbar-link">API</a>
   <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
     <span id="themeIcon">☀️</span>
     <span id="themeLabel">Light</span>
@@ -666,105 +678,99 @@
 
   <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebar">
-
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-audience="developer">
       <button class="sidebar-group-btn open" data-target="nav-arch">
         <span class="sidebar-group-icon">🏗️</span> Architecture
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sidebar-items open" id="nav-arch">
-        <a class="sidebar-link" href="/architecture/">Overview</a>
-        <a class="sidebar-link" href="/architecture/c4-context">C4 Context</a>
-        <a class="sidebar-link" href="/architecture/c4-containers">C4 Containers</a>
-        <a class="sidebar-link" href="/architecture/c4-components">C4 Components</a>
-        <a class="sidebar-link" href="/architecture/domain-model">Domain Model</a>
-        <a class="sidebar-link" href="/architecture/cross-cutting">Cross-cutting</a>
-        <a class="sidebar-link" href="/architecture/view-functional">Functional View</a>
-        <a class="sidebar-link" href="/architecture/view-information">Information View</a>
-        <a class="sidebar-link" href="/architecture/view-concurrency">Concurrency View</a>
-        <a class="sidebar-link" href="/architecture/view-development">Development View</a>
-        <a class="sidebar-link" href="/architecture/view-deployment">Deployment View</a>
-        <a class="sidebar-link" href="/architecture/view-operational">Operational View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Architecture Overview" href="/architecture/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Context" href="/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Containers" href="/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Components" href="/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Domain Model" href="/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Cross-cutting" href="/architecture/cross-cutting">Cross-cutting</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Functional View" href="/architecture/view-functional">Functional View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Information View" href="/architecture/view-information">Information View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Concurrency View" href="/architecture/view-concurrency">Concurrency View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Development View" href="/architecture/view-development">Development View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment View" href="/architecture/view-deployment">Deployment View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Operational View" href="/architecture/view-operational">Operational View</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-audience="developer">
       <button class="sidebar-group-btn open" data-target="nav-flows">
         <span class="sidebar-group-icon">🔀</span> Flows
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sidebar-items open" id="nav-flows">
-        <a class="sidebar-link" href="/architecture/flows-auth">Authentication</a>
-        <a class="sidebar-link" href="/architecture/flows-customer">Customer</a>
-        <a class="sidebar-link" href="/architecture/flows-vendor">Vendor</a>
-        <a class="sidebar-link" href="/architecture/flows-admin">Admin</a>
-        <a class="sidebar-link" href="/architecture/flows-iot">IoT</a>
-        <a class="sidebar-link" href="/architecture/flows-payments">Payments</a>
-        <a class="sidebar-link" href="/architecture/flows-realtime">Real-time</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Authentication Flows" href="/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Customer Flows" href="/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Vendor Flows" href="/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Flows" href="/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="IoT Flows" href="/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Payment Flows" href="/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Real-time Flows" href="/architecture/flows-realtime">Real-time</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-audience="developer">
       <button class="sidebar-group-btn open" data-target="nav-api">
         <span class="sidebar-group-icon">📡</span> API
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sidebar-items open" id="nav-api">
-        <a class="sidebar-link" href="/API-CONTRACTS">Mobile API Contracts</a>
-        <a class="sidebar-link" href="/contracts/outbound">Outbound Contracts</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Mobile API Contracts" href="/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Outbound Contracts" href="/contracts/outbound">Outbound Contracts</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-audience="developer">
       <button class="sidebar-group-btn" data-target="nav-deploy">
         <span class="sidebar-group-icon">🚀</span> Deployment
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sidebar-items" id="nav-deploy">
-        <a class="sidebar-link" href="/deployment/">Overview</a>
-        <a class="sidebar-link" href="/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
-        <a class="sidebar-link" href="/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
-        <a class="sidebar-link" href="/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
-        <a class="sidebar-link" href="/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
-        <a class="sidebar-link" href="/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
-        <a class="sidebar-link" href="/deployment/OBSERVABILITY">Observability</a>
-        <a class="sidebar-link" href="/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment Overview" href="/deployment/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment Spec" href="/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Registration & CI/CD" href="/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Secrets & Env Vars" href="/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Runbook" href="/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Smoke Tests" href="/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Observability" href="/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Rollback & Recovery" href="/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Docs Portal" href="/deployment/DOCS-PORTAL">Docs Portal</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-audience="developer">
       <button class="sidebar-group-btn" data-target="nav-features">
         <span class="sidebar-group-icon">✨</span> Features
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sidebar-items" id="nav-features">
-        <a class="sidebar-link" href="/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
-        <a class="sidebar-link" href="/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
-        <a class="sidebar-link" href="/COMPLETE_WORKFLOW">Complete Workflow</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Epic Features Guide" href="/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Stripe + BLIK" href="/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Complete Workflow" href="/COMPLETE_WORKFLOW">Complete Workflow</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-audience="developer">
       <button class="sidebar-group-btn" data-target="nav-firmware">
         <span class="sidebar-group-icon">📟</span> Firmware
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sidebar-items" id="nav-firmware">
-        <a class="sidebar-link" href="/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Vase Registration Workflows" href="/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
-      <button class="sidebar-group-btn" data-target="nav-manuals">
+    <div class="sidebar-section" data-audience="developer vendor customer">
+      <button class="sidebar-group-btn open" data-target="nav-manuals">
         <span class="sidebar-group-icon">📖</span> User Manuals
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <div class="sidebar-items" id="nav-manuals">
-        <a class="sidebar-link" href="/manuals/">Overview</a>
-        <a class="sidebar-link" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
-        <a class="sidebar-link" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
-        <a class="sidebar-link" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
-        <a class="sidebar-link" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+      <div class="sidebar-items open" id="nav-manuals">
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="User Manuals Overview" href="/manuals/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Portal Manual" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
       </div>
     </div>
 
@@ -1203,47 +1209,10 @@
   overlay.addEventListener('click', toggleSidebar);
 
   // ── 7. Global page navigation (Next / Back) ──
-  const NAV_PAGES = [
-    { path: '/',                                                                   title: 'Home' },
-    { path: '/architecture/',                                                      title: 'Architecture Overview' },
-    { path: '/architecture/c4-context',                                            title: 'C4 Context' },
-    { path: '/architecture/c4-containers',                                         title: 'C4 Containers' },
-    { path: '/architecture/c4-components',                                         title: 'C4 Components' },
-    { path: '/architecture/domain-model',                                          title: 'Domain Model' },
-    { path: '/architecture/cross-cutting',                                         title: 'Cross-cutting' },
-    { path: '/architecture/view-functional',                                       title: 'Functional View' },
-    { path: '/architecture/view-information',                                      title: 'Information View' },
-    { path: '/architecture/view-concurrency',                                      title: 'Concurrency View' },
-    { path: '/architecture/view-development',                                      title: 'Development View' },
-    { path: '/architecture/view-deployment',                                       title: 'Deployment View' },
-    { path: '/architecture/view-operational',                                      title: 'Operational View' },
-    { path: '/architecture/flows-auth',                                            title: 'Authentication Flows' },
-    { path: '/architecture/flows-customer',                                        title: 'Customer Flows' },
-    { path: '/architecture/flows-vendor',                                          title: 'Vendor Flows' },
-    { path: '/architecture/flows-admin',                                           title: 'Admin Flows' },
-    { path: '/architecture/flows-iot',                                             title: 'IoT Flows' },
-    { path: '/architecture/flows-payments',                                        title: 'Payment Flows' },
-    { path: '/architecture/flows-realtime',                                        title: 'Real-time Flows' },
-    { path: '/API-CONTRACTS',                                                      title: 'Mobile API Contracts' },
-    { path: '/contracts/outbound',                                                 title: 'Outbound Contracts' },
-    { path: '/deployment/',                                                        title: 'Deployment Overview' },
-    { path: '/deployment/DEPLOYMENT-SPEC',                                         title: 'Deployment Spec' },
-    { path: '/deployment/REGISTRATION-AND-CICD',                                   title: 'Registration & CI/CD' },
-    { path: '/deployment/SECRETS-AND-ENV-VARS',                                    title: 'Secrets & Env Vars' },
-    { path: '/deployment/DEPLOYMENT-RUNBOOK',                                      title: 'Runbook' },
-    { path: '/deployment/POST-DEPLOY-SMOKE-TESTS',                                 title: 'Smoke Tests' },
-    { path: '/deployment/OBSERVABILITY',                                           title: 'Observability' },
-    { path: '/deployment/ROLLBACK-AND-RECOVERY',                                   title: 'Rollback & Recovery' },
-    { path: '/EPIC-FEATURES-GUIDE',                                                title: 'Epic Features Guide' },
-    { path: '/STRIPE-BLIK-INTEGRATION',                                            title: 'Stripe + BLIK' },
-    { path: '/COMPLETE_WORKFLOW',                                                   title: 'Complete Workflow' },
-    { path: '/firmware/Smart_Vase_Registration_Workflows_Minimal',                 title: 'Vase Registration Workflows' },
-    { path: '/manuals/',                                                           title: 'User Manuals Overview' },
-    { path: '/manuals/admin-portal-manual.html',                                   title: 'Admin Portal Manual' },
-    { path: '/manuals/vendor-portal-manual.html',                                  title: 'Vendor Portal Manual' },
-    { path: '/manuals/vendor-mobile-app-manual.html',                              title: 'Vendor Mobile App Manual' },
-    { path: '/manuals/customer-app-manual.html',                                   title: 'Customer App Manual' },
-  ];
+  // Built from the sidebar so readers only page through what FlowerShop.DocsPortal left in it (EP-38).
+  const NAV_PAGES = [{ path: '/', title: 'Home' }].concat(
+    Array.from(document.querySelectorAll('#sidebar .sidebar-link')).map(a => ({ path: a.getAttribute('href'), title: a.dataset.navTitle || a.textContent }))
+  );
 
   (function () {
     const norm = p => p.replace(/\/$/, '') || '/';
@@ -1274,6 +1243,29 @@
     }
 
     document.querySelector('.main').appendChild(nav);
+  })();
+
+  // ── 7b. Search (EP-38) — /search.json is served by FlowerShop.DocsPortal with only the reader's pages ──
+  (function () {
+    const box = document.getElementById('docsSearch');
+    const input = document.getElementById('docsSearchInput');
+    const results = document.getElementById('docsSearchResults');
+    if (!box || !input || !window.fetch) return;
+    let index = null;
+    fetch('/search.json', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { index = data; box.hidden = false; })
+      .catch(() => {});
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      if (!index || q.length < 2) { results.innerHTML = ''; return; }
+      const hits = index.filter(p => (p.title + ' ' + p.text).toLowerCase().includes(q)).slice(0, 10);
+      results.innerHTML = hits.length
+        ? hits.map(p => `<a class="topbar-search-hit" href="${esc(p.url)}">${esc(p.title)}</a>`).join('')
+        : '<span class="topbar-search-empty">No results</span>';
+    });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') { input.value = ''; results.innerHTML = ''; } });
   })();
 
   // ── 8. Dark / light mode toggle ──
