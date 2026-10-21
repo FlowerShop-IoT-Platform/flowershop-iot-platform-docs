@@ -2498,6 +2498,84 @@ promptVersion, jobs, positiveRate }], promptVersions }` (aggregates only).
 `GET /api/v1/admin/analytics/ai-florist/feedback-export?from&to` → `text/csv` of feedback from vendors who
 switched on "Help improve the AI Florist" (contact data and shop names scrubbed; audit-logged).
 
+### 21.2 Visual stock start and two wizard modes (EP-34)
+
+Additive. `InventoryItemDto` gains `mainPhotoId` (the linked stock item's main photo, for a thumbnail via
+`GET /vendor/stock/photos/{photoId}/content`), `fallbackUnitPrice` and `fallbackSource` (`"stock"` |
+`"remembered"`: the price used when `unitPrice` is empty). They are filled on `GET /design-sessions/{id}`
+and `PUT …/inventory`, with one query per kind of data (no per-row calls).
+
+`POST /design-sessions` accepts `inputMode: "Stock"` as the EP-34 name of `"Manual"` (mode 1, "start from my
+stock"). `DesignUsageDto.inputModes` lists what new sessions may use: `["Manual", "Photos"]` while
+`BouquetDesign:LegacyPhotosMode=true` (default, until the vendor app migrates, EP-M14), then `["Manual"]`
+— a new `Photos` session then answers 400 `invalid-request`. Existing `Photos` sessions and `/recognize`
+keep working. Bench counting moved to the Stock page (§22.2).
+
+### 21.3 Reconstruct a bouquet from photos (EP-35)
+
+Mode 2 of the wizard: photos of **one** finished bouquet (e.g. a customer's picture) → what it is made of →
+matched to the vendor's stock → Matched / Short / Missing → "use matched items" → the normal §21 compose
+flow. **Never changes stock levels.** Create the session with `inputMode: "BouquetPhotos"` (listed in
+`usage.inputModes`), upload 1–5 photos with the §21 photo endpoint, then:
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| POST | `/vendor/design-sessions/{id}/analyze` | `{ expectedVersion }`, **required** `Idempotency-Key` | 202 `DesignSessionDto` (state `Analyzing`). Job kind `BouquetAnalysis`; counts as **one recognition**; same key → same job. Ends in `AnalysisReady` (or back to `Draft` with a failed job) |
+| PUT | `/vendor/design-sessions/{id}/analysis/items/{itemId}` | `{ stockItemId?, notInStock, quantity? }` | 200 `DesignSessionDto`. Pick another of **your** stock items (scored in code; another vendor's id → 404), mark "not in my stock", or set the needed quantity (1–200). No model call; a different item than the AI's match is stored as an EP-33 correction |
+| POST | `/vendor/design-sessions/{id}/analysis/use` | `{ expectedVersion }` | 200 `DesignSessionDto` (state `InventoryConfirmed`). Linked items become confirmed inventory lines linked by `stockItemId`, quantity capped at what's in stock, priced from the stock cost; Missing items never become lines. 409 `insufficient-stock` when nothing is linked |
+
+`DesignSessionDto.analysis` (null until analysed): `{ purpose: "Inspiration", analyzedAt, items: [{ id, kind, name,
+colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, visibility, match: StockMatchDto|null,
+alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }], missing: [{ name, kind,
+colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet"), palette[],
+procurement: { available: false, providers: [] } }`. `StockMatchDto`: `{ stockItemId, name, color, variety, score
+(0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }`. Bands: High ≥ 80, Medium
+50–79, Low < 50 — a Low match is shown but never linked unless the florist chooses it. `missing` lists Missing items
+and the shortfall of Short ones (the "to buy" list; supplier ordering is a later epic — `procurement.available` is
+false). `sourceRequestId` is reserved for EP-37 ("Reconstruct with AI Florist" from a customer request).
+
+New states `Analyzing`, `AnalysisReady`; recipes composed after "use" are steered towards the bouquet (the composer
+receives the matched lines, palette and missing items as a target: one recipe "close to the photo", one "best
+substitute"). Errors: 409 `invalid-state` (not a `BouquetPhotos` session, no photos, or busy), 429 `quota-exhausted`
+/ `spend-cap-reached`, 403 `feature-disabled`, 400 `invalid-request` (missing `Idempotency-Key`, bad quantity).
+
+### 21.4 Cost assessor (EP-36)
+
+"What does this bouquet cost me?" — separate from design sessions. 1–5 photos of one **finished** bouquet are analysed
+by the §21.3 engine (purpose `Assessment`: countable stems, hidden fillers, min/likely/max), matched to **your** stock
+in code, and priced in code. The model never returns prices. Own monthly quota `BouquetDesign:Assessment:MonthlyLimit`
+(default 30) under the AI Florist kill switch, pilot list and global $ cap; `DesignUsageDto` gains `assessmentsUsed`,
+`assessmentsLimit`, `assessmentsRemaining`.
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| GET | `/vendor/cost-assessments?skip&take` | — | 200 `CostAssessmentSummaryDto[]`, newest first (≤ 50) |
+| POST | `/vendor/cost-assessments` | `{ note? }` (≤ 200), optional `Idempotency-Key` (same key → same assessment) | 201 `CostAssessmentDto` (state `Draft`) |
+| GET / DELETE | `/vendor/cost-assessments/{id}` | — | 200 `CostAssessmentDto` / 204 (photos purged). Another vendor's → 404 |
+| POST | `/vendor/cost-assessments/{id}/photos` | multipart field **`photo`** (≤ 5 live) | 201 `CostAssessmentDto` |
+| DELETE | `/vendor/cost-assessments/{id}/photos/{photoId}` | — | 200 `CostAssessmentDto` |
+| GET | `/vendor/cost-assessments/{id}/photos/{photoId}/content` | — | image (`private, no-store`) |
+| POST | `/vendor/cost-assessments/{id}/analyze` | `{ expectedVersion }`, **required** `Idempotency-Key` | 200 `CostAssessmentDto` — **synchronous**: `Ready`, or `Failed` with `errorMessage`. Same key → replay, never billed twice. A `Ready` assessment is not analysed again (409 `invalid-state`); a `Failed` one may be |
+| PUT | `/vendor/cost-assessments/{id}/lines` | `{ expectedVersion, lines: [{ id?, stockItemId?, kind, name, color?, variety?, quantity, quantityMin?, quantityMax?, unit?, unitCostOverride?, rememberPrice }] }` | 200 `CostAssessmentDto`. Replaces all lines (≤ 40; quantity 1–200; min ≤ quantity ≤ max). `stockItemId` must be one of your active items (else 404). `rememberPrice` stores the override as the remembered price for name\|colour\|variety. Lines entered by hand make a `Draft`/`Failed` assessment `Ready`. 409 `version-conflict` on a stale version |
+| PUT | `/vendor/cost-assessments/{id}/selling-price` | `{ expectedVersion, sellingPrice: number\|null }` | 200 `CostAssessmentDto` |
+| POST | `/vendor/cost-assessments/{id}/design` | — | 200 `DesignSessionDto`: a `BouquetPhotos` design in `AnalysisReady` with the photos copied and the lines as the analysis (stock links kept as the florist's choices); no model call. Same assessment → same design |
+
+`CostAssessmentDto`: `{ id, version, state: "Draft|Analyzing|Ready|Failed", note, photos: DesignPhotoDto[], analysis:
+DesignAnalysisDto|null (§21.3, purpose "Assessment"), lines: [{ id, stockItemId, kind, name, color, variety, quantity,
+quantityMin, quantityMax, unit, unitCost, unitCostSource: "Override|Stock|Remembered|Unknown", unitCostOverride, lineCost,
+mainPhotoId, available }], sellingPrice, cost: { currency, basis, flowersSubtotal, materialsSubtotal, labor, overhead,
+knownSubtotal, total|null, isComplete, missingPrices, minTotal|null, maxTotal|null, marginAmount|null, marginPercent|null,
+targetMarginPercent, suggestedPrice|null, unavailableReason }, provider, model, promptVersion, errorMessage, createdAt,
+analyzedAt }`. Unit cost: the override, else the linked stock item's unit cost, else the remembered price, else unknown.
+Totals reuse the §21 cost breakdown (labour from the cost profile, overhead on the subtotal); `total`, the range, margin
+(gross, as `RecipeCostDto`) and `suggestedPrice` (the price at `targetMarginPercent`, whole PLN) are null while any price
+is missing. `DesignCostProfileDto` gains `targetMarginPercent` (default 60; PUT accepts it, 0–95, omitted keeps it).
+
+"Deduct from stock" is the existing `POST /vendor/stock/consume` (§22) with `reference = "cost-assessment:{id}"`,
+for bouquets already made. Errors: 409 `invalid-state` / `version-conflict`, 429 `quota-exhausted` / `spend-cap-reached`
+(with `Retry-After`), 403 `feature-disabled`, 502 `provider-failed` (state `Failed`; counted only if submitted),
+400 `invalid-request` / `invalid-inventory` / `invalid-photo`, 422 `photo-limit`.
+
 ---
 
 ## 22. Vendor Stock (EP-30)
@@ -2589,3 +2667,113 @@ A colour word is ambiguous (many reds; a rose can be red-edged white), so items 
 | 422 | `photo-limit` |
 | 429 | `quota-exhausted`, `spend-cap-reached` |
 | 502 | `provider-failed` (the reservation is released) |
+
+### 22.2 Count stock from photos (EP-34)
+
+Bench recognition on the Stock page. The EP-28 recognizer (inventory prompt + catalogue linking) estimates
+counts; **nothing changes stock until apply**. Billed to the stock AI quota (`Limits:StockRecognitionsPerMonth`,
+shared with §22.1 recognitions) under the AI Florist kill switch, pilot list and global $ cap.
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| POST | `/vendor/stock/counts` | multipart, 1–5 files in field **`photos`**; **required** `Idempotency-Key` | 201 `StockCountDto` (state `Ready` or `Failed`); same key → same count |
+| GET | `/vendor/stock/counts/{countId}` | — | 200 `StockCountDto`; another vendor's → 404 |
+| POST | `/vendor/stock/counts/{countId}/apply` | `{ "lines": [{ "stockItemId": guid, "countedQuantity": 14 }] }`, **required** `Idempotency-Key` | 200 `StockCountDto` (state `Applied`). One `Counted` movement per line (`reference = "stock-count:{countId}"`), all or nothing; the same key replays, another key → 409 |
+
+`StockCountDto`: `{ id, state: "Recognising|Ready|Failed|Applied", lines: [{ lineId, stockItemId|null, kind, name,
+color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId }],
+photoCount, errorMessage, appliedLines, createdAt, appliedAt }`. `needsCheck` is true below 0.6 confidence.
+Errors: 422 `unknown-item` (a line not linked to an active item of yours), 429 `quota-exhausted`/`spend-cap-reached`,
+403 `feature-disabled`, 502 `provider-failed`. `StockItemDto` also gains `mainPhotoId`.
+
+---
+
+## 23. Customer Bouquet Requests (EP-37)
+
+Customers post a bouquet request (1–5 reference images, note, budget, desired time) pinned at the delivery address;
+vendors in range with platform access send offers; the customer accepts exactly one, which creates a **custom order**
+paid through the existing Stripe flow (§8). Vendor-facing DTOs never contain the street, the exact pin, the recipient or
+the customer's identity before the order is paid — the location is snapped to a deterministic ~500 m grid cell.
+Errors are ProblemDetails with `code` (and `field` for validation): 400 `invalid-request` / `invalid-photo`, 403
+`email-not-verified` / `subscription-required` / `out-of-range`, 404 `not-found`, 409 `invalid-state` / `version-conflict`
+/ `request-closed` / `already-accepted` / `offer-exists`, 422 `photo-limit`, 429 `request-limit` (`Retry-After`).
+
+**Request states**: `Draft → Open → OffersReceived → AwaitingPayment → Accepted → Fulfilled`, or `Expired` /
+`Cancelled`. **Phases** after payment: `Paid → InProgress → Ready → OutForDelivery → Delivered` (pickup:
+`Ready → PickedUp`). **Offer states**: `Active | Accepted | Rejected | Withdrawn | Lapsed`.
+
+### 23.1 Customer (`CustomerAccess`, verified email)
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| GET | `/customer/bouquet-requests?skip&take` | — | `CustomerRequestSummaryDto[]` |
+| POST | `/customer/bouquet-requests` | `{ description (≤1000), budgetMin?, budgetMax?, occasion?, size? (S/M/L), desiredAt (≥ now+3 h, ≤ now+30 d), offerDeadline? (default min(desired−2 h, now+48 h)), fulfilment ("Delivery"\|"Pickup"), savedAddressId? \| street, city, postalCode, addressNotes?, recipientName?, recipientPhone?, latitude?, longitude?, saveAddress? }`, optional `Idempotency-Key` | 201 `CustomerRequestDto` (state `Draft`). A pin wins; else the saved address pin; else the address is geocoded (failure → 400 `field: pin`). Poland only. Limits: ≤ 3 open, ≤ 10 per 7 days → 429 `request-limit` |
+| GET / PUT | `/customer/bouquet-requests/{id}` | PUT: the same body + `expectedVersion` | `CustomerRequestDto`. Editing with offers marks them "request changed" and tells those vendors |
+| POST / DELETE | `/customer/bouquet-requests/{id}/images[/{imageId}]` | multipart field **`image`** | `CustomerRequestDto` (1–5; re-encoded, EXIF/GPS stripped, private) |
+| GET | `/customer/bouquet-requests/{id}/images/{imageId}` | — | image (`private, no-store`) |
+| POST | `/customer/bouquet-requests/{id}/publish` | — | `CustomerRequestDto` (`Open`; needs ≥ 1 image). Vendors in range are alerted |
+| POST | `/customer/bouquet-requests/{id}/cancel` | — | `CustomerRequestDto` (only before an accept; offers rejected, vendors told) |
+| GET | `/customer/bouquet-requests/{id}/offers?sort=price\|time\|distance` | — | `CustomerOfferDto[]` — latest revision of active offers (and the accepted one); suspended vendors hidden |
+| GET | `/customer/bouquet-requests/{id}/offers/{offerId}/images/{imageId}` | — | image |
+| POST | `/customer/bouquet-requests/{id}/offers/{offerId}/accept` | `{ offerRevision }` | `AcceptOfferResultDto { request, orderId, totalAmount, currency, paymentDueAt, paymentClientSecret, stripeEphemeralKey, stripeCustomerId }`. One transaction: request `AwaitingPayment`, offer `Accepted`, others `Rejected` (`another-offer-accepted`), custom `Order` created. Pay within **30 min** (§8 PaymentIntent; confirm via `POST /orders/{orderId}/confirm-payment` or the webhook). Repeating the same accept returns the same order. Another accept → 409 `already-accepted`; a stale revision → 409 `version-conflict` |
+| POST | `/customer/bouquet-requests/{id}/offers/{offerId}/report` | `{ reason? }` | `true` |
+| POST | `/customer/bouquet-requests/{id}/time-change/answer` | `{ accept }` | `CustomerRequestDto`. Declining is allowed only when the new time is > 60 min after the agreed one and cancels with a full refund; unanswered after 30 min = accepted |
+| POST | `/customer/bouquet-requests/{id}/order/cancel` | — | `CustomerRequestDto`. While `AwaitingPayment`: gives up the acceptance (offers come back). When > 2 h late: cancels with a full refund |
+
+`CustomerRequestDto`: `{ id, version, state, description, budgetMin, budgetMax, occasion, size, desiredAt, offerDeadline,
+fulfilment, address { street, city, postalCode, notes, recipientName, recipientPhone }, latitude, longitude, images[{ id,
+contentUrl, width, height }], activeOfferCount, acceptedOfferId, acceptedVendorName, order: CustomOrderStatusDto, hidden,
+cancelReason, createdAt, closedAt }`. `CustomOrderStatusDto`: `{ orderId, phase, phases[{ phase, at }], committedReadyAt,
+committedDeliveryAt, paymentDueAt, paidAt, pendingTimeChange, timeChanges[{ id, requestedAt, oldReadyAt, oldDeliveryAt,
+newReadyAt, newDeliveryAt, reasons[], note, status: Pending|Accepted|AutoAccepted|Declined, answeredAt, autoAcceptAt,
+canDecline }], lateByMinutes, serverNow, nextPhases[] }` — clients count down from `serverNow`. `CustomerOfferDto`: `{ id,
+revision, updated, state, vendorId, vendorName, vendorRating, vendorReviewCount, distanceKm, price, deliveryFee (null =
+included), total, readyAt, deliveryAt, laterThanRequested, notes, images[], requestChanged, updatedAt }`.
+
+### 23.2 Vendor (`VendorAccess`; seeing requests needs platform access, EP-20, and a shop/base location)
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| GET | `/vendor/bouquet-requests?minLat&maxLat&minLng&maxLng&take` | — | `VendorRequestSummaryDto[]`: open requests within the service radius (fuzzed point, district, distance, thumbnail, budget, times, offer count, `hasMyOffer`), nearest first |
+| GET | `/vendor/bouquet-requests/{id}` | — | `VendorRequestDto`. Readable by vendors in range while it takes offers, by vendors with an offer until it's paid, and by the chosen vendor; after payment everyone else gets 404 |
+| GET | `/vendor/bouquet-requests/{id}/images/{imageId}` | — | image (same access) |
+| POST | `/vendor/bouquet-requests/{id}/offers` | `{ price, deliveryFee?, readyAt, deliveryAt? (delivery: required, ≥ readyAt, ≤ desired + 2 h), notes? (≤1000), designRecipeId? }`, optional `Idempotency-Key` | 201 `VendorRequestDto`. One active offer per vendor (409 `offer-exists`); closed request or past the deadline → 409 `request-closed`. Later than desired → `laterThanRequested` |
+| PUT | `/vendor/bouquet-requests/{id}/offers/{offerId}` | the same + `expectedRevision` | `VendorRequestDto` (new revision; 409 `version-conflict`) |
+| POST | `/vendor/bouquet-requests/{id}/offers/{offerId}/withdraw` | — | `VendorRequestDto` |
+| POST / DELETE / GET | `/vendor/bouquet-requests/{id}/offers/{offerId}/images[/{imageId}]` | multipart `image` | `VendorRequestDto` / image (0–5) |
+| POST | `/vendor/bouquet-requests/{id}/reconstruct` | — | `DesignSessionDto` — "Reconstruct with AI Florist" (§21.3): a `BouquetPhotos` design with the request's images copied privately and `sourceRequestId` set; its `analysis.estimatedCost` is the §21.4 cost of the matched items. Same request → same design |
+| POST | `/vendor/bouquet-requests/{id}/report` | `{ reason? }` | `true` (hidden after 3 reports) |
+| GET | `/vendor/custom-orders?skip&take` | — | `VendorRequestDto[]` of your paid custom orders (revealed) |
+| POST | `/vendor/bouquet-requests/{id}/phase` | `{ phase }` | `VendorRequestDto` — the next phase only (`order.nextPhases`) |
+| POST | `/vendor/bouquet-requests/{id}/time-change` | `{ newReadyAt, newDeliveryAt?, reasons[] (≤5), note? (≤300) }` | `VendorRequestDto` (one pending change at a time) |
+| GET / PUT | `/vendor/marketplace-settings` | PUT `{ expectedVersion, serviceRadiusKm (1–50, default 15), preparationLeadMinutes (0–720, default 60), requestAlertsEnabled, quietHoursStart?, quietHoursEnd? (0–23, Europe/Warsaw), minBudget? }` | `VendorMarketplaceSettingsDto` (+ `hasLocation`, `subscriptionActive`) |
+| GET | `/vendor/notifications?unreadOnly&skip&take` | — | `VendorNotificationListDto { items[{ id, type, title, body, bouquetRequestId, orderId, isRead, createdAt }], unreadCount }` |
+| PUT | `/vendor/notifications/{id}/read`, `/vendor/notifications/read-all` | — | `true` |
+
+`VendorRequestDto`: `{ id, state ("Open"|"Closed" before payment), description, budgetMin, budgetMax, occasion, size,
+desiredAt, offerDeadline, fulfilment, fuzzedLatitude, fuzzedLongitude, district, distanceKm, images[], offerCount, myOffer:
+VendorOfferDto|null, canOffer, revealed, address|null, latitude|null, longitude|null, order: CustomOrderStatusDto|null }` —
+`address`, `latitude`, `longitude` and `order` are set only for the chosen vendor after payment. The existing vendor order
+endpoints (§9) show custom orders with `isCustom`, `customTitle`, `customNotes`, `bouquetRequestId`, and hide the customer
+name and address until paid; `PUT /vendor/orders/{id}/status` refuses custom orders (use `phase`).
+
+### 23.3 Admin (`PlatformAdmin`)
+
+`GET /admin/bouquet-requests?state&hidden&skip&take` → `AdminRequestDto[]` (reports first; `escalated` = > 2 h late);
+`POST /admin/bouquet-requests/{id}/hide|unhide|cancel { reason? }` (cancel refunds a paid order; audit-logged, users
+notified); `GET /admin/bouquet-requests/{id}/images/{imageId}`.
+
+### 23.4 Real time and alerts
+
+SignalR hub **`/hubs/marketplace`** (authenticated; each connection joins `customer:{customer_id}` or `vendor:{vendor_id}`
+from its token). Events: vendors — `request.new`, `request.digest`, `request.changed`, `request.closed`, `offer.accepted`,
+`offer.rejected`, `offer.lapsed`, `order.paid`, `order.timeChange`, `order.cancelled`, `order.startSoon`, `order.notReady`,
+`order.late`; customers — `offer.created`, `offer.updated`, `offer.withdrawn`, `request.expiring`, `request.expired`,
+`request.lapsed`, `request.cancelled`, `order.paid`, `order.phase`, `order.timeChange`, `order.late`. Payloads:
+`{ requestId, orderId, title, body, … }`. Each event also writes an inbox row in the same transaction as the change
+(customers: `GET /notifications`, type `BouquetRequest`, `bouquetRequestId`; vendors: §23.2). New-request alerts honour
+the vendor's opt-out, quiet hours and minimum budget, max 20 per hour then a digest. A background monitor (every minute)
+sends the "no offers yet" reminder 2 h before the deadline, expires requests, lapses unpaid acceptances after 30 min,
+auto-accepts unanswered time changes after 30 min, and raises SLA alerts once per order and rule (start soon, not ready,
+late, +30 min, > 2 h with an admin escalation). Push (FCM, EP-06) and real email delivery are not wired yet — the email
+channel calls `IEmailService.SendMarketplaceEmailAsync` (no-op stub today).

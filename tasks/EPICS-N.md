@@ -20,7 +20,7 @@
 **Priority**: P1-high
 **Dependencies**: EP-30 (stock), EP-31 (stock photos, appearance palette), EP-32 (portal wizard)
 **Requirement refs**: REQ-VSS-01 through REQ-VSS-10
-**State**: todo — trackers done (T-34-001).
+**State**: in progress — implemented and tested; vendor app EP-M14 (T-34-013) and switching off `LegacyPhotosMode` open.
 
 > Step 2 stops being a spreadsheet. Each line shows the flower's photo, a pictogram for its kind and
 > the colours as swatches. The vendor builds a starting set by dragging stock cards into a drop area.
@@ -72,7 +72,7 @@ See `tasks-ep34-design-visual-stock-start.json` (S-34-01 … S-34-06; T-34-001 �
 **Priority**: P1-high
 **Dependencies**: EP-28, EP-31, EP-32, EP-34 (stock cards); optional EP-33 hooks
 **Requirement refs**: REQ-INSP-01 through REQ-INSP-11
-**State**: todo — trackers done (T-35-001).
+**State**: in progress — implemented and tested (Vendor Portal hub "Reconstruct a bouquet from photos", `_AnalysisReview`, §21.3 endpoints, migration `AddBouquetAnalysis`); T-35-017 "reconstruct from a customer request" done with EP-37 (`POST /vendor/bouquet-requests/{id}/reconstruct`, estimated cost + draft offer note); vendor app EP-M15 open.
 
 > A reverse-engineering assistant: the vendor gives the wizard 1–5 photos of a bouquet (typically
 > the picture a customer sent with a request or order). The wizard lists what is in it, matches each
@@ -121,7 +121,7 @@ See `tasks-ep35-design-from-bouquet-photos.json` (S-35-01 … S-35-06; T-35-001 
 **Priority**: P1-high
 **Dependencies**: EP-35 S-35-02/S-35-03 (shared engine), EP-28 (cost breakdown), EP-30 (stock costs, consume)
 **Requirement refs**: REQ-ASSESS-01 through REQ-ASSESS-10
-**State**: todo — trackers done (T-36-001).
+**State**: in progress — implemented and tested (`CostAssessment` + migration `AddCostAssessments`, `/vendor/cost-assessments` §21.4, Vendor Portal `Pages/Design/Assess/*`, target margin in cost settings); vendor app EP-M16 open.
 
 > Photograph a finished bouquet and see what it's made of and what it costs at your stock prices,
 > as a range, with margin and a suggested price.

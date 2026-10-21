@@ -103,6 +103,7 @@ fly secrets set --app $APP \
 fly secrets set --app $APP \
   BouquetDesign__OpenAI__ApiKey='sk-…' \
   BouquetDesign__Recognition__Provider=OpenAI \
+  BouquetDesign__Analysis__Provider=OpenAI \
   BouquetDesign__Composition__Provider=OpenAI
 
 fly secrets set --app $APP \
@@ -134,6 +135,11 @@ Every `fly secrets set` restarts the machine; batch them. Add the new keys to
 | `BouquetDesign__{Recognition,Composition,Preview}__PromptVersion` | Active prompt version (EP-33): `inventory-v1\|v2`, `recipe-v1\|v2`, `preview-v1\|v2`; empty = newest | `*-v1` (appsettings.json) |
 | `BouquetDesign__{…}__CandidatePromptVersion` | Candidate version for a share of vendors | `*-v2` |
 | `BouquetDesign__{…}__CandidatePercent` | 0–100 % of vendors (sticky hash of the vendor id) on the candidate; 0 = everyone on the active version | `0` |
+| `BouquetDesign__Analysis__Provider` | "Reconstruct a bouquet from photos" (EP-35): `Palette` (free, colours only) \| `OpenAI` (vision, `bouquet-analysis-v1`) | `Palette` |
+| `BouquetDesign__Analysis__Model` / `__EstimatedUsd` | Analysis model and $ reserved per call (counts as one recognition of the vendor's quota) | `gpt-4.1-mini` / 0.010 |
+| `BouquetDesign__Analysis__ModelAssistedMatching` | Let the model pick among the top 10 code-ranked stock candidates (the pick is re-scored in code; Low is never linked) | `false` |
+| `BouquetDesign__Analysis__UseInspirationAsPreviewReference` | Send the bouquet photo to the image provider as a preview reference (third-party image — check rights before switching on) | `false` |
+| `BouquetDesign__Assessment__MonthlyLimit` | Cost assessor (EP-36): billable assessments per vendor per month; the analysis uses the `Analysis` provider and counts in the global $ cap | `30` |
 | `BouquetDesign__Composition__RepairEnabled` | One validator-guided repair call per composition (free for the vendor, counted in the global $ cap) | `true` |
 
 > **Model ids are configuration, not code.** Before switching a provider on, confirm the id is

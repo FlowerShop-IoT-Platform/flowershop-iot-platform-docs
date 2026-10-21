@@ -797,7 +797,7 @@ Analysis date: 2026-10-20</p>
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: EP-30 (stock), EP-31 (stock photos, appearance palette), EP-32 (portal wizard)
 <strong>Requirement refs</strong>: REQ-VSS-01 through REQ-VSS-10
-<strong>State</strong>: todo — trackers done (T-34-001).</p>
+<strong>State</strong>: in progress — implemented and tested; vendor app EP-M14 (T-34-013) and switching off <code class="language-plaintext highlighter-rouge">LegacyPhotosMode</code> open.</p>
 
 <blockquote>
   <p>Step 2 stops being a spreadsheet. Each line shows the flower’s photo, a pictogram for its kind and
@@ -854,7 +854,7 @@ keeps it. A quantity above stock warns but doesn’t block. “Use stock” stil
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: EP-28, EP-31, EP-32, EP-34 (stock cards); optional EP-33 hooks
 <strong>Requirement refs</strong>: REQ-INSP-01 through REQ-INSP-11
-<strong>State</strong>: todo — trackers done (T-35-001).</p>
+<strong>State</strong>: in progress — implemented and tested (Vendor Portal hub “Reconstruct a bouquet from photos”, <code class="language-plaintext highlighter-rouge">_AnalysisReview</code>, §21.3 endpoints, migration <code class="language-plaintext highlighter-rouge">AddBouquetAnalysis</code>); T-35-017 “reconstruct from a customer request” done with EP-37 (<code class="language-plaintext highlighter-rouge">POST /vendor/bouquet-requests/{id}/reconstruct</code>, estimated cost + draft offer note); vendor app EP-M15 open.</p>
 
 <blockquote>
   <p>A reverse-engineering assistant: the vendor gives the wizard 1–5 photos of a bouquet (typically
@@ -908,7 +908,7 @@ supplier adapters in a future epic. Copy/CSV makes the missing list useful today
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: EP-35 S-35-02/S-35-03 (shared engine), EP-28 (cost breakdown), EP-30 (stock costs, consume)
 <strong>Requirement refs</strong>: REQ-ASSESS-01 through REQ-ASSESS-10
-<strong>State</strong>: todo — trackers done (T-36-001).</p>
+<strong>State</strong>: in progress — implemented and tested (<code class="language-plaintext highlighter-rouge">CostAssessment</code> + migration <code class="language-plaintext highlighter-rouge">AddCostAssessments</code>, <code class="language-plaintext highlighter-rouge">/vendor/cost-assessments</code> §21.4, Vendor Portal <code class="language-plaintext highlighter-rouge">Pages/Design/Assess/*</code>, target margin in cost settings); vendor app EP-M16 open.</p>
 
 <blockquote>
   <p>Photograph a finished bouquet and see what it’s made of and what it costs at your stock prices,

@@ -250,6 +250,27 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | POST | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/signals` | `{ kind: "Copied" }` | 204 (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
 | GET/PUT | `/api/v1/vendor/design-style-profile` | PUT `{ expectedVersion, notes?, avoid[{ name, stockItemId? }], favourites[], defaultStyle?, defaultColourPreference?, learnFromRatings, improveAiConsent }` | `DesignStyleProfileDto` (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
 | DELETE | `/api/v1/vendor/design-feedback` | — ("Forget my ratings") | `DesignStyleProfileDto` (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
+| POST | `/api/v1/vendor/design-sessions/{id}/analyze` | `{ expectedVersion }` + **required** `Idempotency-Key` | 202 `DesignSessionDto` — `BouquetAnalysis` job (EP-35, one recognition) | Vendor Portal, vendor mobile app (EP-M15) |
+| PUT | `/api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}` | `{ stockItemId?, notInStock, quantity? }` | `DesignSessionDto` (EP-35) | Vendor Portal, vendor mobile app (EP-M15) |
+| POST | `/api/v1/vendor/design-sessions/{id}/analysis/use` | `{ expectedVersion }` | `DesignSessionDto` — matched items become confirmed inventory (EP-35) | Vendor Portal, vendor mobile app (EP-M15) |
+| GET/POST | `/api/v1/vendor/cost-assessments` | POST `{ note? }` (+ optional `Idempotency-Key`) | `CostAssessmentSummaryDto[]` / 201 `CostAssessmentDto` (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
+| GET/DELETE | `/api/v1/vendor/cost-assessments/{id}` | — | `CostAssessmentDto` / 204 (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
+| POST/DELETE | `/api/v1/vendor/cost-assessments/{id}/photos[/{photoId}]` | multipart `photo` | `CostAssessmentDto` (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
+| POST | `/api/v1/vendor/cost-assessments/{id}/analyze` | `{ expectedVersion }` + **required** `Idempotency-Key` | `CostAssessmentDto` — synchronous, own monthly quota (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
+| PUT | `/api/v1/vendor/cost-assessments/{id}/lines` · `/selling-price` | `{ expectedVersion, lines[…] }` · `{ expectedVersion, sellingPrice }` | `CostAssessmentDto` (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
+| POST | `/api/v1/vendor/cost-assessments/{id}/design` | — | `DesignSessionDto` — "Open in AI Florist" (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
+| POST/GET | `/api/v1/vendor/stock/counts[/{countId}]` | POST multipart `photos` (1–5) + **required** `Idempotency-Key` | 201/200 `StockCountDto` (EP-34, stock AI quota) | Vendor Portal, vendor mobile app (EP-M14) |
+| GET/POST/PUT | `/api/v1/customer/bouquet-requests[/{id}]` | `{ description, budget…, desiredAt, fulfilment, address/pin… }` (+ `expectedVersion` on PUT, optional `Idempotency-Key`) | `CustomerRequestDto` (EP-37, §23.1) | Customer App, customer mobile app (follow-up) |
+| POST/DELETE/GET | `/api/v1/customer/bouquet-requests/{id}/images[/{imageId}]` | multipart `image` | `CustomerRequestDto` / private image (EP-37) | Customer App, customer mobile app (follow-up) |
+| POST | `/api/v1/customer/bouquet-requests/{id}/publish` · `/cancel` · `/order/cancel` · `/time-change/answer` | — / `{ accept }` | `CustomerRequestDto` (EP-37) | Customer App, customer mobile app (follow-up) |
+| GET/POST | `/api/v1/customer/bouquet-requests/{id}/offers[/{offerId}/accept\|report]` | accept `{ offerRevision }` | `CustomerOfferDto[]` / `AcceptOfferResultDto` (custom order + PaymentIntent, EP-37) | Customer App, customer mobile app (follow-up) |
+| GET | `/api/v1/vendor/bouquet-requests[/{id}]` · `/vendor/custom-orders` | bbox query | `VendorRequestSummaryDto[]` / `VendorRequestDto` (fuzzed, no PII before payment, EP-37 §23.2) | Vendor Portal, vendor mobile app (EP-M17) |
+| POST/PUT | `/api/v1/vendor/bouquet-requests/{id}/offers[/{offerId}[/withdraw\|images]]` | `{ price, deliveryFee?, readyAt, deliveryAt?, notes? }` (+ `expectedRevision`) | `VendorRequestDto` (EP-37) | Vendor Portal, vendor mobile app (EP-M17) |
+| POST | `/api/v1/vendor/bouquet-requests/{id}/phase` · `/time-change` · `/reconstruct` · `/report` | `{ phase }` / `{ newReadyAt, newDeliveryAt?, reasons[], note? }` / — | `VendorRequestDto` / `DesignSessionDto` (EP-37) | Vendor Portal, vendor mobile app (EP-M17) |
+| GET/PUT | `/api/v1/vendor/marketplace-settings` · `/vendor/notifications[/{id}/read\|read-all]` | settings `{ expectedVersion, serviceRadiusKm, … }` | `VendorMarketplaceSettingsDto` / `VendorNotificationListDto` (EP-37) | Vendor Portal, vendor mobile app (EP-M17) |
+| GET/POST | `/api/v1/admin/bouquet-requests[/{id}/hide\|unhide\|cancel]` | `{ reason? }` | `AdminRequestDto[]` (EP-37) | Admin Portal |
+| WS | `/hubs/marketplace` (SignalR) | — | `request.*`, `offer.*`, `order.*` events (EP-37, §23.4) | Customer App, Vendor Portal, mobile apps |
+| POST | `/api/v1/vendor/stock/counts/{countId}/apply` | `{ lines[{ stockItemId, countedQuantity }] }` + **required** `Idempotency-Key` | `StockCountDto` — Counted movements, all or nothing (EP-34) | Vendor Portal, vendor mobile app (EP-M14) |
 | GET/POST | `/api/v1/vendor/stock` | GET `?search&kind&status&includeArchived`; POST `{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }` | `StockOverviewDto` / 201 `StockItemDto` (EP-30) | Vendor Portal, vendor mobile app |
 | GET/PUT/DELETE | `/api/v1/vendor/stock/{id}` | PUT `{ expectedVersion, …fields }` | `StockItemDetailsDto` / `StockItemDto` / 204 archive | Vendor Portal, vendor mobile app |
 | POST | `/api/v1/vendor/stock/{id}/restore` | — | `StockItemDto` | Vendor Portal, vendor mobile app |
@@ -511,7 +532,16 @@ Consequently: `customer_id` may be **absent on the first Google token** and is p
 | `BouquetDesign:Limits:*`, `Worker:*`, `Retention:*` | object | Quotas, $ cap, worker concurrency/lease, retention days | see `BouquetDesignOptions` |
 | `BouquetDesign:{Recognition,Composition,Preview}:PromptVersion` | string | Active prompt version (`inventory-v1/v2`, `recipe-v1/v2`, `preview-v1/v2`; EP-33). Empty = newest | `*-v1` (appsettings) |
 | `BouquetDesign:{Step}:CandidatePromptVersion` / `CandidatePercent` | string / int | Candidate version for a sticky, vendor-hashed share (0–100) | `*-v2` / `0` |
+| `BouquetDesign:Analysis:Provider` / `Model` / `EstimatedUsd` | string / string / decimal | Bouquet analysis for "reconstruct from photos" (EP-35): `Palette` (free) or `OpenAI` | `Palette` / `gpt-4.1-mini` / `0.010` |
+| `BouquetDesign:Analysis:ModelAssistedMatching` / `UseInspirationAsPreviewReference` | bool | Model picks among code-ranked stock candidates; bouquet photo as preview reference (EP-35) | `false` / `false` |
+| `BouquetDesign:Assessment:MonthlyLimit` | int | Cost assessments per vendor per month (EP-36) | `30` |
+| `BouquetDesign:LegacyPhotosMode` | bool | Offer `inputMode: "Photos"` for new wizard sessions (EP-34); switch off after vendor app EP-M14 | `true` |
 | `BouquetDesign:Composition:RepairEnabled` | bool | One validator-guided repair call per composition (global $ cap, not vendor quota) | `true` |
+| `Marketplace:Enabled` | bool | EP-37 kill switch for new requests and offers (existing orders keep working) | `true` |
+| `Marketplace:MaxOpenRequestsPerCustomer` / `MaxRequestsPer7Days` | int | Customer request limits (429 `request-limit`) | `3` / `10` |
+| `Marketplace:RequireVerifiedEmail` | bool | Verified email needed to create requests | `true` |
+| `Marketplace:TimeZone` / `CustomerAppUrl` / `VendorPortalUrl` | string | Quiet hours / email links | `Europe/Warsaw` / empty |
+| `Marketplace:MonitorEnabled` | bool | Background monitor (expiry, payment lapse, time-change auto-accept, SLA alerts) | `true` |
 
 ### 6b. Docker Compose Environment Variables
 

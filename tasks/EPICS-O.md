@@ -16,7 +16,7 @@
 **Dependencies**: EP-04/EP-17/EP-18 (Stripe orders, refunds), EP-05/EP-12 (vendor order management),
 EP-13 (customer web app, Leaflet), EP-20 (active vendor subscription), EP-06 (FCM, for push only)
 **Requirement refs**: REQ-BRQ-01 through REQ-BRQ-22
-**State**: todo — trackers done (T-37-001).
+**State**: in progress — implemented and tested (`BouquetRequest`/`BouquetOffer`/`VendorMarketplaceSettings`/`VendorNotification`, custom order line, migration `AddBouquetRequests`, §23 endpoints, `/hubs/marketplace`, background monitor, Customer App `Requests`, Vendor Portal `Pages/Requests/*`, Admin Portal `Pages/Requests`). Open: real email/push delivery (T-37-022, stub email + EP-06), optional messages (T-37-027, deferred), vendor app EP-M17 (T-37-024), customer mobile app (T-37-032).
 
 > Customers can now ask for the bouquet they want instead of only buying what is listed. Vendors
 > nearby compete with offers. The customer picks one and both sides follow a countdown to delivery.

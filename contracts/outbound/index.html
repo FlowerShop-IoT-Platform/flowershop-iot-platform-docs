@@ -1810,6 +1810,153 @@
       <td>Vendor Portal, vendor mobile app (EP-M13)</td>
     </tr>
     <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/analyze</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code> + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — <code class="language-plaintext highlighter-rouge">BouquetAnalysis</code> job (EP-35, one recognition)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M15)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ stockItemId?, notInStock, quantity? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (EP-35)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M15)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/analysis/use</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — matched items become confirmed inventory (EP-35)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M15)</td>
+    </tr>
+    <tr>
+      <td>GET/POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments</code></td>
+      <td>POST <code class="language-plaintext highlighter-rouge">{ note? }</code> (+ optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">CostAssessmentSummaryDto[]</code> / 201 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> (EP-36)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M16)</td>
+    </tr>
+    <tr>
+      <td>GET/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments/{id}</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> / 204 (EP-36)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M16)</td>
+    </tr>
+    <tr>
+      <td>POST/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments/{id}/photos[/{photoId}]</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> (EP-36)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M16)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments/{id}/analyze</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code> + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> — synchronous, own monthly quota (EP-36)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M16)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments/{id}/lines</code> · <code class="language-plaintext highlighter-rouge">/selling-price</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion, lines[…] }</code> · <code class="language-plaintext highlighter-rouge">{ expectedVersion, sellingPrice }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> (EP-36)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M16)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments/{id}/design</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — “Open in AI Florist” (EP-36)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M16)</td>
+    </tr>
+    <tr>
+      <td>POST/GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/counts[/{countId}]</code></td>
+      <td>POST multipart <code class="language-plaintext highlighter-rouge">photos</code> (1–5) + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>201/200 <code class="language-plaintext highlighter-rouge">StockCountDto</code> (EP-34, stock AI quota)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M14)</td>
+    </tr>
+    <tr>
+      <td>GET/POST/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/customer/bouquet-requests[/{id}]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ description, budget…, desiredAt, fulfilment, address/pin… }</code> (+ <code class="language-plaintext highlighter-rouge">expectedVersion</code> on PUT, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> (EP-37, §23.1)</td>
+      <td>Customer App, customer mobile app (follow-up)</td>
+    </tr>
+    <tr>
+      <td>POST/DELETE/GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/customer/bouquet-requests/{id}/images[/{imageId}]</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">image</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> / private image (EP-37)</td>
+      <td>Customer App, customer mobile app (follow-up)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/customer/bouquet-requests/{id}/publish</code> · <code class="language-plaintext highlighter-rouge">/cancel</code> · <code class="language-plaintext highlighter-rouge">/order/cancel</code> · <code class="language-plaintext highlighter-rouge">/time-change/answer</code></td>
+      <td>— / <code class="language-plaintext highlighter-rouge">{ accept }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> (EP-37)</td>
+      <td>Customer App, customer mobile app (follow-up)</td>
+    </tr>
+    <tr>
+      <td>GET/POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/customer/bouquet-requests/{id}/offers[/{offerId}/accept\|report]</code></td>
+      <td>accept <code class="language-plaintext highlighter-rouge">{ offerRevision }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerOfferDto[]</code> / <code class="language-plaintext highlighter-rouge">AcceptOfferResultDto</code> (custom order + PaymentIntent, EP-37)</td>
+      <td>Customer App, customer mobile app (follow-up)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/bouquet-requests[/{id}]</code> · <code class="language-plaintext highlighter-rouge">/vendor/custom-orders</code></td>
+      <td>bbox query</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestSummaryDto[]</code> / <code class="language-plaintext highlighter-rouge">VendorRequestDto</code> (fuzzed, no PII before payment, EP-37 §23.2)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M17)</td>
+    </tr>
+    <tr>
+      <td>POST/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/bouquet-requests/{id}/offers[/{offerId}[/withdraw\|images]]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ price, deliveryFee?, readyAt, deliveryAt?, notes? }</code> (+ <code class="language-plaintext highlighter-rouge">expectedRevision</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code> (EP-37)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M17)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/bouquet-requests/{id}/phase</code> · <code class="language-plaintext highlighter-rouge">/time-change</code> · <code class="language-plaintext highlighter-rouge">/reconstruct</code> · <code class="language-plaintext highlighter-rouge">/report</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ phase }</code> / <code class="language-plaintext highlighter-rouge">{ newReadyAt, newDeliveryAt?, reasons[], note? }</code> / —</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code> / <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (EP-37)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M17)</td>
+    </tr>
+    <tr>
+      <td>GET/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/marketplace-settings</code> · <code class="language-plaintext highlighter-rouge">/vendor/notifications[/{id}/read\|read-all]</code></td>
+      <td>settings <code class="language-plaintext highlighter-rouge">{ expectedVersion, serviceRadiusKm, … }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorMarketplaceSettingsDto</code> / <code class="language-plaintext highlighter-rouge">VendorNotificationListDto</code> (EP-37)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M17)</td>
+    </tr>
+    <tr>
+      <td>GET/POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/bouquet-requests[/{id}/hide\|unhide\|cancel]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ reason? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AdminRequestDto[]</code> (EP-37)</td>
+      <td>Admin Portal</td>
+    </tr>
+    <tr>
+      <td>WS</td>
+      <td><code class="language-plaintext highlighter-rouge">/hubs/marketplace</code> (SignalR)</td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">request.*</code>, <code class="language-plaintext highlighter-rouge">offer.*</code>, <code class="language-plaintext highlighter-rouge">order.*</code> events (EP-37, §23.4)</td>
+      <td>Customer App, Vendor Portal, mobile apps</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/counts/{countId}/apply</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ lines[{ stockItemId, countedQuantity }] }</code> + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td><code class="language-plaintext highlighter-rouge">StockCountDto</code> — Counted movements, all or nothing (EP-34)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M14)</td>
+    </tr>
+    <tr>
       <td>GET/POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock</code></td>
       <td>GET <code class="language-plaintext highlighter-rouge">?search&amp;kind&amp;status&amp;includeArchived</code>; POST <code class="language-plaintext highlighter-rouge">{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }</code></td>
@@ -2979,9 +3126,63 @@
       <td><code class="language-plaintext highlighter-rouge">*-v2</code> / <code class="language-plaintext highlighter-rouge">0</code></td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:Provider</code> / <code class="language-plaintext highlighter-rouge">Model</code> / <code class="language-plaintext highlighter-rouge">EstimatedUsd</code></td>
+      <td>string / string / decimal</td>
+      <td>Bouquet analysis for “reconstruct from photos” (EP-35): <code class="language-plaintext highlighter-rouge">Palette</code> (free) or <code class="language-plaintext highlighter-rouge">OpenAI</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Palette</code> / <code class="language-plaintext highlighter-rouge">gpt-4.1-mini</code> / <code class="language-plaintext highlighter-rouge">0.010</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:ModelAssistedMatching</code> / <code class="language-plaintext highlighter-rouge">UseInspirationAsPreviewReference</code></td>
+      <td>bool</td>
+      <td>Model picks among code-ranked stock candidates; bouquet photo as preview reference (EP-35)</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code> / <code class="language-plaintext highlighter-rouge">false</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Assessment:MonthlyLimit</code></td>
+      <td>int</td>
+      <td>Cost assessments per vendor per month (EP-36)</td>
+      <td><code class="language-plaintext highlighter-rouge">30</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:LegacyPhotosMode</code></td>
+      <td>bool</td>
+      <td>Offer <code class="language-plaintext highlighter-rouge">inputMode: "Photos"</code> for new wizard sessions (EP-34); switch off after vendor app EP-M14</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Composition:RepairEnabled</code></td>
       <td>bool</td>
       <td>One validator-guided repair call per composition (global $ cap, not vendor quota)</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Marketplace:Enabled</code></td>
+      <td>bool</td>
+      <td>EP-37 kill switch for new requests and offers (existing orders keep working)</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Marketplace:MaxOpenRequestsPerCustomer</code> / <code class="language-plaintext highlighter-rouge">MaxRequestsPer7Days</code></td>
+      <td>int</td>
+      <td>Customer request limits (429 <code class="language-plaintext highlighter-rouge">request-limit</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">3</code> / <code class="language-plaintext highlighter-rouge">10</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Marketplace:RequireVerifiedEmail</code></td>
+      <td>bool</td>
+      <td>Verified email needed to create requests</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Marketplace:TimeZone</code> / <code class="language-plaintext highlighter-rouge">CustomerAppUrl</code> / <code class="language-plaintext highlighter-rouge">VendorPortalUrl</code></td>
+      <td>string</td>
+      <td>Quiet hours / email links</td>
+      <td><code class="language-plaintext highlighter-rouge">Europe/Warsaw</code> / empty</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Marketplace:MonitorEnabled</code></td>
+      <td>bool</td>
+      <td>Background monitor (expiry, payment lapse, time-change auto-accept, SLA alerts)</td>
       <td><code class="language-plaintext highlighter-rouge">true</code></td>
     </tr>
   </tbody>

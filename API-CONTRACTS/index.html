@@ -4576,6 +4576,169 @@ promptVersion, jobs, positiveRate }], promptVersions }</code> (aggregates only).
 <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/analytics/ai-florist/feedback-export?from&amp;to</code> → <code class="language-plaintext highlighter-rouge">text/csv</code> of feedback from vendors who
 switched on “Help improve the AI Florist” (contact data and shop names scrubbed; audit-logged).</p>
 
+<h3 id="212-visual-stock-start-and-two-wizard-modes-ep-34">21.2 Visual stock start and two wizard modes (EP-34)</h3>
+
+<p>Additive. <code class="language-plaintext highlighter-rouge">InventoryItemDto</code> gains <code class="language-plaintext highlighter-rouge">mainPhotoId</code> (the linked stock item’s main photo, for a thumbnail via
+<code class="language-plaintext highlighter-rouge">GET /vendor/stock/photos/{photoId}/content</code>), <code class="language-plaintext highlighter-rouge">fallbackUnitPrice</code> and <code class="language-plaintext highlighter-rouge">fallbackSource</code> (<code class="language-plaintext highlighter-rouge">"stock"</code> |
+<code class="language-plaintext highlighter-rouge">"remembered"</code>: the price used when <code class="language-plaintext highlighter-rouge">unitPrice</code> is empty). They are filled on <code class="language-plaintext highlighter-rouge">GET /design-sessions/{id}</code>
+and <code class="language-plaintext highlighter-rouge">PUT …/inventory</code>, with one query per kind of data (no per-row calls).</p>
+
+<p><code class="language-plaintext highlighter-rouge">POST /design-sessions</code> accepts <code class="language-plaintext highlighter-rouge">inputMode: "Stock"</code> as the EP-34 name of <code class="language-plaintext highlighter-rouge">"Manual"</code> (mode 1, “start from my
+stock”). <code class="language-plaintext highlighter-rouge">DesignUsageDto.inputModes</code> lists what new sessions may use: <code class="language-plaintext highlighter-rouge">["Manual", "Photos"]</code> while
+<code class="language-plaintext highlighter-rouge">BouquetDesign:LegacyPhotosMode=true</code> (default, until the vendor app migrates, EP-M14), then <code class="language-plaintext highlighter-rouge">["Manual"]</code>
+— a new <code class="language-plaintext highlighter-rouge">Photos</code> session then answers 400 <code class="language-plaintext highlighter-rouge">invalid-request</code>. Existing <code class="language-plaintext highlighter-rouge">Photos</code> sessions and <code class="language-plaintext highlighter-rouge">/recognize</code>
+keep working. Bench counting moved to the Stock page (§22.2).</p>
+
+<h3 id="213-reconstruct-a-bouquet-from-photos-ep-35">21.3 Reconstruct a bouquet from photos (EP-35)</h3>
+
+<p>Mode 2 of the wizard: photos of <strong>one</strong> finished bouquet (e.g. a customer’s picture) → what it is made of →
+matched to the vendor’s stock → Matched / Short / Missing → “use matched items” → the normal §21 compose
+flow. <strong>Never changes stock levels.</strong> Create the session with <code class="language-plaintext highlighter-rouge">inputMode: "BouquetPhotos"</code> (listed in
+<code class="language-plaintext highlighter-rouge">usage.inputModes</code>), upload 1–5 photos with the §21 photo endpoint, then:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/analyze</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code>, <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (state <code class="language-plaintext highlighter-rouge">Analyzing</code>). Job kind <code class="language-plaintext highlighter-rouge">BouquetAnalysis</code>; counts as <strong>one recognition</strong>; same key → same job. Ends in <code class="language-plaintext highlighter-rouge">AnalysisReady</code> (or back to <code class="language-plaintext highlighter-rouge">Draft</code> with a failed job)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/analysis/items/{itemId}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ stockItemId?, notInStock, quantity? }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>. Pick another of <strong>your</strong> stock items (scored in code; another vendor’s id → 404), mark “not in my stock”, or set the needed quantity (1–200). No model call; a different item than the AI’s match is stored as an EP-33 correction</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/analysis/use</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (state <code class="language-plaintext highlighter-rouge">InventoryConfirmed</code>). Linked items become confirmed inventory lines linked by <code class="language-plaintext highlighter-rouge">stockItemId</code>, quantity capped at what’s in stock, priced from the stock cost; Missing items never become lines. 409 <code class="language-plaintext highlighter-rouge">insufficient-stock</code> when nothing is linked</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">DesignSessionDto.analysis</code> (null until analysed): <code class="language-plaintext highlighter-rouge">{ purpose: "Inspiration", analyzedAt, items: [{ id, kind, name,
+colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, visibility, match: StockMatchDto|null,
+alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }], missing: [{ name, kind,
+colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet"), palette[],
+procurement: { available: false, providers: [] } }</code>. <code class="language-plaintext highlighter-rouge">StockMatchDto</code>: <code class="language-plaintext highlighter-rouge">{ stockItemId, name, color, variety, score
+(0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }</code>. Bands: High ≥ 80, Medium
+50–79, Low &lt; 50 — a Low match is shown but never linked unless the florist chooses it. <code class="language-plaintext highlighter-rouge">missing</code> lists Missing items
+and the shortfall of Short ones (the “to buy” list; supplier ordering is a later epic — <code class="language-plaintext highlighter-rouge">procurement.available</code> is
+false). <code class="language-plaintext highlighter-rouge">sourceRequestId</code> is reserved for EP-37 (“Reconstruct with AI Florist” from a customer request).</p>
+
+<p>New states <code class="language-plaintext highlighter-rouge">Analyzing</code>, <code class="language-plaintext highlighter-rouge">AnalysisReady</code>; recipes composed after “use” are steered towards the bouquet (the composer
+receives the matched lines, palette and missing items as a target: one recipe “close to the photo”, one “best
+substitute”). Errors: 409 <code class="language-plaintext highlighter-rouge">invalid-state</code> (not a <code class="language-plaintext highlighter-rouge">BouquetPhotos</code> session, no photos, or busy), 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code>
+/ <code class="language-plaintext highlighter-rouge">spend-cap-reached</code>, 403 <code class="language-plaintext highlighter-rouge">feature-disabled</code>, 400 <code class="language-plaintext highlighter-rouge">invalid-request</code> (missing <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>, bad quantity).</p>
+
+<h3 id="214-cost-assessor-ep-36">21.4 Cost assessor (EP-36)</h3>
+
+<p>“What does this bouquet cost me?” — separate from design sessions. 1–5 photos of one <strong>finished</strong> bouquet are analysed
+by the §21.3 engine (purpose <code class="language-plaintext highlighter-rouge">Assessment</code>: countable stems, hidden fillers, min/likely/max), matched to <strong>your</strong> stock
+in code, and priced in code. The model never returns prices. Own monthly quota <code class="language-plaintext highlighter-rouge">BouquetDesign:Assessment:MonthlyLimit</code>
+(default 30) under the AI Florist kill switch, pilot list and global $ cap; <code class="language-plaintext highlighter-rouge">DesignUsageDto</code> gains <code class="language-plaintext highlighter-rouge">assessmentsUsed</code>,
+<code class="language-plaintext highlighter-rouge">assessmentsLimit</code>, <code class="language-plaintext highlighter-rouge">assessmentsRemaining</code>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments?skip&amp;take</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">CostAssessmentSummaryDto[]</code>, newest first (≤ 50)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ note? }</code> (≤ 200), optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> (same key → same assessment)</td>
+      <td>201 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> (state <code class="language-plaintext highlighter-rouge">Draft</code>)</td>
+    </tr>
+    <tr>
+      <td>GET / DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> / 204 (photos purged). Another vendor’s → 404</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/photos</code></td>
+      <td>multipart field <strong><code class="language-plaintext highlighter-rouge">photo</code></strong> (≤ 5 live)</td>
+      <td>201 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code></td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/photos/{photoId}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/photos/{photoId}/content</code></td>
+      <td>—</td>
+      <td>image (<code class="language-plaintext highlighter-rouge">private, no-store</code>)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/analyze</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code>, <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code> — <strong>synchronous</strong>: <code class="language-plaintext highlighter-rouge">Ready</code>, or <code class="language-plaintext highlighter-rouge">Failed</code> with <code class="language-plaintext highlighter-rouge">errorMessage</code>. Same key → replay, never billed twice. A <code class="language-plaintext highlighter-rouge">Ready</code> assessment is not analysed again (409 <code class="language-plaintext highlighter-rouge">invalid-state</code>); a <code class="language-plaintext highlighter-rouge">Failed</code> one may be</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/lines</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion, lines: [{ id?, stockItemId?, kind, name, color?, variety?, quantity, quantityMin?, quantityMax?, unit?, unitCostOverride?, rememberPrice }] }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code>. Replaces all lines (≤ 40; quantity 1–200; min ≤ quantity ≤ max). <code class="language-plaintext highlighter-rouge">stockItemId</code> must be one of your active items (else 404). <code class="language-plaintext highlighter-rouge">rememberPrice</code> stores the override as the remembered price for name|colour|variety. Lines entered by hand make a <code class="language-plaintext highlighter-rouge">Draft</code>/<code class="language-plaintext highlighter-rouge">Failed</code> assessment <code class="language-plaintext highlighter-rouge">Ready</code>. 409 <code class="language-plaintext highlighter-rouge">version-conflict</code> on a stale version</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/selling-price</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ expectedVersion, sellingPrice: number\|null }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">CostAssessmentDto</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/design</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>: a <code class="language-plaintext highlighter-rouge">BouquetPhotos</code> design in <code class="language-plaintext highlighter-rouge">AnalysisReady</code> with the photos copied and the lines as the analysis (stock links kept as the florist’s choices); no model call. Same assessment → same design</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">CostAssessmentDto</code>: <code class="language-plaintext highlighter-rouge">{ id, version, state: "Draft|Analyzing|Ready|Failed", note, photos: DesignPhotoDto[], analysis:
+DesignAnalysisDto|null (§21.3, purpose "Assessment"), lines: [{ id, stockItemId, kind, name, color, variety, quantity,
+quantityMin, quantityMax, unit, unitCost, unitCostSource: "Override|Stock|Remembered|Unknown", unitCostOverride, lineCost,
+mainPhotoId, available }], sellingPrice, cost: { currency, basis, flowersSubtotal, materialsSubtotal, labor, overhead,
+knownSubtotal, total|null, isComplete, missingPrices, minTotal|null, maxTotal|null, marginAmount|null, marginPercent|null,
+targetMarginPercent, suggestedPrice|null, unavailableReason }, provider, model, promptVersion, errorMessage, createdAt,
+analyzedAt }</code>. Unit cost: the override, else the linked stock item’s unit cost, else the remembered price, else unknown.
+Totals reuse the §21 cost breakdown (labour from the cost profile, overhead on the subtotal); <code class="language-plaintext highlighter-rouge">total</code>, the range, margin
+(gross, as <code class="language-plaintext highlighter-rouge">RecipeCostDto</code>) and <code class="language-plaintext highlighter-rouge">suggestedPrice</code> (the price at <code class="language-plaintext highlighter-rouge">targetMarginPercent</code>, whole PLN) are null while any price
+is missing. <code class="language-plaintext highlighter-rouge">DesignCostProfileDto</code> gains <code class="language-plaintext highlighter-rouge">targetMarginPercent</code> (default 60; PUT accepts it, 0–95, omitted keeps it).</p>
+
+<p>“Deduct from stock” is the existing <code class="language-plaintext highlighter-rouge">POST /vendor/stock/consume</code> (§22) with <code class="language-plaintext highlighter-rouge">reference = "cost-assessment:{id}"</code>,
+for bouquets already made. Errors: 409 <code class="language-plaintext highlighter-rouge">invalid-state</code> / <code class="language-plaintext highlighter-rouge">version-conflict</code>, 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code> / <code class="language-plaintext highlighter-rouge">spend-cap-reached</code>
+(with <code class="language-plaintext highlighter-rouge">Retry-After</code>), 403 <code class="language-plaintext highlighter-rouge">feature-disabled</code>, 502 <code class="language-plaintext highlighter-rouge">provider-failed</code> (state <code class="language-plaintext highlighter-rouge">Failed</code>; counted only if submitted),
+400 <code class="language-plaintext highlighter-rouge">invalid-request</code> / <code class="language-plaintext highlighter-rouge">invalid-inventory</code> / <code class="language-plaintext highlighter-rouge">invalid-photo</code>, 422 <code class="language-plaintext highlighter-rouge">photo-limit</code>.</p>
+
 <hr />
 
 <h2 id="22-vendor-stock-ep-30">22. Vendor Stock (EP-30)</h2>
@@ -4819,6 +4982,301 @@ recipes know each item’s palette, and previews use the stock items’ main pho
     </tr>
   </tbody>
 </table>
+
+<h3 id="222-count-stock-from-photos-ep-34">22.2 Count stock from photos (EP-34)</h3>
+
+<p>Bench recognition on the Stock page. The EP-28 recognizer (inventory prompt + catalogue linking) estimates
+counts; <strong>nothing changes stock until apply</strong>. Billed to the stock AI quota (<code class="language-plaintext highlighter-rouge">Limits:StockRecognitionsPerMonth</code>,
+shared with §22.1 recognitions) under the AI Florist kill switch, pilot list and global $ cap.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/counts</code></td>
+      <td>multipart, 1–5 files in field <strong><code class="language-plaintext highlighter-rouge">photos</code></strong>; <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">StockCountDto</code> (state <code class="language-plaintext highlighter-rouge">Ready</code> or <code class="language-plaintext highlighter-rouge">Failed</code>); same key → same count</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/counts/{countId}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockCountDto</code>; another vendor’s → 404</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/counts/{countId}/apply</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "lines": [{ "stockItemId": guid, "countedQuantity": 14 }] }</code>, <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockCountDto</code> (state <code class="language-plaintext highlighter-rouge">Applied</code>). One <code class="language-plaintext highlighter-rouge">Counted</code> movement per line (<code class="language-plaintext highlighter-rouge">reference = "stock-count:{countId}"</code>), all or nothing; the same key replays, another key → 409</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">StockCountDto</code>: <code class="language-plaintext highlighter-rouge">{ id, state: "Recognising|Ready|Failed|Applied", lines: [{ lineId, stockItemId|null, kind, name,
+color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId }],
+photoCount, errorMessage, appliedLines, createdAt, appliedAt }</code>. <code class="language-plaintext highlighter-rouge">needsCheck</code> is true below 0.6 confidence.
+Errors: 422 <code class="language-plaintext highlighter-rouge">unknown-item</code> (a line not linked to an active item of yours), 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code>/<code class="language-plaintext highlighter-rouge">spend-cap-reached</code>,
+403 <code class="language-plaintext highlighter-rouge">feature-disabled</code>, 502 <code class="language-plaintext highlighter-rouge">provider-failed</code>. <code class="language-plaintext highlighter-rouge">StockItemDto</code> also gains <code class="language-plaintext highlighter-rouge">mainPhotoId</code>.</p>
+
+<hr />
+
+<h2 id="23-customer-bouquet-requests-ep-37">23. Customer Bouquet Requests (EP-37)</h2>
+
+<p>Customers post a bouquet request (1–5 reference images, note, budget, desired time) pinned at the delivery address;
+vendors in range with platform access send offers; the customer accepts exactly one, which creates a <strong>custom order</strong>
+paid through the existing Stripe flow (§8). Vendor-facing DTOs never contain the street, the exact pin, the recipient or
+the customer’s identity before the order is paid — the location is snapped to a deterministic ~500 m grid cell.
+Errors are ProblemDetails with <code class="language-plaintext highlighter-rouge">code</code> (and <code class="language-plaintext highlighter-rouge">field</code> for validation): 400 <code class="language-plaintext highlighter-rouge">invalid-request</code> / <code class="language-plaintext highlighter-rouge">invalid-photo</code>, 403
+<code class="language-plaintext highlighter-rouge">email-not-verified</code> / <code class="language-plaintext highlighter-rouge">subscription-required</code> / <code class="language-plaintext highlighter-rouge">out-of-range</code>, 404 <code class="language-plaintext highlighter-rouge">not-found</code>, 409 <code class="language-plaintext highlighter-rouge">invalid-state</code> / <code class="language-plaintext highlighter-rouge">version-conflict</code>
+/ <code class="language-plaintext highlighter-rouge">request-closed</code> / <code class="language-plaintext highlighter-rouge">already-accepted</code> / <code class="language-plaintext highlighter-rouge">offer-exists</code>, 422 <code class="language-plaintext highlighter-rouge">photo-limit</code>, 429 <code class="language-plaintext highlighter-rouge">request-limit</code> (<code class="language-plaintext highlighter-rouge">Retry-After</code>).</p>
+
+<p><strong>Request states</strong>: <code class="language-plaintext highlighter-rouge">Draft → Open → OffersReceived → AwaitingPayment → Accepted → Fulfilled</code>, or <code class="language-plaintext highlighter-rouge">Expired</code> /
+<code class="language-plaintext highlighter-rouge">Cancelled</code>. <strong>Phases</strong> after payment: <code class="language-plaintext highlighter-rouge">Paid → InProgress → Ready → OutForDelivery → Delivered</code> (pickup:
+<code class="language-plaintext highlighter-rouge">Ready → PickedUp</code>). <strong>Offer states</strong>: <code class="language-plaintext highlighter-rouge">Active | Accepted | Rejected | Withdrawn | Lapsed</code>.</p>
+
+<h3 id="231-customer-customeraccess-verified-email">23.1 Customer (<code class="language-plaintext highlighter-rouge">CustomerAccess</code>, verified email)</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests?skip&amp;take</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestSummaryDto[]</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ description (≤1000), budgetMin?, budgetMax?, occasion?, size? (S/M/L), desiredAt (≥ now+3 h, ≤ now+30 d), offerDeadline? (default min(desired−2 h, now+48 h)), fulfilment ("Delivery"\|"Pickup"), savedAddressId? \| street, city, postalCode, addressNotes?, recipientName?, recipientPhone?, latitude?, longitude?, saveAddress? }</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> (state <code class="language-plaintext highlighter-rouge">Draft</code>). A pin wins; else the saved address pin; else the address is geocoded (failure → 400 <code class="language-plaintext highlighter-rouge">field: pin</code>). Poland only. Limits: ≤ 3 open, ≤ 10 per 7 days → 429 <code class="language-plaintext highlighter-rouge">request-limit</code></td>
+    </tr>
+    <tr>
+      <td>GET / PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}</code></td>
+      <td>PUT: the same body + <code class="language-plaintext highlighter-rouge">expectedVersion</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code>. Editing with offers marks them “request changed” and tells those vendors</td>
+    </tr>
+    <tr>
+      <td>POST / DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/images[/{imageId}]</code></td>
+      <td>multipart field <strong><code class="language-plaintext highlighter-rouge">image</code></strong></td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> (1–5; re-encoded, EXIF/GPS stripped, private)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/images/{imageId}</code></td>
+      <td>—</td>
+      <td>image (<code class="language-plaintext highlighter-rouge">private, no-store</code>)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/publish</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> (<code class="language-plaintext highlighter-rouge">Open</code>; needs ≥ 1 image). Vendors in range are alerted</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/cancel</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code> (only before an accept; offers rejected, vendors told)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/offers?sort=price\|time\|distance</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerOfferDto[]</code> — latest revision of active offers (and the accepted one); suspended vendors hidden</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/offers/{offerId}/images/{imageId}</code></td>
+      <td>—</td>
+      <td>image</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/offers/{offerId}/accept</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ offerRevision }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AcceptOfferResultDto { request, orderId, totalAmount, currency, paymentDueAt, paymentClientSecret, stripeEphemeralKey, stripeCustomerId }</code>. One transaction: request <code class="language-plaintext highlighter-rouge">AwaitingPayment</code>, offer <code class="language-plaintext highlighter-rouge">Accepted</code>, others <code class="language-plaintext highlighter-rouge">Rejected</code> (<code class="language-plaintext highlighter-rouge">another-offer-accepted</code>), custom <code class="language-plaintext highlighter-rouge">Order</code> created. Pay within <strong>30 min</strong> (§8 PaymentIntent; confirm via <code class="language-plaintext highlighter-rouge">POST /orders/{orderId}/confirm-payment</code> or the webhook). Repeating the same accept returns the same order. Another accept → 409 <code class="language-plaintext highlighter-rouge">already-accepted</code>; a stale revision → 409 <code class="language-plaintext highlighter-rouge">version-conflict</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/offers/{offerId}/report</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ reason? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/time-change/answer</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ accept }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code>. Declining is allowed only when the new time is &gt; 60 min after the agreed one and cancels with a full refund; unanswered after 30 min = accepted</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/customer/bouquet-requests/{id}/order/cancel</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code>. While <code class="language-plaintext highlighter-rouge">AwaitingPayment</code>: gives up the acceptance (offers come back). When &gt; 2 h late: cancels with a full refund</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">CustomerRequestDto</code>: <code class="language-plaintext highlighter-rouge">{ id, version, state, description, budgetMin, budgetMax, occasion, size, desiredAt, offerDeadline,
+fulfilment, address { street, city, postalCode, notes, recipientName, recipientPhone }, latitude, longitude, images[{ id,
+contentUrl, width, height }], activeOfferCount, acceptedOfferId, acceptedVendorName, order: CustomOrderStatusDto, hidden,
+cancelReason, createdAt, closedAt }</code>. <code class="language-plaintext highlighter-rouge">CustomOrderStatusDto</code>: <code class="language-plaintext highlighter-rouge">{ orderId, phase, phases[{ phase, at }], committedReadyAt,
+committedDeliveryAt, paymentDueAt, paidAt, pendingTimeChange, timeChanges[{ id, requestedAt, oldReadyAt, oldDeliveryAt,
+newReadyAt, newDeliveryAt, reasons[], note, status: Pending|Accepted|AutoAccepted|Declined, answeredAt, autoAcceptAt,
+canDecline }], lateByMinutes, serverNow, nextPhases[] }</code> — clients count down from <code class="language-plaintext highlighter-rouge">serverNow</code>. <code class="language-plaintext highlighter-rouge">CustomerOfferDto</code>: <code class="language-plaintext highlighter-rouge">{ id,
+revision, updated, state, vendorId, vendorName, vendorRating, vendorReviewCount, distanceKm, price, deliveryFee (null =
+included), total, readyAt, deliveryAt, laterThanRequested, notes, images[], requestChanged, updatedAt }</code>.</p>
+
+<h3 id="232-vendor-vendoraccess-seeing-requests-needs-platform-access-ep-20-and-a-shopbase-location">23.2 Vendor (<code class="language-plaintext highlighter-rouge">VendorAccess</code>; seeing requests needs platform access, EP-20, and a shop/base location)</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests?minLat&amp;maxLat&amp;minLng&amp;maxLng&amp;take</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestSummaryDto[]</code>: open requests within the service radius (fuzzed point, district, distance, thumbnail, budget, times, offer count, <code class="language-plaintext highlighter-rouge">hasMyOffer</code>), nearest first</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code>. Readable by vendors in range while it takes offers, by vendors with an offer until it’s paid, and by the chosen vendor; after payment everyone else gets 404</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/images/{imageId}</code></td>
+      <td>—</td>
+      <td>image (same access)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/offers</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ price, deliveryFee?, readyAt, deliveryAt? (delivery: required, ≥ readyAt, ≤ desired + 2 h), notes? (≤1000), designRecipeId? }</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">VendorRequestDto</code>. One active offer per vendor (409 <code class="language-plaintext highlighter-rouge">offer-exists</code>); closed request or past the deadline → 409 <code class="language-plaintext highlighter-rouge">request-closed</code>. Later than desired → <code class="language-plaintext highlighter-rouge">laterThanRequested</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/offers/{offerId}</code></td>
+      <td>the same + <code class="language-plaintext highlighter-rouge">expectedRevision</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code> (new revision; 409 <code class="language-plaintext highlighter-rouge">version-conflict</code>)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/offers/{offerId}/withdraw</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code></td>
+    </tr>
+    <tr>
+      <td>POST / DELETE / GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/offers/{offerId}/images[/{imageId}]</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">image</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code> / image (0–5)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/reconstruct</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — “Reconstruct with AI Florist” (§21.3): a <code class="language-plaintext highlighter-rouge">BouquetPhotos</code> design with the request’s images copied privately and <code class="language-plaintext highlighter-rouge">sourceRequestId</code> set; its <code class="language-plaintext highlighter-rouge">analysis.estimatedCost</code> is the §21.4 cost of the matched items. Same request → same design</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/report</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ reason? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">true</code> (hidden after 3 reports)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/custom-orders?skip&amp;take</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto[]</code> of your paid custom orders (revealed)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/phase</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ phase }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code> — the next phase only (<code class="language-plaintext highlighter-rouge">order.nextPhases</code>)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/time-change</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ newReadyAt, newDeliveryAt?, reasons[] (≤5), note? (≤300) }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorRequestDto</code> (one pending change at a time)</td>
+    </tr>
+    <tr>
+      <td>GET / PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/marketplace-settings</code></td>
+      <td>PUT <code class="language-plaintext highlighter-rouge">{ expectedVersion, serviceRadiusKm (1–50, default 15), preparationLeadMinutes (0–720, default 60), requestAlertsEnabled, quietHoursStart?, quietHoursEnd? (0–23, Europe/Warsaw), minBudget? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorMarketplaceSettingsDto</code> (+ <code class="language-plaintext highlighter-rouge">hasLocation</code>, <code class="language-plaintext highlighter-rouge">subscriptionActive</code>)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/notifications?unreadOnly&amp;skip&amp;take</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorNotificationListDto { items[{ id, type, title, body, bouquetRequestId, orderId, isRead, createdAt }], unreadCount }</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/notifications/{id}/read</code>, <code class="language-plaintext highlighter-rouge">/vendor/notifications/read-all</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">VendorRequestDto</code>: <code class="language-plaintext highlighter-rouge">{ id, state ("Open"|"Closed" before payment), description, budgetMin, budgetMax, occasion, size,
+desiredAt, offerDeadline, fulfilment, fuzzedLatitude, fuzzedLongitude, district, distanceKm, images[], offerCount, myOffer:
+VendorOfferDto|null, canOffer, revealed, address|null, latitude|null, longitude|null, order: CustomOrderStatusDto|null }</code> —
+<code class="language-plaintext highlighter-rouge">address</code>, <code class="language-plaintext highlighter-rouge">latitude</code>, <code class="language-plaintext highlighter-rouge">longitude</code> and <code class="language-plaintext highlighter-rouge">order</code> are set only for the chosen vendor after payment. The existing vendor order
+endpoints (§9) show custom orders with <code class="language-plaintext highlighter-rouge">isCustom</code>, <code class="language-plaintext highlighter-rouge">customTitle</code>, <code class="language-plaintext highlighter-rouge">customNotes</code>, <code class="language-plaintext highlighter-rouge">bouquetRequestId</code>, and hide the customer
+name and address until paid; <code class="language-plaintext highlighter-rouge">PUT /vendor/orders/{id}/status</code> refuses custom orders (use <code class="language-plaintext highlighter-rouge">phase</code>).</p>
+
+<h3 id="233-admin-platformadmin">23.3 Admin (<code class="language-plaintext highlighter-rouge">PlatformAdmin</code>)</h3>
+
+<p><code class="language-plaintext highlighter-rouge">GET /admin/bouquet-requests?state&amp;hidden&amp;skip&amp;take</code> → <code class="language-plaintext highlighter-rouge">AdminRequestDto[]</code> (reports first; <code class="language-plaintext highlighter-rouge">escalated</code> = &gt; 2 h late);
+<code class="language-plaintext highlighter-rouge">POST /admin/bouquet-requests/{id}/hide|unhide|cancel { reason? }</code> (cancel refunds a paid order; audit-logged, users
+notified); <code class="language-plaintext highlighter-rouge">GET /admin/bouquet-requests/{id}/images/{imageId}</code>.</p>
+
+<h3 id="234-real-time-and-alerts">23.4 Real time and alerts</h3>
+
+<p>SignalR hub <strong><code class="language-plaintext highlighter-rouge">/hubs/marketplace</code></strong> (authenticated; each connection joins <code class="language-plaintext highlighter-rouge">customer:{customer_id}</code> or <code class="language-plaintext highlighter-rouge">vendor:{vendor_id}</code>
+from its token). Events: vendors — <code class="language-plaintext highlighter-rouge">request.new</code>, <code class="language-plaintext highlighter-rouge">request.digest</code>, <code class="language-plaintext highlighter-rouge">request.changed</code>, <code class="language-plaintext highlighter-rouge">request.closed</code>, <code class="language-plaintext highlighter-rouge">offer.accepted</code>,
+<code class="language-plaintext highlighter-rouge">offer.rejected</code>, <code class="language-plaintext highlighter-rouge">offer.lapsed</code>, <code class="language-plaintext highlighter-rouge">order.paid</code>, <code class="language-plaintext highlighter-rouge">order.timeChange</code>, <code class="language-plaintext highlighter-rouge">order.cancelled</code>, <code class="language-plaintext highlighter-rouge">order.startSoon</code>, <code class="language-plaintext highlighter-rouge">order.notReady</code>,
+<code class="language-plaintext highlighter-rouge">order.late</code>; customers — <code class="language-plaintext highlighter-rouge">offer.created</code>, <code class="language-plaintext highlighter-rouge">offer.updated</code>, <code class="language-plaintext highlighter-rouge">offer.withdrawn</code>, <code class="language-plaintext highlighter-rouge">request.expiring</code>, <code class="language-plaintext highlighter-rouge">request.expired</code>,
+<code class="language-plaintext highlighter-rouge">request.lapsed</code>, <code class="language-plaintext highlighter-rouge">request.cancelled</code>, <code class="language-plaintext highlighter-rouge">order.paid</code>, <code class="language-plaintext highlighter-rouge">order.phase</code>, <code class="language-plaintext highlighter-rouge">order.timeChange</code>, <code class="language-plaintext highlighter-rouge">order.late</code>. Payloads:
+<code class="language-plaintext highlighter-rouge">{ requestId, orderId, title, body, … }</code>. Each event also writes an inbox row in the same transaction as the change
+(customers: <code class="language-plaintext highlighter-rouge">GET /notifications</code>, type <code class="language-plaintext highlighter-rouge">BouquetRequest</code>, <code class="language-plaintext highlighter-rouge">bouquetRequestId</code>; vendors: §23.2). New-request alerts honour
+the vendor’s opt-out, quiet hours and minimum budget, max 20 per hour then a digest. A background monitor (every minute)
+sends the “no offers yet” reminder 2 h before the deadline, expires requests, lapses unpaid acceptances after 30 min,
+auto-accepts unanswered time changes after 30 min, and raises SLA alerts once per order and rule (start soon, not ready,
+late, +30 min, &gt; 2 h with an admin escalation). Push (FCM, EP-06) and real email delivery are not wired yet — the email
+channel calls <code class="language-plaintext highlighter-rouge">IEmailService.SendMarketplaceEmailAsync</code> (no-op stub today).</p>
 
     </div>
   </main>

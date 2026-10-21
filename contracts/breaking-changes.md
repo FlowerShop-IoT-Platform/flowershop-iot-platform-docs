@@ -2,6 +2,53 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-21 — EP-37 Customer bouquet requests (additive; two behaviour changes on vendor orders)
+
+- **What changed**: new `/api/v1/customer/bouquet-requests`, `/api/v1/vendor/bouquet-requests`, `/vendor/custom-orders`,
+  `/vendor/marketplace-settings`, `/vendor/notifications`, `/api/v1/admin/bouquet-requests` endpoints and SignalR hub
+  `/hubs/marketplace` (`API-CONTRACTS.md` §23). `NotificationType.BouquetRequest` (5) and `bouquetRequestId` on customer
+  notifications. `DesignAnalysisDto.estimatedCost` (set when the design came from a request). Vendor order DTOs gain
+  `isCustom`, `customTitle`, `customNotes`, `bouquetRequestId`; for custom orders the customer name and address are
+  **empty until paid**, and `PUT /vendor/orders/{id}/status` returns 409 for custom orders (use `…/phase`). Config
+  `Marketplace:*`. Migration `AddBouquetRequests` (5 new tables; nullable columns on `Orders`, `SavedAddresses`,
+  `Notifications`).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M17; order list must tolerate custom orders without a bouquet
+  and must not offer status buttons for them); customer mobile app (follow-up); portals in this repo.
+- **Deployment order**: API (migration on start) → portals → mobile builds.
+
+## 2026-10-21 — EP-36 Cost assessor (additive, non-breaking)
+
+- **What changed**: new `/api/v1/vendor/cost-assessments` endpoints (`API-CONTRACTS.md` §21.4); `DesignUsageDto`
+  `assessmentsUsed/Limit/Remaining`; `DesignCostProfileDto.targetMarginPercent` (PUT accepts it, optional). Config
+  `BouquetDesign:Assessment:MonthlyLimit`. Migration `AddCostAssessments` (1 new table, 1 column on
+  `DesignCostProfiles` defaulting to 60).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M16); Vendor Portal in this repo.
+- **Deployment order**: API (migration on start) → Vendor Portal → mobile build.
+
+## 2026-10-21 — EP-35 Reconstruct a bouquet from photos (additive, non-breaking)
+
+- **What changed**: `inputMode: "BouquetPhotos"` (listed in `usage.inputModes`); new endpoints
+  `POST /design-sessions/{id}/analyze`, `PUT …/analysis/items/{itemId}`, `POST …/analysis/use` (`API-CONTRACTS.md`
+  §21.3); `DesignSessionDto.analysis` and `sourceRequestId`; session states `Analyzing`, `AnalysisReady`; job kind
+  `BouquetAnalysis` (counts as a recognition). Config `BouquetDesign:Analysis:*`. Migration `AddBouquetAnalysis`
+  (2 nullable columns on `DesignSessions`).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M15; clients must tolerate the new states and job kind
+  when listing sessions); Vendor Portal in this repo.
+- **Deployment order**: API (migration on start) → Vendor Portal → mobile build.
+
+## 2026-10-21 — EP-34 Visual stock start + count stock from photos (additive; one deprecation)
+
+- **What changed**: new `/api/v1/vendor/stock/counts` endpoints (`API-CONTRACTS.md` §22.2); `StockItemDto.mainPhotoId`;
+  design `InventoryItemDto` gains `mainPhotoId`, `fallbackUnitPrice`, `fallbackSource`; `DesignUsageDto.inputModes`;
+  `POST /design-sessions` accepts `inputMode: "Stock"` (= `Manual`). Config `BouquetDesign:LegacyPhotosMode`.
+  Migration `AddStockCounts` (1 new table). Stock counts share the stock AI monthly quota and the global $ cap.
+- **Deprecation**: `inputMode: "Photos"` for **new** sessions. Still accepted while `LegacyPhotosMode=true` (default);
+  once off, a new `Photos` session is a 400. Existing Photos sessions and `/recognize` keep working.
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M14 must move "photograph your stock" to the stock screens
+  before the flag is switched off); Vendor Portal in this repo.
+- **Deployment order**: API (migration on start) → Vendor Portal → mobile build (EP-M14) → then set
+  `BouquetDesign__LegacyPhotosMode=false`.
+
 ## 2026-10-21 — EP-33 AI Florist feedback loop (additive, non-breaking)
 
 - **What changed**: new vendor endpoints for ratings, refine, copy signal, house style and "forget my

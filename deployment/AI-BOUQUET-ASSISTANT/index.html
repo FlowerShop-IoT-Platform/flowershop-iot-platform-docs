@@ -937,6 +937,7 @@ fly secrets <span class="nb">set</span> <span class="nt">--app</span> <span clas
 fly secrets <span class="nb">set</span> <span class="nt">--app</span> <span class="nv">$APP</span> <span class="se">\</span>
   <span class="nv">BouquetDesign__OpenAI__ApiKey</span><span class="o">=</span><span class="s1">'sk-…'</span> <span class="se">\</span>
   <span class="nv">BouquetDesign__Recognition__Provider</span><span class="o">=</span>OpenAI <span class="se">\</span>
+  <span class="nv">BouquetDesign__Analysis__Provider</span><span class="o">=</span>OpenAI <span class="se">\</span>
   <span class="nv">BouquetDesign__Composition__Provider</span><span class="o">=</span>OpenAI
 
 fly secrets <span class="nb">set</span> <span class="nt">--app</span> <span class="nv">$APP</span> <span class="se">\</span>
@@ -1030,6 +1031,31 @@ fly secrets <span class="nb">set</span> <span class="nt">--app</span> <span clas
       <td><code class="language-plaintext highlighter-rouge">BouquetDesign__{…}__CandidatePercent</code></td>
       <td>0–100 % of vendors (sticky hash of the vendor id) on the candidate; 0 = everyone on the active version</td>
       <td><code class="language-plaintext highlighter-rouge">0</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Analysis__Provider</code></td>
+      <td>“Reconstruct a bouquet from photos” (EP-35): <code class="language-plaintext highlighter-rouge">Palette</code> (free, colours only) | <code class="language-plaintext highlighter-rouge">OpenAI</code> (vision, <code class="language-plaintext highlighter-rouge">bouquet-analysis-v1</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">Palette</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Analysis__Model</code> / <code class="language-plaintext highlighter-rouge">__EstimatedUsd</code></td>
+      <td>Analysis model and $ reserved per call (counts as one recognition of the vendor’s quota)</td>
+      <td><code class="language-plaintext highlighter-rouge">gpt-4.1-mini</code> / 0.010</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Analysis__ModelAssistedMatching</code></td>
+      <td>Let the model pick among the top 10 code-ranked stock candidates (the pick is re-scored in code; Low is never linked)</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Analysis__UseInspirationAsPreviewReference</code></td>
+      <td>Send the bouquet photo to the image provider as a preview reference (third-party image — check rights before switching on)</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Assessment__MonthlyLimit</code></td>
+      <td>Cost assessor (EP-36): billable assessments per vendor per month; the analysis uses the <code class="language-plaintext highlighter-rouge">Analysis</code> provider and counts in the global $ cap</td>
+      <td><code class="language-plaintext highlighter-rouge">30</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Composition__RepairEnabled</code></td>

@@ -777,6 +777,61 @@
 
 <p>Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.</p>
 
+<h2 id="2026-10-21--ep-37-customer-bouquet-requests-additive-two-behaviour-changes-on-vendor-orders">2026-10-21 — EP-37 Customer bouquet requests (additive; two behaviour changes on vendor orders)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new <code class="language-plaintext highlighter-rouge">/api/v1/customer/bouquet-requests</code>, <code class="language-plaintext highlighter-rouge">/api/v1/vendor/bouquet-requests</code>, <code class="language-plaintext highlighter-rouge">/vendor/custom-orders</code>,
+<code class="language-plaintext highlighter-rouge">/vendor/marketplace-settings</code>, <code class="language-plaintext highlighter-rouge">/vendor/notifications</code>, <code class="language-plaintext highlighter-rouge">/api/v1/admin/bouquet-requests</code> endpoints and SignalR hub
+<code class="language-plaintext highlighter-rouge">/hubs/marketplace</code> (<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §23). <code class="language-plaintext highlighter-rouge">NotificationType.BouquetRequest</code> (5) and <code class="language-plaintext highlighter-rouge">bouquetRequestId</code> on customer
+notifications. <code class="language-plaintext highlighter-rouge">DesignAnalysisDto.estimatedCost</code> (set when the design came from a request). Vendor order DTOs gain
+<code class="language-plaintext highlighter-rouge">isCustom</code>, <code class="language-plaintext highlighter-rouge">customTitle</code>, <code class="language-plaintext highlighter-rouge">customNotes</code>, <code class="language-plaintext highlighter-rouge">bouquetRequestId</code>; for custom orders the customer name and address are
+<strong>empty until paid</strong>, and <code class="language-plaintext highlighter-rouge">PUT /vendor/orders/{id}/status</code> returns 409 for custom orders (use <code class="language-plaintext highlighter-rouge">…/phase</code>). Config
+<code class="language-plaintext highlighter-rouge">Marketplace:*</code>. Migration <code class="language-plaintext highlighter-rouge">AddBouquetRequests</code> (5 new tables; nullable columns on <code class="language-plaintext highlighter-rouge">Orders</code>, <code class="language-plaintext highlighter-rouge">SavedAddresses</code>,
+<code class="language-plaintext highlighter-rouge">Notifications</code>).</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M17; order list must tolerate custom orders without a bouquet
+and must not offer status buttons for them); customer mobile app (follow-up); portals in this repo.</li>
+  <li><strong>Deployment order</strong>: API (migration on start) → portals → mobile builds.</li>
+</ul>
+
+<h2 id="2026-10-21--ep-36-cost-assessor-additive-non-breaking">2026-10-21 — EP-36 Cost assessor (additive, non-breaking)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new <code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments</code> endpoints (<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §21.4); <code class="language-plaintext highlighter-rouge">DesignUsageDto</code>
+<code class="language-plaintext highlighter-rouge">assessmentsUsed/Limit/Remaining</code>; <code class="language-plaintext highlighter-rouge">DesignCostProfileDto.targetMarginPercent</code> (PUT accepts it, optional). Config
+<code class="language-plaintext highlighter-rouge">BouquetDesign:Assessment:MonthlyLimit</code>. Migration <code class="language-plaintext highlighter-rouge">AddCostAssessments</code> (1 new table, 1 column on
+<code class="language-plaintext highlighter-rouge">DesignCostProfiles</code> defaulting to 60).</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M16); Vendor Portal in this repo.</li>
+  <li><strong>Deployment order</strong>: API (migration on start) → Vendor Portal → mobile build.</li>
+</ul>
+
+<h2 id="2026-10-21--ep-35-reconstruct-a-bouquet-from-photos-additive-non-breaking">2026-10-21 — EP-35 Reconstruct a bouquet from photos (additive, non-breaking)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: <code class="language-plaintext highlighter-rouge">inputMode: "BouquetPhotos"</code> (listed in <code class="language-plaintext highlighter-rouge">usage.inputModes</code>); new endpoints
+<code class="language-plaintext highlighter-rouge">POST /design-sessions/{id}/analyze</code>, <code class="language-plaintext highlighter-rouge">PUT …/analysis/items/{itemId}</code>, <code class="language-plaintext highlighter-rouge">POST …/analysis/use</code> (<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code>
+§21.3); <code class="language-plaintext highlighter-rouge">DesignSessionDto.analysis</code> and <code class="language-plaintext highlighter-rouge">sourceRequestId</code>; session states <code class="language-plaintext highlighter-rouge">Analyzing</code>, <code class="language-plaintext highlighter-rouge">AnalysisReady</code>; job kind
+<code class="language-plaintext highlighter-rouge">BouquetAnalysis</code> (counts as a recognition). Config <code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:*</code>. Migration <code class="language-plaintext highlighter-rouge">AddBouquetAnalysis</code>
+(2 nullable columns on <code class="language-plaintext highlighter-rouge">DesignSessions</code>).</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M15; clients must tolerate the new states and job kind
+when listing sessions); Vendor Portal in this repo.</li>
+  <li><strong>Deployment order</strong>: API (migration on start) → Vendor Portal → mobile build.</li>
+</ul>
+
+<h2 id="2026-10-21--ep-34-visual-stock-start--count-stock-from-photos-additive-one-deprecation">2026-10-21 — EP-34 Visual stock start + count stock from photos (additive; one deprecation)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new <code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/counts</code> endpoints (<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §22.2); <code class="language-plaintext highlighter-rouge">StockItemDto.mainPhotoId</code>;
+design <code class="language-plaintext highlighter-rouge">InventoryItemDto</code> gains <code class="language-plaintext highlighter-rouge">mainPhotoId</code>, <code class="language-plaintext highlighter-rouge">fallbackUnitPrice</code>, <code class="language-plaintext highlighter-rouge">fallbackSource</code>; <code class="language-plaintext highlighter-rouge">DesignUsageDto.inputModes</code>;
+<code class="language-plaintext highlighter-rouge">POST /design-sessions</code> accepts <code class="language-plaintext highlighter-rouge">inputMode: "Stock"</code> (= <code class="language-plaintext highlighter-rouge">Manual</code>). Config <code class="language-plaintext highlighter-rouge">BouquetDesign:LegacyPhotosMode</code>.
+Migration <code class="language-plaintext highlighter-rouge">AddStockCounts</code> (1 new table). Stock counts share the stock AI monthly quota and the global $ cap.</li>
+  <li><strong>Deprecation</strong>: <code class="language-plaintext highlighter-rouge">inputMode: "Photos"</code> for <strong>new</strong> sessions. Still accepted while <code class="language-plaintext highlighter-rouge">LegacyPhotosMode=true</code> (default);
+once off, a new <code class="language-plaintext highlighter-rouge">Photos</code> session is a 400. Existing Photos sessions and <code class="language-plaintext highlighter-rouge">/recognize</code> keep working.</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M14 must move “photograph your stock” to the stock screens
+before the flag is switched off); Vendor Portal in this repo.</li>
+  <li><strong>Deployment order</strong>: API (migration on start) → Vendor Portal → mobile build (EP-M14) → then set
+<code class="language-plaintext highlighter-rouge">BouquetDesign__LegacyPhotosMode=false</code>.</li>
+</ul>
+
 <h2 id="2026-10-21--ep-33-ai-florist-feedback-loop-additive-non-breaking">2026-10-21 — EP-33 AI Florist feedback loop (additive, non-breaking)</h2>
 
 <ul>
