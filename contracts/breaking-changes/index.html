@@ -777,6 +777,25 @@
 
 <p>Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.</p>
 
+<h2 id="2026-10-21--ep-33-ai-florist-feedback-loop-additive-non-breaking">2026-10-21 — EP-33 AI Florist feedback loop (additive, non-breaking)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new vendor endpoints for ratings, refine, copy signal, house style and “forget my
+ratings”; <code class="language-plaintext highlighter-rouge">POST …/preview</code> accepts an optional <code class="language-plaintext highlighter-rouge">{ corrections, note }</code> body (re-render); <code class="language-plaintext highlighter-rouge">POST …/recipes</code>
+accepts <code class="language-plaintext highlighter-rouge">occasion</code>, <code class="language-plaintext highlighter-rouge">colourPreference</code>, <code class="language-plaintext highlighter-rouge">mustInclude</code>, <code class="language-plaintext highlighter-rouge">leaveOut</code>, <code class="language-plaintext highlighter-rouge">briefNote</code> and sizes <code class="language-plaintext highlighter-rouge">S</code>/<code class="language-plaintext highlighter-rouge">L</code>.
+<code class="language-plaintext highlighter-rouge">DesignRecipeDto</code> gains <code class="language-plaintext highlighter-rouge">why</code>, <code class="language-plaintext highlighter-rouge">size</code>, <code class="language-plaintext highlighter-rouge">parentRecipeId</code>, <code class="language-plaintext highlighter-rouge">generation</code>, <code class="language-plaintext highlighter-rouge">feedback</code>, <code class="language-plaintext highlighter-rouge">previewFeedback</code>;
+inventory items gain <code class="language-plaintext highlighter-rouge">hintApplied</code>; settings gain the brief fields; usage gains <code class="language-plaintext highlighter-rouge">sizeRules</code>, <code class="language-plaintext highlighter-rouge">occasions</code>,
+<code class="language-plaintext highlighter-rouge">refineChips</code>, <code class="language-plaintext highlighter-rouge">recipeFeedbackReasons</code>, <code class="language-plaintext highlighter-rouge">previewFeedbackReasons</code> and <code class="language-plaintext highlighter-rouge">sizes</code> is now <code class="language-plaintext highlighter-rouge">["S","M","L"]</code>;
+jobs gain <code class="language-plaintext highlighter-rouge">refineOfRecipeId</code>. New 422 codes <code class="language-plaintext highlighter-rouge">invalid-brief</code>, <code class="language-plaintext highlighter-rouge">must-include-missing</code>, <code class="language-plaintext highlighter-rouge">refine-limit</code>.
+Admin endpoints <code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics/ai-florist[/feedback-export]</code>. Config
+<code class="language-plaintext highlighter-rouge">BouquetDesign:{Step}:PromptVersion|CandidatePromptVersion|CandidatePercent</code>, <code class="language-plaintext highlighter-rouge">Composition:RepairEnabled</code>.
+Migration <code class="language-plaintext highlighter-rouge">AddDesignFeedbackLoop</code> (4 new tables, job/session columns).</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M13 for the new UI); Vendor and Admin Portals in this repo.</li>
+  <li><strong>Deployment order</strong>: API first (migration applies on start), then the portals, then the mobile build.
+Old clients ignore the new fields; an old client that renders <code class="language-plaintext highlighter-rouge">sizes</code> as a picker now also sees S and L,
+which the API accepts.</li>
+</ul>
+
 <h2 id="2026-10-18--ep-31-stock-photos--ai-appearance-additive-non-breaking">2026-10-18 — EP-31 Stock photos &amp; AI appearance (additive, non-breaking)</h2>
 
 <ul>

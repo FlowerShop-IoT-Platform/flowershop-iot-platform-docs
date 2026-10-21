@@ -131,6 +131,10 @@ Every `fly secrets set` restarts the machine; batch them. Add the new keys to
 | `BouquetDesign__Limits__*` | `RecognitionsPerMonth` 20, `CompositionsPerMonth` 20, `PreviewsPerMonth` 40, `MaxActivePreviewsPerVendor` 2, `GlobalMonthlyUsdCap` 100 | |
 | `BouquetDesign__Bfl__BaseUrl` | `https://api.eu.bfl.ai/v1` (EU data residency) | |
 | `BouquetDesign__Worker__Enabled` | Run the worker in this process | `true` |
+| `BouquetDesign__{Recognition,Composition,Preview}__PromptVersion` | Active prompt version (EP-33): `inventory-v1\|v2`, `recipe-v1\|v2`, `preview-v1\|v2`; empty = newest | `*-v1` (appsettings.json) |
+| `BouquetDesign__{…}__CandidatePromptVersion` | Candidate version for a share of vendors | `*-v2` |
+| `BouquetDesign__{…}__CandidatePercent` | 0–100 % of vendors (sticky hash of the vendor id) on the candidate; 0 = everyone on the active version | `0` |
+| `BouquetDesign__Composition__RepairEnabled` | One validator-guided repair call per composition (free for the vendor, counted in the global $ cap) | `true` |
 
 > **Model ids are configuration, not code.** Before switching a provider on, confirm the id is
 > current (`gpt-4.1-mini` was the plan's priced baseline; GPT Image models are named like
@@ -293,24 +297,50 @@ WHERE ("State"='Queued' AND "CreatedAt" < now() - interval '5 minutes')
 8. Confirm the R2 objects exist under `design/{vendorId}/…` in `flowershop-design-private` and that
    the bucket has no public URL.
 
-### 5.4 Provider evaluation (plan Task 0 — before enabling paid providers for real vendors)
+### 5.4 Provider and prompt evaluation — Admin Portal "AI quality" (EP-33)
 
-1. Collect 30–50 consented stock photos from 2–3 shops (overlapping angles, similar species, poor
-   light). Keep them **out of Git**; record ground truth (species, colour, count range).
-2. Restrict to a test vendor: `BouquetDesign__PilotVendorIds__0=<test vendor>`. (The allow-list
-   applies to everyone, so other vendors are locked out of new work during the evaluation.)
-3. Run each photo set with `Recognition=OpenAI`; count corrected lines per session.
-4. For the same confirmed stock run `Composition=OpenAI` and the `Deterministic` composer; florists
-   rate usefulness blind.
-5. Render the same recipes with `Preview=Bfl` (klein) and `Preview=OpenAI` (GPT Image medium); florists
-   rate unsupported species, wrong colours, invented materials, usefulness; count re-renders.
-6. Record per call in `docs/verification/ai-bouquet-assistant/evaluation-results.csv` (mobile repo):
-   `sample_id,step,provider,model,prompt_version,reference_count,latency_ms,input_tokens,output_tokens,billed_usd,inventory_lines,corrected_lines,recipe_valid,florist_useful,rerender_count,error_code`.
-   Latency/state per job is in `DesignJobs` (`LatencyMs`, `Provider`, `Model`, `PromptVersion`).
-7. **Gates**: 100 % of persisted recipes stock-valid (guaranteed by code); < 30 % of lines corrected;
-   median session-to-recipes < 45 s; preview p95 < 90 s; ≥ 70 % rated useful; economy session ≤ $0.10
-   with two previews. Choose the provider with the lowest cost **per accepted preview**. If no
-   renderer passes, ship recipes with `BouquetDesign__PreviewsEnabled=false`.
+The manual evaluation CSV is replaced by the Admin Portal dashboard **AI quality**
+(`/Analytics/AiFlorist`, API `GET /api/v1/admin/analytics/ai-florist`). It shows, per step × provider ×
+model × prompt version and date range: jobs, failure rate, p50/p95 latency and $; for recipes the 👍 rate,
+saved / used-stock / refine rates, validator rejection and repair success; for recognition the
+**corrected-line rate**; for previews "looks right" and re-render rates; plus a daily trend. Numbers come
+from vendors' own ratings and actions in the wizard (`DesignFeedback`, `DesignSignals`,
+`RecognitionCorrections`) — aggregates only, no shop names or comments.
+
+1. Restrict to test vendors with `BouquetDesign__PilotVendorIds__N` while comparing providers.
+2. Switch the provider under test on (`Recognition=OpenAI`, `Composition=OpenAI`, `Preview=Bfl|OpenAI`)
+   and have florists use the wizard normally: rate recipes 👍/👎, mark previews "Looks right / Not right",
+   confirm or correct recognised stock.
+3. Read the dashboard for the test period. **Gates**: 100 % of persisted recipes stock-valid (guaranteed
+   by code); recognition corrected lines **< 30 %** (shown green/red); median session-to-recipes < 45 s;
+   preview p95 < 90 s; 👍 rate ≥ 70 %; economy session ≤ $0.10 with two previews. Choose the renderer
+   with the lowest cost per "looks right" preview. If none passes, ship recipes with
+   `BouquetDesign__PreviewsEnabled=false`.
+4. For prompt-design work, export consented feedback (**Export consented feedback (CSV)** on the same
+   page): only vendors who switched on "Help improve the AI Florist" on the House style page are
+   included; comments are scrubbed of contact data and shop names; every export is logged
+   (`AUDIT ai-florist-feedback-export`).
+
+### 5.4.1 Prompt versions and candidate rollout (EP-33)
+
+Prompts live in `Infrastructure/BouquetDesign/Providers/PromptCatalog.cs`, keyed `{step}-v{n}`; v1 stays
+reproducible. `recipe-v2` adds house style, brief, shop history, refine and the "why" sentence;
+`inventory-v2` adds the shop's known corrections and count bias; `preview-v2` adds corrections and the
+house colour mood. Only providers that read the catalogue (OpenAI, BFL) use it; the free providers keep
+their own fixed versions.
+
+1. **Migrate**: deploy the API (migration `AddDesignFeedbackLoop`). Ratings start accumulating on v1.
+2. **Candidate at 0 %**: `appsettings.json` ships `PromptVersion=*-v1`, `CandidatePromptVersion=*-v2`,
+   `CandidatePercent=0` — behaviour equals v1.
+3. **Pilot**: raise the share for one step at a time, e.g.
+   `fly secrets set BouquetDesign__Composition__CandidatePercent=50` (combine with `PilotVendorIds` to
+   limit who runs paid providers). A vendor always sees the same version.
+4. **Promote** when the dashboard shows the candidate's 👍 rate higher and its validator rejection
+   (recipes) / corrected-line rate (recognition) / re-render rate (previews) lower than v1:
+   `BouquetDesign__Composition__PromptVersion=recipe-v2` and `CandidatePercent=0`. Promotion is always an
+   operator change — never automatic.
+5. **Roll back** the same way (set `PromptVersion` back to v1). Repair can be switched off on its own with
+   `BouquetDesign__Composition__RepairEnabled=false`; the kill switch still stops all paid work.
 
 ### 5.5 Failure-mode checks (once per environment)
 
@@ -338,5 +368,8 @@ WHERE ("State"='Queued' AND "CreatedAt" < now() - interval '5 minutes')
   Existing sessions and saved recipes stay readable.
 - **Revert to free providers**: unset the `*__Provider` secrets.
 - **Code rollback**: redeploy the previous image. The three new tables are unused by older code and can
-  stay; do **not** drop them (saved recipes live there).
+  stay; do **not** drop them (saved recipes live there). The EP-33 tables (`DesignFeedback`,
+  `DesignSignals`, `DesignStyleProfiles`, `RecognitionCorrections`) and new job/session columns are
+  likewise ignored by older code.
+- **Prompt rollback**: set `BouquetDesign__{Step}__PromptVersion` to the previous version (§5.4.1).
 - **Return to scale-to-zero**: revert §2.1 only after the worker moved to its own machine (§2.2).

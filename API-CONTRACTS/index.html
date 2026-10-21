@@ -4425,7 +4425,7 @@ price × 100 (gross margin, not markup). A <code class="language-plaintext highl
     </tr>
     <tr>
       <td>422</td>
-      <td><code class="language-plaintext highlighter-rouge">insufficient-stock</code>, <code class="language-plaintext highlighter-rouge">cost-profile-incomplete</code></td>
+      <td><code class="language-plaintext highlighter-rouge">insufficient-stock</code>, <code class="language-plaintext highlighter-rouge">cost-profile-incomplete</code>, <code class="language-plaintext highlighter-rouge">invalid-brief</code>, <code class="language-plaintext highlighter-rouge">must-include-missing</code>, <code class="language-plaintext highlighter-rouge">refine-limit</code> (EP-33)</td>
     </tr>
     <tr>
       <td>429</td>
@@ -4462,7 +4462,7 @@ price × 100 (gross margin, not markup). A <code class="language-plaintext highl
 
 <p><code class="language-plaintext highlighter-rouge">DesignUsageDto</code>: <code class="language-plaintext highlighter-rouge">{ enabled, previewsEnabled, recognitionsUsed, recognitionsLimit, recognitionsRemaining,
 compositionsUsed, compositionsLimit, compositionsRemaining, previewsUsed, previewsLimit, previewsRemaining,
-resetsAt, maxPhotos, maxPhotoBytes, maxLongEdgePixels, sizes: ["M"], modes: ["AvailableOnly"],
+resetsAt, maxPhotos, maxPhotoBytes, maxLongEdgePixels, sizes: ["S", "M", "L"], modes: ["AvailableOnly"],
 styles: ["Soft &amp; natural", …], minStems: 11, maxStems: 21 }</code>.</p>
 
 <p><code class="language-plaintext highlighter-rouge">RecipeCostDto</code>: <code class="language-plaintext highlighter-rouge">{ cost: CostBreakdownDto, sellingPrice, marginAmount, marginPercent, marginUnavailableReason }</code>.</p>
@@ -4472,6 +4472,109 @@ styles: ["Soft &amp; natural", …], minStems: 11, maxStems: 21 }</code>.</p>
 <p><code class="language-plaintext highlighter-rouge">DesignSessionSummaryDto</code>: <code class="language-plaintext highlighter-rouge">{ id, state, inputMode, inventoryItemCount, recipeCount, savedRecipeCount, createdAt, updatedAt }</code>.</p>
 
 <p>Canonical copy for the mobile client: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app/docs/superpowers/specs/2026-10-14-ai-bouquet-assistant-api-contract.md</code>.</p>
+
+<h3 id="211-feedback-loop--smarter-wizard-ep-33">21.1 Feedback loop &amp; smarter wizard (EP-33)</h3>
+
+<p>Additive. Vendor text (house style, brief, refine notes, corrections) is only ever sent to models as
+labelled JSON data; every recipe — refined or repaired — still goes through the code validator, the
+size rule, the cost ceiling and the must-include check.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body / query</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes</code></td>
+      <td>adds optional <code class="language-plaintext highlighter-rouge">"occasion": "birthday\|romantic\|wedding\|sympathy\|thank-you\|celebration\|everyday"</code>, <code class="language-plaintext highlighter-rouge">"colourPreference"</code> (≤ 60), <code class="language-plaintext highlighter-rouge">"mustInclude": [inventoryItemId]</code>, <code class="language-plaintext highlighter-rouge">"leaveOut": [inventoryItemId]</code>, <code class="language-plaintext highlighter-rouge">"briefNote"</code> (≤ 200); <code class="language-plaintext highlighter-rouge">"size": "S\|M\|L"</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>; 422 <code class="language-plaintext highlighter-rouge">invalid-brief</code> before any paid call when the picks can’t make the size</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/refine</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "chips": ["more-greenery"\|"fewer-stems"\|"cheaper"\|"more-colour"\|"softer-colours"\|"swap-main-flower"], "note": "…" }</code> (≤ 200), <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (state <code class="language-plaintext highlighter-rouge">Composing</code>; <code class="language-plaintext highlighter-rouge">activeJob.refineOfRecipeId</code>). One revised recipe is appended right after the original with <code class="language-plaintext highlighter-rouge">parentRecipeId</code> and <code class="language-plaintext highlighter-rouge">generation + 1</code>; counts as one composition; 422 <code class="language-plaintext highlighter-rouge">refine-limit</code> after 5 generations</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/preview</code></td>
+      <td>optional <code class="language-plaintext highlighter-rouge">{ "corrections": ["wrong-colours"\|"extra-flowers"\|"missing-flowers"\|"wrong-size"\|"unrealistic"\|"other"], "note": "…" }</code></td>
+      <td>With corrections: a re-render of a <code class="language-plaintext highlighter-rouge">Ready</code> preview (counts as a preview; the new image replaces the old)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/feedback</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "target": "Recipe\|Preview", "rating": "Up\|Down", "reasons": [chip], "comment": "…" }</code> (≤ 300; reasons kept only for <code class="language-plaintext highlighter-rouge">Down</code>)</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>; idempotent, last write wins; another vendor’s recipe → 404; rating a preview that isn’t <code class="language-plaintext highlighter-rouge">Ready</code> → 409</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/feedback?target=Recipe</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-sessions/{id}/recipes/{recipeId}/signals</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "kind": "Copied" }</code> (the only client-reported signal)</td>
+      <td>204</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-style-profile</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code> (created on first read)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-style-profile</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "expectedVersion": 1, "notes": "loose garden look", "avoid": [{ "name": "Carnations", "stockItemId": null }], "favourites": [stockItemId], "defaultStyle": "Garden", "defaultColourPreference": "soft pastels", "learnFromRatings": true, "improveAiConsent": false }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code>; 409 <code class="language-plaintext highlighter-rouge">version-conflict</code></td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/design-feedback</code></td>
+      <td>— (“Forget my ratings”)</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code> with <code class="language-plaintext highlighter-rouge">ratingCount: 0</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Recipe fields</strong> (<code class="language-plaintext highlighter-rouge">DesignRecipeDto</code>): <code class="language-plaintext highlighter-rouge">why</code> (one sentence, <code class="language-plaintext highlighter-rouge">recipe-v2</code>; null from older prompts),
+<code class="language-plaintext highlighter-rouge">size</code> (<code class="language-plaintext highlighter-rouge">S\|M\|L</code>), <code class="language-plaintext highlighter-rouge">parentRecipeId</code>, <code class="language-plaintext highlighter-rouge">generation</code>, <code class="language-plaintext highlighter-rouge">feedback</code> / <code class="language-plaintext highlighter-rouge">previewFeedback</code>
+(<code class="language-plaintext highlighter-rouge">{ target, rating, reasons, comment, updatedAt }</code> or null). Inventory items add <code class="language-plaintext highlighter-rouge">hintApplied</code> (recognition
+renamed the line using one of the shop’s earlier fixes). <code class="language-plaintext highlighter-rouge">settings</code> adds <code class="language-plaintext highlighter-rouge">occasion</code>, <code class="language-plaintext highlighter-rouge">colourPreference</code>,
+<code class="language-plaintext highlighter-rouge">mustInclude</code>, <code class="language-plaintext highlighter-rouge">leaveOut</code>, <code class="language-plaintext highlighter-rouge">briefNote</code>. Jobs add <code class="language-plaintext highlighter-rouge">refineOfRecipeId</code>.</p>
+
+<p><strong>Sizes</strong> (<code class="language-plaintext highlighter-rouge">usage.sizeRules</code>): S 7–12 stems (labour × 0.75), M 11–21 (× 1), L 19–31 (× 1.5). <code class="language-plaintext highlighter-rouge">usage</code> also
+lists <code class="language-plaintext highlighter-rouge">occasions</code>, <code class="language-plaintext highlighter-rouge">refineChips</code>, <code class="language-plaintext highlighter-rouge">recipeFeedbackReasons</code>, <code class="language-plaintext highlighter-rouge">previewFeedbackReasons</code>.</p>
+
+<p><strong>Implicit signals</strong> (server-side, same transaction as the action): <code class="language-plaintext highlighter-rouge">Saved</code>, <code class="language-plaintext highlighter-rouge">PreviewRequested</code>, <code class="language-plaintext highlighter-rouge">Refined</code>,
+<code class="language-plaintext highlighter-rouge">StockUsed</code> (<code class="language-plaintext highlighter-rouge">POST /vendor/stock/consume</code> with <code class="language-plaintext highlighter-rouge">reference = "design-recipe:{recipeId}"</code>) and the client’s <code class="language-plaintext highlighter-rouge">Copied</code>.</p>
+
+<p><strong>House style</strong>: avoid-listed <strong>stock items</strong> are removed in code before composition (a hard rule, also
+for the brief pre-flight); free avoid names are guidance. With “Learn from my ratings” on and at least
+three ratings, the composer receives a vendor-scoped taste summary (up to 3 liked/made recipes, top 3 👎
+reasons of 30 days; no comments, no other shop’s data).</p>
+
+<p><strong>Repair</strong>: when fewer valid recipes came back than asked, the server makes one repair call with the
+validator’s reasons (free for the vendor, reserved against the global $ cap; <code class="language-plaintext highlighter-rouge">BouquetDesign:Composition:RepairEnabled</code>).</p>
+
+<p><strong>New 422 codes</strong>: <code class="language-plaintext highlighter-rouge">invalid-brief</code>, <code class="language-plaintext highlighter-rouge">must-include-missing</code>, <code class="language-plaintext highlighter-rouge">refine-limit</code>.</p>
+
+<p><strong>Admin (PlatformAdmin)</strong>: <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/analytics/ai-florist?from&amp;to&amp;step&amp;promptVersion</code> → <code class="language-plaintext highlighter-rouge">AiFloristQualityDto</code>
+<code class="language-plaintext highlighter-rouge">{ from, to, rows: [{ step, provider, model, promptVersion, jobs, failureRate, p50LatencyMs, p95LatencyMs, spentUsd,
+recipes, ratings, thumbsUpRate, savedRate, usedStockRate, refineRate, validatorRejectionRate, repairAttempts,
+repairSuccessRate, recognisedLines, correctedLineRate, looksRightRate, rerenderRate }], trend: [{ date, step,
+promptVersion, jobs, positiveRate }], promptVersions }</code> (aggregates only).
+<code class="language-plaintext highlighter-rouge">GET /api/v1/admin/analytics/ai-florist/feedback-export?from&amp;to</code> → <code class="language-plaintext highlighter-rouge">text/csv</code> of feedback from vendors who
+switched on “Help improve the AI Florist” (contact data and shop names scrubbed; audit-logged).</p>
 
 <hr />
 

@@ -1768,6 +1768,48 @@
       <td>Vendor mobile app</td>
     </tr>
     <tr>
+      <td>PUT/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/recipes/{rid}/feedback</code></td>
+      <td>PUT <code class="language-plaintext highlighter-rouge">{ target: Recipe\|Preview, rating: Up\|Down, reasons[], comment? }</code>; DELETE <code class="language-plaintext highlighter-rouge">?target=</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (EP-33)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M13)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/recipes/{rid}/refine</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ chips[], note? }</code> + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (one composition, EP-33)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M13)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/recipes/{rid}/preview</code></td>
+      <td>optional <code class="language-plaintext highlighter-rouge">{ corrections[], note? }</code> = re-render with corrections (EP-33)</td>
+      <td>202 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+      <td>Vendor Portal, vendor mobile app (EP-M13)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/recipes/{rid}/signals</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ kind: "Copied" }</code></td>
+      <td>204 (EP-33)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M13)</td>
+    </tr>
+    <tr>
+      <td>GET/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-style-profile</code></td>
+      <td>PUT <code class="language-plaintext highlighter-rouge">{ expectedVersion, notes?, avoid[{ name, stockItemId? }], favourites[], defaultStyle?, defaultColourPreference?, learnFromRatings, improveAiConsent }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code> (EP-33)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M13)</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-feedback</code></td>
+      <td>— (“Forget my ratings”)</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code> (EP-33)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M13)</td>
+    </tr>
+    <tr>
       <td>GET/POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock</code></td>
       <td>GET <code class="language-plaintext highlighter-rouge">?search&amp;kind&amp;status&amp;includeArchived</code>; POST <code class="language-plaintext highlighter-rouge">{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }</code></td>
@@ -1907,6 +1949,20 @@
       <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics</code></td>
       <td>Query: <code class="language-plaintext highlighter-rouge">fromDate?, toDate?, includeVendorBreakdown, includeLocationAnalysis</code></td>
       <td><code class="language-plaintext highlighter-rouge">PlatformAnalyticsDto</code></td>
+      <td>Admin Portal</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics/ai-florist</code></td>
+      <td>Query: <code class="language-plaintext highlighter-rouge">from?, to?, step?, promptVersion?</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AiFloristQualityDto</code> (aggregates only, EP-33)</td>
+      <td>Admin Portal</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics/ai-florist/feedback-export</code></td>
+      <td>Query: <code class="language-plaintext highlighter-rouge">from?, to?</code></td>
+      <td><code class="language-plaintext highlighter-rouge">text/csv</code> of consented, scrubbed feedback (audit-logged, EP-33)</td>
       <td>Admin Portal</td>
     </tr>
     <tr>
@@ -2909,6 +2965,24 @@
       <td>object</td>
       <td>Quotas, $ cap, worker concurrency/lease, retention days</td>
       <td>see <code class="language-plaintext highlighter-rouge">BouquetDesignOptions</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:{Recognition,Composition,Preview}:PromptVersion</code></td>
+      <td>string</td>
+      <td>Active prompt version (<code class="language-plaintext highlighter-rouge">inventory-v1/v2</code>, <code class="language-plaintext highlighter-rouge">recipe-v1/v2</code>, <code class="language-plaintext highlighter-rouge">preview-v1/v2</code>; EP-33). Empty = newest</td>
+      <td><code class="language-plaintext highlighter-rouge">*-v1</code> (appsettings)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:{Step}:CandidatePromptVersion</code> / <code class="language-plaintext highlighter-rouge">CandidatePercent</code></td>
+      <td>string / int</td>
+      <td>Candidate version for a sticky, vendor-hashed share (0–100)</td>
+      <td><code class="language-plaintext highlighter-rouge">*-v2</code> / <code class="language-plaintext highlighter-rouge">0</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Composition:RepairEnabled</code></td>
+      <td>bool</td>
+      <td>One validator-guided repair call per composition (global $ cap, not vendor quota)</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
     </tr>
   </tbody>
 </table>

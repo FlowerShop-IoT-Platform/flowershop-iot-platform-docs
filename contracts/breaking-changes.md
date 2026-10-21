@@ -2,6 +2,23 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-21 — EP-33 AI Florist feedback loop (additive, non-breaking)
+
+- **What changed**: new vendor endpoints for ratings, refine, copy signal, house style and "forget my
+  ratings"; `POST …/preview` accepts an optional `{ corrections, note }` body (re-render); `POST …/recipes`
+  accepts `occasion`, `colourPreference`, `mustInclude`, `leaveOut`, `briefNote` and sizes `S`/`L`.
+  `DesignRecipeDto` gains `why`, `size`, `parentRecipeId`, `generation`, `feedback`, `previewFeedback`;
+  inventory items gain `hintApplied`; settings gain the brief fields; usage gains `sizeRules`, `occasions`,
+  `refineChips`, `recipeFeedbackReasons`, `previewFeedbackReasons` and `sizes` is now `["S","M","L"]`;
+  jobs gain `refineOfRecipeId`. New 422 codes `invalid-brief`, `must-include-missing`, `refine-limit`.
+  Admin endpoints `/api/v1/admin/analytics/ai-florist[/feedback-export]`. Config
+  `BouquetDesign:{Step}:PromptVersion|CandidatePromptVersion|CandidatePercent`, `Composition:RepairEnabled`.
+  Migration `AddDesignFeedbackLoop` (4 new tables, job/session columns).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M13 for the new UI); Vendor and Admin Portals in this repo.
+- **Deployment order**: API first (migration applies on start), then the portals, then the mobile build.
+  Old clients ignore the new fields; an old client that renders `sizes` as a picker now also sees S and L,
+  which the API accepts.
+
 ## 2026-10-18 — EP-31 Stock photos & AI appearance (additive, non-breaking)
 
 - **What changed**: new photo / AI endpoints under `/api/v1/vendor/stock` (`API-CONTRACTS.md` §22.1,

@@ -2407,7 +2407,7 @@ price × 100 (gross margin, not markup). A `costCeiling` needs every stock line 
 | 403 | `feature-disabled` (kill switch / not in pilot) |
 | 404 | `not-found` (absent or another vendor's) |
 | 409 | `version-conflict` (refresh, keep the user's edits), `invalid-state`, `idempotency-conflict` |
-| 422 | `insufficient-stock`, `cost-profile-incomplete` |
+| 422 | `insufficient-stock`, `cost-profile-incomplete`, `invalid-brief`, `must-include-missing`, `refine-limit` (EP-33) |
 | 429 | `quota-exhausted`, `spend-cap-reached`, `too-many-active` (+ `Retry-After` seconds) |
 
 Example `DesignSessionDto` (abridged):
@@ -2439,7 +2439,7 @@ Example `DesignSessionDto` (abridged):
 
 `DesignUsageDto`: `{ enabled, previewsEnabled, recognitionsUsed, recognitionsLimit, recognitionsRemaining,
 compositionsUsed, compositionsLimit, compositionsRemaining, previewsUsed, previewsLimit, previewsRemaining,
-resetsAt, maxPhotos, maxPhotoBytes, maxLongEdgePixels, sizes: ["M"], modes: ["AvailableOnly"],
+resetsAt, maxPhotos, maxPhotoBytes, maxLongEdgePixels, sizes: ["S", "M", "L"], modes: ["AvailableOnly"],
 styles: ["Soft & natural", …], minStems: 11, maxStems: 21 }`.
 
 `RecipeCostDto`: `{ cost: CostBreakdownDto, sellingPrice, marginAmount, marginPercent, marginUnavailableReason }`.
@@ -2449,6 +2449,54 @@ styles: ["Soft & natural", …], minStems: 11, maxStems: 21 }`.
 `DesignSessionSummaryDto`: `{ id, state, inputMode, inventoryItemCount, recipeCount, savedRecipeCount, createdAt, updatedAt }`.
 
 Canonical copy for the mobile client: `flower-shop-vendor-mobile-app/docs/superpowers/specs/2026-10-14-ai-bouquet-assistant-api-contract.md`.
+
+### 21.1 Feedback loop & smarter wizard (EP-33)
+
+Additive. Vendor text (house style, brief, refine notes, corrections) is only ever sent to models as
+labelled JSON data; every recipe — refined or repaired — still goes through the code validator, the
+size rule, the cost ceiling and the must-include check.
+
+| Method | Path | Body / query | Success |
+|---|---|---|---|
+| POST | `/design-sessions/{id}/recipes` | adds optional `"occasion": "birthday\|romantic\|wedding\|sympathy\|thank-you\|celebration\|everyday"`, `"colourPreference"` (≤ 60), `"mustInclude": [inventoryItemId]`, `"leaveOut": [inventoryItemId]`, `"briefNote"` (≤ 200); `"size": "S\|M\|L"` | 202 `DesignSessionDto`; 422 `invalid-brief` before any paid call when the picks can't make the size |
+| POST | `/design-sessions/{id}/recipes/{recipeId}/refine` | `{ "chips": ["more-greenery"\|"fewer-stems"\|"cheaper"\|"more-colour"\|"softer-colours"\|"swap-main-flower"], "note": "…" }` (≤ 200), **required** `Idempotency-Key` | 202 `DesignSessionDto` (state `Composing`; `activeJob.refineOfRecipeId`). One revised recipe is appended right after the original with `parentRecipeId` and `generation + 1`; counts as one composition; 422 `refine-limit` after 5 generations |
+| POST | `/design-sessions/{id}/recipes/{recipeId}/preview` | optional `{ "corrections": ["wrong-colours"\|"extra-flowers"\|"missing-flowers"\|"wrong-size"\|"unrealistic"\|"other"], "note": "…" }` | With corrections: a re-render of a `Ready` preview (counts as a preview; the new image replaces the old) |
+| PUT | `/design-sessions/{id}/recipes/{recipeId}/feedback` | `{ "target": "Recipe\|Preview", "rating": "Up\|Down", "reasons": [chip], "comment": "…" }` (≤ 300; reasons kept only for `Down`) | 200 `DesignSessionDto`; idempotent, last write wins; another vendor's recipe → 404; rating a preview that isn't `Ready` → 409 |
+| DELETE | `/design-sessions/{id}/recipes/{recipeId}/feedback?target=Recipe` | — | 200 `DesignSessionDto` |
+| POST | `/design-sessions/{id}/recipes/{recipeId}/signals` | `{ "kind": "Copied" }` (the only client-reported signal) | 204 |
+| GET | `/design-style-profile` | — | 200 `DesignStyleProfileDto` (created on first read) |
+| PUT | `/design-style-profile` | `{ "expectedVersion": 1, "notes": "loose garden look", "avoid": [{ "name": "Carnations", "stockItemId": null }], "favourites": [stockItemId], "defaultStyle": "Garden", "defaultColourPreference": "soft pastels", "learnFromRatings": true, "improveAiConsent": false }` | 200 `DesignStyleProfileDto`; 409 `version-conflict` |
+| DELETE | `/design-feedback` | — ("Forget my ratings") | 200 `DesignStyleProfileDto` with `ratingCount: 0` |
+
+**Recipe fields** (`DesignRecipeDto`): `why` (one sentence, `recipe-v2`; null from older prompts),
+`size` (`S\|M\|L`), `parentRecipeId`, `generation`, `feedback` / `previewFeedback`
+(`{ target, rating, reasons, comment, updatedAt }` or null). Inventory items add `hintApplied` (recognition
+renamed the line using one of the shop's earlier fixes). `settings` adds `occasion`, `colourPreference`,
+`mustInclude`, `leaveOut`, `briefNote`. Jobs add `refineOfRecipeId`.
+
+**Sizes** (`usage.sizeRules`): S 7–12 stems (labour × 0.75), M 11–21 (× 1), L 19–31 (× 1.5). `usage` also
+lists `occasions`, `refineChips`, `recipeFeedbackReasons`, `previewFeedbackReasons`.
+
+**Implicit signals** (server-side, same transaction as the action): `Saved`, `PreviewRequested`, `Refined`,
+`StockUsed` (`POST /vendor/stock/consume` with `reference = "design-recipe:{recipeId}"`) and the client's `Copied`.
+
+**House style**: avoid-listed **stock items** are removed in code before composition (a hard rule, also
+for the brief pre-flight); free avoid names are guidance. With "Learn from my ratings" on and at least
+three ratings, the composer receives a vendor-scoped taste summary (up to 3 liked/made recipes, top 3 👎
+reasons of 30 days; no comments, no other shop's data).
+
+**Repair**: when fewer valid recipes came back than asked, the server makes one repair call with the
+validator's reasons (free for the vendor, reserved against the global $ cap; `BouquetDesign:Composition:RepairEnabled`).
+
+**New 422 codes**: `invalid-brief`, `must-include-missing`, `refine-limit`.
+
+**Admin (PlatformAdmin)**: `GET /api/v1/admin/analytics/ai-florist?from&to&step&promptVersion` → `AiFloristQualityDto`
+`{ from, to, rows: [{ step, provider, model, promptVersion, jobs, failureRate, p50LatencyMs, p95LatencyMs, spentUsd,
+recipes, ratings, thumbsUpRate, savedRate, usedStockRate, refineRate, validatorRejectionRate, repairAttempts,
+repairSuccessRate, recognisedLines, correctedLineRate, looksRightRate, rerenderRate }], trend: [{ date, step,
+promptVersion, jobs, positiveRate }], promptVersions }` (aggregates only).
+`GET /api/v1/admin/analytics/ai-florist/feedback-export?from&to` → `text/csv` of feedback from vendors who
+switched on "Help improve the AI Florist" (contact data and shop names scrubbed; audit-logged).
 
 ---
 

@@ -1016,6 +1016,26 @@ fly secrets <span class="nb">set</span> <span class="nt">--app</span> <span clas
       <td>Run the worker in this process</td>
       <td><code class="language-plaintext highlighter-rouge">true</code></td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__{Recognition,Composition,Preview}__PromptVersion</code></td>
+      <td>Active prompt version (EP-33): <code class="language-plaintext highlighter-rouge">inventory-v1\|v2</code>, <code class="language-plaintext highlighter-rouge">recipe-v1\|v2</code>, <code class="language-plaintext highlighter-rouge">preview-v1\|v2</code>; empty = newest</td>
+      <td><code class="language-plaintext highlighter-rouge">*-v1</code> (appsettings.json)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__{…}__CandidatePromptVersion</code></td>
+      <td>Candidate version for a share of vendors</td>
+      <td><code class="language-plaintext highlighter-rouge">*-v2</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__{…}__CandidatePercent</code></td>
+      <td>0–100 % of vendors (sticky hash of the vendor id) on the candidate; 0 = everyone on the active version</td>
+      <td><code class="language-plaintext highlighter-rouge">0</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign__Composition__RepairEnabled</code></td>
+      <td>One validator-guided repair call per composition (free for the vendor, counted in the global $ cap)</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
   </tbody>
 </table>
 
@@ -1220,25 +1240,53 @@ appear within ~5 s. One missing price ⇒ “Known cost … · 1 price missing�
 the bucket has no public URL.</li>
 </ol>
 
-<h3 id="54-provider-evaluation-plan-task-0--before-enabling-paid-providers-for-real-vendors">5.4 Provider evaluation (plan Task 0 — before enabling paid providers for real vendors)</h3>
+<h3 id="54-provider-and-prompt-evaluation--admin-portal-ai-quality-ep-33">5.4 Provider and prompt evaluation — Admin Portal “AI quality” (EP-33)</h3>
+
+<p>The manual evaluation CSV is replaced by the Admin Portal dashboard <strong>AI quality</strong>
+(<code class="language-plaintext highlighter-rouge">/Analytics/AiFlorist</code>, API <code class="language-plaintext highlighter-rouge">GET /api/v1/admin/analytics/ai-florist</code>). It shows, per step × provider ×
+model × prompt version and date range: jobs, failure rate, p50/p95 latency and $; for recipes the 👍 rate,
+saved / used-stock / refine rates, validator rejection and repair success; for recognition the
+<strong>corrected-line rate</strong>; for previews “looks right” and re-render rates; plus a daily trend. Numbers come
+from vendors’ own ratings and actions in the wizard (<code class="language-plaintext highlighter-rouge">DesignFeedback</code>, <code class="language-plaintext highlighter-rouge">DesignSignals</code>,
+<code class="language-plaintext highlighter-rouge">RecognitionCorrections</code>) — aggregates only, no shop names or comments.</p>
 
 <ol>
-  <li>Collect 30–50 consented stock photos from 2–3 shops (overlapping angles, similar species, poor
-light). Keep them <strong>out of Git</strong>; record ground truth (species, colour, count range).</li>
-  <li>Restrict to a test vendor: <code class="language-plaintext highlighter-rouge">BouquetDesign__PilotVendorIds__0=&lt;test vendor&gt;</code>. (The allow-list
-applies to everyone, so other vendors are locked out of new work during the evaluation.)</li>
-  <li>Run each photo set with <code class="language-plaintext highlighter-rouge">Recognition=OpenAI</code>; count corrected lines per session.</li>
-  <li>For the same confirmed stock run <code class="language-plaintext highlighter-rouge">Composition=OpenAI</code> and the <code class="language-plaintext highlighter-rouge">Deterministic</code> composer; florists
-rate usefulness blind.</li>
-  <li>Render the same recipes with <code class="language-plaintext highlighter-rouge">Preview=Bfl</code> (klein) and <code class="language-plaintext highlighter-rouge">Preview=OpenAI</code> (GPT Image medium); florists
-rate unsupported species, wrong colours, invented materials, usefulness; count re-renders.</li>
-  <li>Record per call in <code class="language-plaintext highlighter-rouge">docs/verification/ai-bouquet-assistant/evaluation-results.csv</code> (mobile repo):
-<code class="language-plaintext highlighter-rouge">sample_id,step,provider,model,prompt_version,reference_count,latency_ms,input_tokens,output_tokens,billed_usd,inventory_lines,corrected_lines,recipe_valid,florist_useful,rerender_count,error_code</code>.
-Latency/state per job is in <code class="language-plaintext highlighter-rouge">DesignJobs</code> (<code class="language-plaintext highlighter-rouge">LatencyMs</code>, <code class="language-plaintext highlighter-rouge">Provider</code>, <code class="language-plaintext highlighter-rouge">Model</code>, <code class="language-plaintext highlighter-rouge">PromptVersion</code>).</li>
-  <li><strong>Gates</strong>: 100 % of persisted recipes stock-valid (guaranteed by code); &lt; 30 % of lines corrected;
-median session-to-recipes &lt; 45 s; preview p95 &lt; 90 s; ≥ 70 % rated useful; economy session ≤ $0.10
-with two previews. Choose the provider with the lowest cost <strong>per accepted preview</strong>. If no
-renderer passes, ship recipes with <code class="language-plaintext highlighter-rouge">BouquetDesign__PreviewsEnabled=false</code>.</li>
+  <li>Restrict to test vendors with <code class="language-plaintext highlighter-rouge">BouquetDesign__PilotVendorIds__N</code> while comparing providers.</li>
+  <li>Switch the provider under test on (<code class="language-plaintext highlighter-rouge">Recognition=OpenAI</code>, <code class="language-plaintext highlighter-rouge">Composition=OpenAI</code>, <code class="language-plaintext highlighter-rouge">Preview=Bfl|OpenAI</code>)
+and have florists use the wizard normally: rate recipes 👍/👎, mark previews “Looks right / Not right”,
+confirm or correct recognised stock.</li>
+  <li>Read the dashboard for the test period. <strong>Gates</strong>: 100 % of persisted recipes stock-valid (guaranteed
+by code); recognition corrected lines <strong>&lt; 30 %</strong> (shown green/red); median session-to-recipes &lt; 45 s;
+preview p95 &lt; 90 s; 👍 rate ≥ 70 %; economy session ≤ $0.10 with two previews. Choose the renderer
+with the lowest cost per “looks right” preview. If none passes, ship recipes with
+<code class="language-plaintext highlighter-rouge">BouquetDesign__PreviewsEnabled=false</code>.</li>
+  <li>For prompt-design work, export consented feedback (<strong>Export consented feedback (CSV)</strong> on the same
+page): only vendors who switched on “Help improve the AI Florist” on the House style page are
+included; comments are scrubbed of contact data and shop names; every export is logged
+(<code class="language-plaintext highlighter-rouge">AUDIT ai-florist-feedback-export</code>).</li>
+</ol>
+
+<h3 id="541-prompt-versions-and-candidate-rollout-ep-33">5.4.1 Prompt versions and candidate rollout (EP-33)</h3>
+
+<p>Prompts live in <code class="language-plaintext highlighter-rouge">Infrastructure/BouquetDesign/Providers/PromptCatalog.cs</code>, keyed <code class="language-plaintext highlighter-rouge">{step}-v{n}</code>; v1 stays
+reproducible. <code class="language-plaintext highlighter-rouge">recipe-v2</code> adds house style, brief, shop history, refine and the “why” sentence;
+<code class="language-plaintext highlighter-rouge">inventory-v2</code> adds the shop’s known corrections and count bias; <code class="language-plaintext highlighter-rouge">preview-v2</code> adds corrections and the
+house colour mood. Only providers that read the catalogue (OpenAI, BFL) use it; the free providers keep
+their own fixed versions.</p>
+
+<ol>
+  <li><strong>Migrate</strong>: deploy the API (migration <code class="language-plaintext highlighter-rouge">AddDesignFeedbackLoop</code>). Ratings start accumulating on v1.</li>
+  <li><strong>Candidate at 0 %</strong>: <code class="language-plaintext highlighter-rouge">appsettings.json</code> ships <code class="language-plaintext highlighter-rouge">PromptVersion=*-v1</code>, <code class="language-plaintext highlighter-rouge">CandidatePromptVersion=*-v2</code>,
+<code class="language-plaintext highlighter-rouge">CandidatePercent=0</code> — behaviour equals v1.</li>
+  <li><strong>Pilot</strong>: raise the share for one step at a time, e.g.
+<code class="language-plaintext highlighter-rouge">fly secrets set BouquetDesign__Composition__CandidatePercent=50</code> (combine with <code class="language-plaintext highlighter-rouge">PilotVendorIds</code> to
+limit who runs paid providers). A vendor always sees the same version.</li>
+  <li><strong>Promote</strong> when the dashboard shows the candidate’s 👍 rate higher and its validator rejection
+(recipes) / corrected-line rate (recognition) / re-render rate (previews) lower than v1:
+<code class="language-plaintext highlighter-rouge">BouquetDesign__Composition__PromptVersion=recipe-v2</code> and <code class="language-plaintext highlighter-rouge">CandidatePercent=0</code>. Promotion is always an
+operator change — never automatic.</li>
+  <li><strong>Roll back</strong> the same way (set <code class="language-plaintext highlighter-rouge">PromptVersion</code> back to v1). Repair can be switched off on its own with
+<code class="language-plaintext highlighter-rouge">BouquetDesign__Composition__RepairEnabled=false</code>; the kill switch still stops all paid work.</li>
 </ol>
 
 <h3 id="55-failure-mode-checks-once-per-environment">5.5 Failure-mode checks (once per environment)</h3>
@@ -1310,7 +1358,10 @@ measured p95 costs.</li>
 Existing sessions and saved recipes stay readable.</li>
   <li><strong>Revert to free providers</strong>: unset the <code class="language-plaintext highlighter-rouge">*__Provider</code> secrets.</li>
   <li><strong>Code rollback</strong>: redeploy the previous image. The three new tables are unused by older code and can
-stay; do <strong>not</strong> drop them (saved recipes live there).</li>
+stay; do <strong>not</strong> drop them (saved recipes live there). The EP-33 tables (<code class="language-plaintext highlighter-rouge">DesignFeedback</code>,
+<code class="language-plaintext highlighter-rouge">DesignSignals</code>, <code class="language-plaintext highlighter-rouge">DesignStyleProfiles</code>, <code class="language-plaintext highlighter-rouge">RecognitionCorrections</code>) and new job/session columns are
+likewise ignored by older code.</li>
+  <li><strong>Prompt rollback</strong>: set <code class="language-plaintext highlighter-rouge">BouquetDesign__{Step}__PromptVersion</code> to the previous version (§5.4.1).</li>
   <li><strong>Return to scale-to-zero</strong>: revert §2.1 only after the worker moved to its own machine (§2.2).</li>
 </ul>
 

@@ -15,7 +15,7 @@
 **Priority**: P1-high
 **Dependencies**: EP-28 (AI Florist API), EP-31 (stock appearance), EP-32 (portal wizard)
 **Requirement refs**: REQ-FBK-01 through REQ-FBK-16
-**State**: todo — trackers done (T-33-001).
+**State**: in progress — implemented and tested (T-33-002 … T-33-023); vendor app parity EP-M13 (T-33-024) and the pilot rollout are open.
 
 > Today the model never learns how its last answer went. After this epic, every rating, refinement
 > and stock correction makes the next answer for that shop better. The model still can't break a

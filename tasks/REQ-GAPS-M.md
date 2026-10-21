@@ -4,7 +4,7 @@
 > and REQ-GAPS-L.md (AI Florist wizard in the Vendor Portal, EP-32).
 > Requirement refs point at the tasks in `tasks-ep33-ai-florist-feedback-loop.json`.
 > Analysis date: 2026-10-19
-> Status: REQ-FBK-01 … 16 planned (EP-33, see `EPICS-M.md`).
+> Status: REQ-FBK-01 … 16 implemented in the API and Vendor/Admin Portals (EP-33, see `EPICS-M.md`); vendor app parity (EP-M13) pending.
 
 ## Context
 

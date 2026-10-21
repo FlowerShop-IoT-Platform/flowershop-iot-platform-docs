@@ -244,6 +244,12 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | PUT/GET | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/saved` / `/cost?sellingPrice=` | `{ saved }` | `DesignSessionDto` / `RecipeCostDto` | Vendor mobile app |
 | GET | `/api/v1/vendor/design-recipes?saved=true` | — | `DesignRecipeDto[]` | Vendor mobile app |
 | GET/PUT | `/api/v1/vendor/design-cost-profile` | `{ expectedVersion, basis, laborMinutes, hourlyRate, overheadPercent }` | `DesignCostProfileDto` | Vendor mobile app |
+| PUT/DELETE | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/feedback` | PUT `{ target: Recipe\|Preview, rating: Up\|Down, reasons[], comment? }`; DELETE `?target=` | `DesignSessionDto` (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
+| POST | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/refine` | `{ chips[], note? }` + **required** `Idempotency-Key` | 202 `DesignSessionDto` (one composition, EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
+| POST | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/preview` | optional `{ corrections[], note? }` = re-render with corrections (EP-33) | 202 `DesignSessionDto` | Vendor Portal, vendor mobile app (EP-M13) |
+| POST | `/api/v1/vendor/design-sessions/{id}/recipes/{rid}/signals` | `{ kind: "Copied" }` | 204 (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
+| GET/PUT | `/api/v1/vendor/design-style-profile` | PUT `{ expectedVersion, notes?, avoid[{ name, stockItemId? }], favourites[], defaultStyle?, defaultColourPreference?, learnFromRatings, improveAiConsent }` | `DesignStyleProfileDto` (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
+| DELETE | `/api/v1/vendor/design-feedback` | — ("Forget my ratings") | `DesignStyleProfileDto` (EP-33) | Vendor Portal, vendor mobile app (EP-M13) |
 | GET/POST | `/api/v1/vendor/stock` | GET `?search&kind&status&includeArchived`; POST `{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }` | `StockOverviewDto` / 201 `StockItemDto` (EP-30) | Vendor Portal, vendor mobile app |
 | GET/PUT/DELETE | `/api/v1/vendor/stock/{id}` | PUT `{ expectedVersion, …fields }` | `StockItemDetailsDto` / `StockItemDto` / 204 archive | Vendor Portal, vendor mobile app |
 | POST | `/api/v1/vendor/stock/{id}/restore` | — | `StockItemDto` | Vendor Portal, vendor mobile app |
@@ -267,6 +273,8 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | POST | `/api/v1/admin/vendors/{vendorId}/assign-technician` | `{ technicianId, scheduledDate, estimatedDuration, specialInstructions? }` | `TechnicianAssignmentResult` | Admin Portal |
 | PATCH | `/api/v1/admin/vendors/{vendorId}/status` | `{ newStatus, reason, notifyVendor }` | 200 | Admin Portal |
 | GET | `/api/v1/admin/analytics` | Query: `fromDate?, toDate?, includeVendorBreakdown, includeLocationAnalysis` | `PlatformAnalyticsDto` | Admin Portal |
+| GET | `/api/v1/admin/analytics/ai-florist` | Query: `from?, to?, step?, promptVersion?` | `AiFloristQualityDto` (aggregates only, EP-33) | Admin Portal |
+| GET | `/api/v1/admin/analytics/ai-florist/feedback-export` | Query: `from?, to?` | `text/csv` of consented, scrubbed feedback (audit-logged, EP-33) | Admin Portal |
 | POST | `/api/v1/admin/reports/vendor-onboarding` | `VendorOnboardingReportRequest` | `VendorOnboardingReportDto` | Admin Portal |
 | POST | `/api/v1/smartvases` | `{ deviceId, latitude, longitude, locationName?, vendorId?, vendorType? }` | `VaseRegistrationResult` 201 | Admin Portal |
 | GET | `/api/v1/smartvases` | — | `List<VaseDetailsDto>` | Admin Portal |
@@ -501,6 +509,9 @@ Consequently: `customer_id` may be **absent on the first Google token** and is p
 | `BouquetDesign:OpenAI:ApiKey`, `BouquetDesign:Bfl:ApiKey` | secret | Provider keys (Fly secrets only) | empty |
 | `BouquetDesign:Storage:*` | object | `Local` (dev folder) or `R2` private bucket `flowershop-design-private` | `Local` |
 | `BouquetDesign:Limits:*`, `Worker:*`, `Retention:*` | object | Quotas, $ cap, worker concurrency/lease, retention days | see `BouquetDesignOptions` |
+| `BouquetDesign:{Recognition,Composition,Preview}:PromptVersion` | string | Active prompt version (`inventory-v1/v2`, `recipe-v1/v2`, `preview-v1/v2`; EP-33). Empty = newest | `*-v1` (appsettings) |
+| `BouquetDesign:{Step}:CandidatePromptVersion` / `CandidatePercent` | string / int | Candidate version for a sticky, vendor-hashed share (0–100) | `*-v2` / `0` |
+| `BouquetDesign:Composition:RepairEnabled` | bool | One validator-guided repair call per composition (global $ cap, not vendor quota) | `true` |
 
 ### 6b. Docker Compose Environment Variables
 
