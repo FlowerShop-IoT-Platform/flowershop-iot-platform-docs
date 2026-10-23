@@ -2741,7 +2741,7 @@ included), total, readyAt, deliveryAt, laterThanRequested, notes, images[], requ
 | PUT | `/vendor/bouquet-requests/{id}/offers/{offerId}` | the same + `expectedRevision` | `VendorRequestDto` (new revision; 409 `version-conflict`) |
 | POST | `/vendor/bouquet-requests/{id}/offers/{offerId}/withdraw` | — | `VendorRequestDto` |
 | POST / DELETE / GET | `/vendor/bouquet-requests/{id}/offers/{offerId}/images[/{imageId}]` | multipart `image` | `VendorRequestDto` / image (0–5) |
-| POST | `/vendor/bouquet-requests/{id}/reconstruct` | — | `DesignSessionDto` — "Reconstruct with AI Florist" (§21.3): a `BouquetPhotos` design with the request's images copied privately and `sourceRequestId` set; its `analysis.estimatedCost` is the §21.4 cost of the matched items. Same request → same design |
+| POST | `/vendor/bouquet-requests/{id}/reconstruct[?fresh=true]` | — | `DesignSessionDto` — "Reconstruct with AI Florist" (§21.3): a `BouquetPhotos` design with the request's images copied privately and `sourceRequestId` set; its `analysis.estimatedCost` is the §21.4 cost of the matched items. Without `fresh` your newest live design for the request opens (one is created if none); `fresh=true` always creates a new one (the earlier stays in the wizard). `GET /vendor/bouquet-requests/{id}` returns `lastReconstruction { sessionId, createdAt, analyzedAt? }` so the app can ask which to open |
 | POST | `/vendor/bouquet-requests/{id}/report` | `{ reason? }` | `true` (hidden after 3 reports) |
 | GET | `/vendor/custom-orders?skip&take` | — | `VendorRequestDto[]` of your paid custom orders (revealed) |
 | POST | `/vendor/bouquet-requests/{id}/phase` | `{ phase }` | `VendorRequestDto` — the next phase only (`order.nextPhases`) |

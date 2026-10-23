@@ -5207,9 +5207,9 @@ included), total, readyAt, deliveryAt, laterThanRequested, notes, images[], requ
     </tr>
     <tr>
       <td>POST</td>
-      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/reconstruct</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/bouquet-requests/{id}/reconstruct[?fresh=true]</code></td>
       <td>—</td>
-      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — “Reconstruct with AI Florist” (§21.3): a <code class="language-plaintext highlighter-rouge">BouquetPhotos</code> design with the request’s images copied privately and <code class="language-plaintext highlighter-rouge">sourceRequestId</code> set; its <code class="language-plaintext highlighter-rouge">analysis.estimatedCost</code> is the §21.4 cost of the matched items. Same request → same design</td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — “Reconstruct with AI Florist” (§21.3): a <code class="language-plaintext highlighter-rouge">BouquetPhotos</code> design with the request’s images copied privately and <code class="language-plaintext highlighter-rouge">sourceRequestId</code> set; its <code class="language-plaintext highlighter-rouge">analysis.estimatedCost</code> is the §21.4 cost of the matched items. Without <code class="language-plaintext highlighter-rouge">fresh</code> your newest live design for the request opens (one is created if none); <code class="language-plaintext highlighter-rouge">fresh=true</code> always creates a new one (the earlier stays in the wizard). <code class="language-plaintext highlighter-rouge">GET /vendor/bouquet-requests/{id}</code> returns <code class="language-plaintext highlighter-rouge">lastReconstruction { sessionId, createdAt, analyzedAt? }</code> so the app can ask which to open</td>
     </tr>
     <tr>
       <td>POST</td>
