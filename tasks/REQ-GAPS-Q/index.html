@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Requirement Gaps — Option Q (Online-only vendors: bouquets without a smart vase) — FlowerShop IoT Platform</title>
+  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --topbar-bg: rgba(15,17,23,.9);
+      --content-text: #c8d0dc;
+      --link-hover: #9bb5ff;
+      --code-color: #a5d6ff;
+      --pre-code-color: #c9d1d9;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    html.light {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface2: #eef1f7;
+      --border: #d1d8e8;
+      --accent: #4361ee;
+      --accent2: #7c3aed;
+      --text: #111827;
+      --text-muted: #374151;
+      --text-dim: #374151;
+    }
+    html.light body { background: var(--bg); color: var(--text); }
+    html.light .topbar { background: rgba(245,247,251,.96) !important; border-bottom-color: var(--border) !important; }
+    html.light .topbar-logo { color: var(--text) !important; }
+    html.light .topbar-badge { background: var(--surface2) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+    html.light .topbar-link { color: var(--text-muted) !important; }
+    html.light .topbar-link:hover { color: var(--text) !important; background: var(--surface2) !important; }
+    html.light .topbar-hamburger { color: var(--text-muted) !important; }
+    html.light .sidebar { background: var(--surface); border-right-color: var(--border); }
+    html.light .sidebar-link { color: var(--text-muted); }
+    html.light .sidebar-link:hover { color: var(--text); background: var(--surface2); }
+    html.light .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(67,97,238,.07); }
+    html.light .content code { background: var(--surface2); border-color: var(--border); }
+    html.light .content pre { background: var(--surface2); border-color: var(--border); }
+    html.light .content blockquote { background: rgba(124,58,237,.05); border-left-color: var(--accent2); }
+    html.light .content blockquote p { color: var(--text-muted); }
+    html.light .content thead th { background: var(--surface2); color: var(--text); }
+    html.light .content tbody tr:hover { background: var(--surface2); }
+    html.light .mermaid { background: var(--surface2); border-color: var(--border); }
+    html.light .card { background: var(--surface); border-color: var(--border); }
+    html.light .card:hover { border-color: var(--accent); }
+    html.light .page-nav-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+    html.light .page-nav-btn:hover { background: var(--surface2); border-color: var(--accent); }
+    html.light .diagram-modal-toolbar { background: var(--surface); border-bottom-color: var(--border); }
+    html.light .dm-btn { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    html.light .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    html.light .diagram-modal-canvas { background: var(--surface2); border-color: var(--border); }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--topbar-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1;
+      transition: color .15s, background .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+      font-family: var(--font);
+    }
+    .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 32px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: var(--link-hover);
+      border-bottom-color: var(--link-hover);
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--code-color);
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: var(--pre-code-color);
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: var(--content-text);
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Docs version banner on home */
+    .version-banner {
+      display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+      margin: -1rem 0 2rem;
+      font-size: .9rem;
+      color: var(--text-muted);
+    }
+    .version-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── DIAGRAM WRAPPER ── */
+    .mermaid-wrap {
+      position: relative;
+      margin: 1.25rem 0;
+    }
+    .mermaid-wrap .mermaid {
+      margin: 0;
+      cursor: zoom-in;
+      transition: box-shadow .2s;
+    }
+    .mermaid-wrap .mermaid:hover {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .mermaid-expand-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(15,17,23,.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: color .15s, border-color .15s, background .15s;
+      backdrop-filter: blur(6px);
+      font-family: var(--font);
+    }
+    .mermaid-expand-btn:hover { color: var(--text); border-color: var(--accent); background: rgba(15,17,23,.95); }
+
+    /* ── DIAGRAM MODAL ── */
+    .diagram-modal {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(4px);
+      flex-direction: column;
+    }
+    .diagram-modal.open { display: flex; }
+
+    .diagram-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .diagram-modal-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .dm-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background .15s, border-color .15s;
+      line-height: 1;
+    }
+    .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    .dm-btn.close-btn { color: #f87171; }
+    .dm-zoom-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .diagram-modal-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      min-height: 0;
+      cursor: grab;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .diagram-modal-body.grabbing { cursor: grabbing; user-select: none; }
+
+    .diagram-modal-canvas {
+      flex-shrink: 0;
+      line-height: 0;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .diagram-modal-canvas svg {
+      display: block;
+      max-width: none !important;
+    }
+
+    /* ── PAGE NAV ── */
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 40px 60px;
+    }
+
+    .page-nav-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s, background .15s;
+      min-width: 0;
+      max-width: 46%;
+    }
+    .page-nav-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+      text-decoration: none;
+      color: var(--text);
+    }
+    .page-nav-btn.next { text-align: right; margin-left: auto; }
+    .page-nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .page-nav-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+      .page-nav { padding: 0 20px 40px; }
+      .page-nav-btn { max-width: 48%; }
+    }
+  
+/* Docs search (EP-38) */
+.topbar-search { position: relative; margin-right: 12px; }
+.topbar-search input { width: 220px; max-width: 40vw; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; }
+.topbar-search-results { position: absolute; top: 110%; right: 0; width: 320px; max-width: 80vw; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 200; }
+.topbar-search-results:empty { display: none; }
+.topbar-search-hit, .topbar-search-empty { display: block; padding: 8px 12px; font-size: 13px; color: var(--text); text-decoration: none; }
+.topbar-search-hit:hover { background: var(--surface2); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs v1.1.0</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-search" id="docsSearch" hidden>
+    <input type="search" id="docsSearchInput" placeholder="Search docs" aria-label="Search the documentation" autocomplete="off">
+    <div class="topbar-search-results" id="docsSearchResults" role="listbox"></div>
+  </div>
+  <a data-audience="developer" href="/architecture/" class="topbar-link">Architecture</a>
+  <a data-audience="developer" href="/deployment/" class="topbar-link">Deployment</a>
+  <a data-audience="developer" href="/API-CONTRACTS" class="topbar-link">API</a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">☀️</span>
+    <span id="themeLabel">Light</span>
+  </button>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Architecture Overview" href="/architecture/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Context" href="/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Containers" href="/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Components" href="/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Domain Model" href="/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Cross-cutting" href="/architecture/cross-cutting">Cross-cutting</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Functional View" href="/architecture/view-functional">Functional View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Information View" href="/architecture/view-information">Information View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Concurrency View" href="/architecture/view-concurrency">Concurrency View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Development View" href="/architecture/view-development">Development View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment View" href="/architecture/view-deployment">Deployment View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Operational View" href="/architecture/view-operational">Operational View</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Authentication Flows" href="/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Customer Flows" href="/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Vendor Flows" href="/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Flows" href="/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="IoT Flows" href="/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Payment Flows" href="/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Real-time Flows" href="/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Mobile API Contracts" href="/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Outbound Contracts" href="/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment Overview" href="/deployment/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment Spec" href="/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Registration & CI/CD" href="/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Secrets & Env Vars" href="/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Runbook" href="/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Smoke Tests" href="/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Observability" href="/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Rollback & Recovery" href="/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Docs Portal" href="/deployment/DOCS-PORTAL">Docs Portal</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Epic Features Guide" href="/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Stripe + BLIK" href="/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Complete Workflow" href="/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Vase Registration Workflows" href="/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer vendor customer">
+      <button class="sidebar-group-btn open" data-target="nav-manuals">
+        <span class="sidebar-group-icon">📖</span> User Manuals
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-manuals">
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="User Manuals Overview" href="/manuals/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Portal Manual" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="requirement-gaps--option-q-online-only-vendors-bouquets-without-a-smart-vase">Requirement Gaps — Option Q (Online-only vendors: bouquets without a smart vase)</h1>
+
+<blockquote>
+  <p>Companion to REQ-GAPS.md (mobile API: discovery, orders), REQ-GAPS-C.md (onboarding, vases) and
+REQ-GAPS-O.md (EP-37 custom orders, which already sell without a vase).
+Requirement refs point at the tasks in <code class="language-plaintext highlighter-rouge">tasks-ep39-online-only-vendors.json</code>.
+Analysis date: 2026-10-23
+Status: proposed (EP-39, see <code class="language-plaintext highlighter-rouge">EPICS-Q.md</code>). Open decisions are in section H.</p>
+</blockquote>
+
+<h2 id="context">Context</h2>
+
+<p>The smart vase exists to stop <strong>online and offline customers buying the same physical bouquet</strong>.
+The bouquet sits in a shop and the vase shows the QR code and its state (available, reserved, sold).
+Some vendors only sell online: online flower shops and freelance florists with no shop counter.
+Nobody walks in and nobody collects, so the vase has nothing to protect. Today these vendors cannot
+sell at all, because the purchase path requires a vase.</p>
+
+<h3 id="what-the-code-does-today">What the code does today</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Behaviour</th>
+      <th>Where</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Domain</td>
+      <td><code class="language-plaintext highlighter-rouge">Bouquet.VaseId</code> is already nullable. <code class="language-plaintext highlighter-rouge">CreateCatalog</code> makes vase-less bouquets that go straight to <code class="language-plaintext highlighter-rouge">Available</code> when given a price.</td>
+      <td><code class="language-plaintext highlighter-rouge">Domain/Aggregates/Bouquet/Bouquet.cs</code></td>
+    </tr>
+    <tr>
+      <td>Map</td>
+      <td>Vase-less <code class="language-plaintext highlighter-rouge">Available</code> bouquets <strong>are shown</strong>: the offline-vase filter is <code class="language-plaintext highlighter-rouge">b.VaseId == null \|\| !offline</code>.</td>
+      <td><code class="language-plaintext highlighter-rouge">GetNearbyBouquetsQueryHandler</code>, <code class="language-plaintext highlighter-rouge">GetAvailableBouquetsQueryHandler</code></td>
+    </tr>
+    <tr>
+      <td>Cart</td>
+      <td><strong>Hard block</strong>: <code class="language-plaintext highlighter-rouge">"Bouquet is not placed in a vase"</code>.</td>
+      <td><code class="language-plaintext highlighter-rouge">CartCommandHandlers.cs:65</code></td>
+    </tr>
+    <tr>
+      <td>Checkout</td>
+      <td><strong>Hard block</strong>: <code class="language-plaintext highlighter-rouge">"… is not placed in a vase"</code>.</td>
+      <td><code class="language-plaintext highlighter-rouge">OrderCommandHandlers.cs:225</code></td>
+    </tr>
+    <tr>
+      <td>Persistence</td>
+      <td><code class="language-plaintext highlighter-rouge">CartItem.VaseId</code> and <code class="language-plaintext highlighter-rouge">OrderLine.VaseId</code> are non-nullable (domain + <code class="language-plaintext highlighter-rouge">IsRequired()</code>).</td>
+      <td><code class="language-plaintext highlighter-rouge">Cart.cs</code>, <code class="language-plaintext highlighter-rouge">Order.cs</code>, <code class="language-plaintext highlighter-rouge">CartConfiguration</code>, <code class="language-plaintext highlighter-rouge">OrderConfiguration</code></td>
+    </tr>
+    <tr>
+      <td>Read models</td>
+      <td><code class="language-plaintext highlighter-rouge">line.VaseId.Value</code> / <code class="language-plaintext highlighter-rouge">i.VaseId.Value</code> dereferences.</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorOrderHandlers.cs:345</code>, <code class="language-plaintext highlighter-rouge">OrderQueryHandlers.cs:157</code>, <code class="language-plaintext highlighter-rouge">CartQueryHandlers.cs:46</code></td>
+    </tr>
+    <tr>
+      <td>Side effects</td>
+      <td>Every MQTT command (cart add, <code class="language-plaintext highlighter-rouge">prepare_delivery</code>, <code class="language-plaintext highlighter-rouge">delivery_started</code>, <code class="language-plaintext highlighter-rouge">delivery_complete</code>, reservation release) and vase state reset is <strong>already guarded</strong> by <code class="language-plaintext highlighter-rouge">VaseId != null</code>.</td>
+      <td>cart/order/vendor-order handlers, <code class="language-plaintext highlighter-rouge">OrderPaidVaseNotificationHandler</code>, <code class="language-plaintext highlighter-rouge">CartReservationReleaser</code></td>
+    </tr>
+    <tr>
+      <td>Events</td>
+      <td><code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> and <code class="language-plaintext highlighter-rouge">BouquetSold</code> are raised <strong>only when <code class="language-plaintext highlighter-rouge">VaseId != null</code></strong>. They drive SignalR “new bouquet” pushes and customer bouquet-alert matching (<code class="language-plaintext highlighter-rouge">SubscriptionMatchingService</code>).</td>
+      <td><code class="language-plaintext highlighter-rouge">Bouquet.SetPrice</code>, <code class="language-plaintext highlighter-rouge">Bouquet.Sell</code></td>
+    </tr>
+    <tr>
+      <td>Vendor UX</td>
+      <td>“Add a bouquet” goes to <code class="language-plaintext highlighter-rouge">/Vases/Index</code>. Creating a bouquet means placing it in a vase. The dashboard is built around vases.</td>
+      <td>VendorPortal <code class="language-plaintext highlighter-rouge">_Layout.cshtml</code>, <code class="language-plaintext highlighter-rouge">Index.cshtml.cs</code></td>
+    </tr>
+    <tr>
+      <td>Concurrency</td>
+      <td><code class="language-plaintext highlighter-rouge">Bouquet.Version</code> exists as a column but is <strong>not a concurrency token</strong>, and <code class="language-plaintext highlighter-rouge">Reserve</code> doesn’t increment it. Two simultaneous online buyers can both reserve.</td>
+      <td><code class="language-plaintext highlighter-rouge">FlowerShopDbContext</code> (Bouquets)</td>
+    </tr>
+    <tr>
+      <td>Precedent</td>
+      <td>EP-37 custom orders (<code class="language-plaintext highlighter-rouge">Order.CreateCustom</code>, <code class="language-plaintext highlighter-rouge">CustomOrderLine</code>) already sell, pay and deliver with <strong>no vase</strong>.</td>
+      <td><code class="language-plaintext highlighter-rouge">Order.cs</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>So the vase is only <em>structurally</em> required in two guards, two non-nullable columns and three
+<code class="language-plaintext highlighter-rouge">.Value</code> reads. The rest of the purchase path already works without one.</p>
+
+<h3 id="virtual-vase-vs-vase-optional-listing">Virtual vase vs. vase-optional listing</h3>
+
+<p>A virtual vase (a <code class="language-plaintext highlighter-rouge">SmartVase</code> row with no device) would keep <code class="language-plaintext highlighter-rouge">VaseId</code> non-null. But a <code class="language-plaintext highlighter-rouge">SmartVase</code>
+is an IoT asset, and most of the code that reads it would treat a virtual one wrongly:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>A virtual vase would…</th>
+      <th>Because</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>hide its bouquets from the map after 30 s</td>
+      <td><code class="language-plaintext highlighter-rouge">GetEffectivelyOfflineVaseIdsAsync(30 s)</code> — unless we fake heartbeats</td>
+    </tr>
+    <tr>
+      <td>open asset-recovery cases after 7 days offline</td>
+      <td>EP-22 <code class="language-plaintext highlighter-rouge">VaseHealthMonitoringService</code> → <code class="language-plaintext highlighter-rouge">VaseIncident</code></td>
+    </tr>
+    <tr>
+      <td>receive MQTT commands for a device that doesn’t exist</td>
+      <td>all the vase-guarded commands above</td>
+    </tr>
+    <tr>
+      <td>hold only <strong>one</strong> bouquet</td>
+      <td>placing a bouquet removes the previous one (<code class="language-plaintext highlighter-rouge">GetActiveBouquetInVaseAsync</code> → <code class="language-plaintext highlighter-rouge">Remove</code>), so 10 listings need 10 fake vases</td>
+    </tr>
+    <tr>
+      <td>distort fleet data</td>
+      <td>vase inventory, <code class="language-plaintext highlighter-rouge">AssignedVaseCount</code>, vase analytics, admin fleet views, active-vase dashboard tiles</td>
+    </tr>
+    <tr>
+      <td>need a fake <code class="language-plaintext highlighter-rouge">DeviceIdentifier</code>, registration status and assignment</td>
+      <td><code class="language-plaintext highlighter-rouge">SmartVase.Create</code> / <code class="language-plaintext highlighter-rouge">AssignToVendor</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Each of these needs an <code class="language-plaintext highlighter-rouge">IsVirtual</code> check inside IoT code that should never have to know about it.
+That is more code and more risk than making the vase optional, and it hides the real business
+concept.</p>
+
+<p><strong>Decision (proposed): no virtual vase.</strong> Add an explicit <strong>listing channel</strong> on the bouquet and a
+<strong>sales mode</strong> on the vendor. Purchase rules check “is this bouquet purchasable?” instead of “does it
+have a vase?”. Vase-specific side effects stay exactly as they are, behind the guards that already
+exist. The bouquet’s own status (<code class="language-plaintext highlighter-rouge">Available → Reserved → Sold</code>) becomes the only lock against double
+selling. That is all an online-only bouquet needs, as long as it is made concurrency-safe
+(REQ-ONL-06).</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                     ┌──────────── Bouquet (one physical unit) ────────────┐
+ Vendor.SalesMode    │ ListingChannel = Vase    → VaseId required          │
+  InStore ──────────▶│   lock: vase display + bouquet status               │
+  OnlineOnly ───────▶│ ListingChannel = Online  → VaseId null              │
+                     │   lock: bouquet status (optimistic concurrency)     │
+                     └─────────────────────────────────────────────────────┘
+ IsPurchasable = Status == Available &amp;&amp; (Channel == Online || VaseId != null)
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="a-vendor-sales-mode">A. Vendor sales mode</h2>
+
+<h3 id="req-onl-01--vendor-sales-mode--p0">REQ-ONL-01 — Vendor sales mode — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">IVendor</code> gains <code class="language-plaintext highlighter-rouge">SalesMode</code> (<code class="language-plaintext highlighter-rouge">InStore</code> = 0, the default for every existing vendor; <code class="language-plaintext highlighter-rouge">OnlineOnly</code> = 1).
+It applies to both <code class="language-plaintext highlighter-rouge">FlowerShop</code> and <code class="language-plaintext highlighter-rouge">FreelanceFlorist</code> and is stored on their tables.
+<code class="language-plaintext highlighter-rouge">SetSalesMode(mode)</code> returns <code class="language-plaintext highlighter-rouge">Result</code>. Switching to <code class="language-plaintext highlighter-rouge">OnlineOnly</code> fails with <code class="language-plaintext highlighter-rouge">vendor-has-vases</code> while
+the vendor has assigned vases. The vendor must return them first through the EP-22 return flow, or
+an admin unassigns them. Switching back to <code class="language-plaintext highlighter-rouge">InStore</code> is always allowed, and existing online listings
+stay valid until sold or expired.
+<strong>Accept</strong>: domain tests for both transitions; migration defaults existing rows to <code class="language-plaintext highlighter-rouge">InStore</code>.</p>
+
+<h3 id="req-onl-02--choose-the-mode-at-registration-and-in-settings--p1">REQ-ONL-02 — Choose the mode at registration and in settings — P1</h3>
+<p>The vendor registration API (<code class="language-plaintext highlighter-rouge">POST /api/v1/vendor-accounts/register-with-admin</code>) accepts an optional
+<code class="language-plaintext highlighter-rouge">salesMode</code> (default <code class="language-plaintext highlighter-rouge">InStore</code>). The Vendor Portal sign-up wizard asks “How do you sell?” with two
+choices: “In my shop, with smart vases” and “Online only, delivery to customers”. The Vendor Portal
+Settings page shows the mode and lets the vendor switch it (<code class="language-plaintext highlighter-rouge">GET</code>/<code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/settings/sales-mode</code>),
+with the REQ-ONL-01 error shown as a friendly message.
+<strong>Accept</strong>: an online-only registration never shows vase-ordering prompts (EP-21).</p>
+
+<h3 id="req-onl-03--admin-visibility-and-override--p2">REQ-ONL-03 — Admin visibility and override — P2</h3>
+<p>The Admin Portal vendor list and details show the sales mode. A platform admin can change it, with
+the same rule as REQ-ONL-01.</p>
+
+<hr />
+
+<h2 id="b-domain-online-listings">B. Domain: online listings</h2>
+
+<h3 id="req-onl-04--listing-channel-on-the-bouquet--p0">REQ-ONL-04 — Listing channel on the bouquet — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">Bouquet</code> gains <code class="language-plaintext highlighter-rouge">ListingChannel</code> (<code class="language-plaintext highlighter-rouge">Vase</code> = 0, the default for every existing row; <code class="language-plaintext highlighter-rouge">Online</code> = 1).
+A new factory <code class="language-plaintext highlighter-rouge">Bouquet.ListOnline(vendorId, vendorType, name, description, price, currency, imageUrl,
+flowerTypes, category, freshnessDays)</code> creates an <code class="language-plaintext highlighter-rouge">Online</code> bouquet with <code class="language-plaintext highlighter-rouge">VaseId = null</code>. Rules:
+price &gt; 0, an image is required (customers can’t see it in person), and freshness 1..3 is required
+because it drives expiry (REQ-ONL-08). Status goes straight to <code class="language-plaintext highlighter-rouge">Available</code>. A pricing-history entry
+and <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> are recorded.
+Invariants: an <code class="language-plaintext highlighter-rouge">Online</code> bouquet can never get a vase (assignment returns a failure). A <code class="language-plaintext highlighter-rouge">Vase</code>
+bouquet keeps its current behaviour.
+<code class="language-plaintext highlighter-rouge">Bouquet.IsPurchasable</code> = <code class="language-plaintext highlighter-rouge">Status == Available &amp;&amp; (ListingChannel == Online || VaseId != null)</code>.
+<strong>Accept</strong>: domain tests for the factory, the invariants and <code class="language-plaintext highlighter-rouge">IsPurchasable</code>.</p>
+
+<h3 id="req-onl-05--events-dont-depend-on-the-vase--p0">REQ-ONL-05 — Events don’t depend on the vase — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">BouquetBecameAvailable.VaseId</code> and <code class="language-plaintext highlighter-rouge">BouquetSold.VaseId</code> become <code class="language-plaintext highlighter-rouge">VaseId?</code>, and both events are
+raised for <code class="language-plaintext highlighter-rouge">Online</code> bouquets as well (in <code class="language-plaintext highlighter-rouge">ListOnline</code>, <code class="language-plaintext highlighter-rouge">SetPrice</code> and <code class="language-plaintext highlighter-rouge">Sell</code>). Their handlers then
+work for online listings with no other change: the SignalR new-bouquet push, customer bouquet-alert
+matching (<code class="language-plaintext highlighter-rouge">SubscriptionMatchingService</code>) and the sold notification. Any handler that uses the vase id
+must handle null.
+<strong>Accept</strong>: an online listing triggers a matching customer alert and a <code class="language-plaintext highlighter-rouge">BouquetHub</code> push.</p>
+
+<h3 id="req-onl-06--concurrency-safe-reservation--p0">REQ-ONL-06 — Concurrency-safe reservation — P0</h3>
+<p>With no vase display, the bouquet row is the only lock. Map <code class="language-plaintext highlighter-rouge">Bouquet.Version</code> as a concurrency token
+and increment it in <code class="language-plaintext highlighter-rouge">Reserve</code>, <code class="language-plaintext highlighter-rouge">ReleaseReservation</code>, <code class="language-plaintext highlighter-rouge">Sell</code>, <code class="language-plaintext highlighter-rouge">Remove</code>, <code class="language-plaintext highlighter-rouge">Expire</code> and the price
+changes. When two buyers race for the same bouquet, exactly one wins. The other gets the existing
+“no longer available” / <code class="language-plaintext highlighter-rouge">ReservedByAnotherCustomer</code> result (HTTP 409), not a 500. This also fixes the
+same race for vase bouquets.
+<strong>Accept</strong>: an integration test with two parallel add-to-cart (and two parallel checkout) calls on
+one bouquet gives one success and one 409.</p>
+
+<h3 id="req-onl-07--nullable-vase-on-cart-and-order-lines--p0">REQ-ONL-07 — Nullable vase on cart and order lines — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">CartItem.VaseId</code> and <code class="language-plaintext highlighter-rouge">OrderLine.VaseId</code> become <code class="language-plaintext highlighter-rouge">VaseId?</code>, with nullable columns and <code class="language-plaintext highlighter-rouge">IsRequired()</code>
+removed. DTOs <code class="language-plaintext highlighter-rouge">VaseId</code> become <code class="language-plaintext highlighter-rouge">Guid?</code>: cart, order, vendor order line and customer app models,
+including <code class="language-plaintext highlighter-rouge">VaseIdDtoJsonConverter</code>. The three <code class="language-plaintext highlighter-rouge">.Value</code> reads become null-safe. Migration
+<code class="language-plaintext highlighter-rouge">AddOnlineOnlyListings</code> adds <code class="language-plaintext highlighter-rouge">SalesMode</code> (two vendor tables), <code class="language-plaintext highlighter-rouge">ListingChannel</code> (Bouquets), and makes
+<code class="language-plaintext highlighter-rouge">CartItems.VaseId</code> and <code class="language-plaintext highlighter-rouge">OrderLines.VaseId</code> nullable. Existing data is unchanged.
+<strong>Accept</strong>: the migration applies on a copy of prod data; existing orders still read.</p>
+
+<h3 id="req-onl-08--online-listing-lifetime--p1">REQ-ONL-08 — Online listing lifetime — P1</h3>
+<p>An <code class="language-plaintext highlighter-rouge">Online</code> bouquet is a real, finished bouquet waiting in the florist’s studio. It sells once,
+just like a vase bouquet. It has no sensors, so a background pass (the existing freshness or
+heartbeat hosted service, or a new <code class="language-plaintext highlighter-rouge">OnlineListingExpiryService</code>) expires <code class="language-plaintext highlighter-rouge">Available</code> online
+listings whose <code class="language-plaintext highlighter-rouge">CurrentFreshnessDays</code> reached 0, or that are older than
+<code class="language-plaintext highlighter-rouge">OnlineListings:MaxListingDays</code> (default 3). A reserved bouquet is never expired in the middle of
+checkout; it is expired after the reservation is released. The vendor can remove a listing at any
+time (<code class="language-plaintext highlighter-rouge">Remove(VendorRequest)</code>, which is already vase-agnostic).
+<strong>Accept</strong>: unit test of the expiry rule; expired listings disappear from the map.</p>
+
+<hr />
+
+<h2 id="c-purchase-flow">C. Purchase flow</h2>
+
+<h3 id="req-onl-09--cart-and-checkout-use-ispurchasable--p0">REQ-ONL-09 — Cart and checkout use <code class="language-plaintext highlighter-rouge">IsPurchasable</code> — P0</h3>
+<p>Replace the two “not placed in a vase” guards (<code class="language-plaintext highlighter-rouge">AddToCartCommand</code>, <code class="language-plaintext highlighter-rouge">CreateOrderCommand</code>) with
+<code class="language-plaintext highlighter-rouge">bouquet.IsPurchasable</code>. The new failure code is <code class="language-plaintext highlighter-rouge">bouquet-not-listed</code> (HTTP 409/422 per the existing
+mapping). It replaces the vase message and also covers legacy vase-less <code class="language-plaintext highlighter-rouge">Vase</code>-channel bouquets.
+Cart and order lines take <code class="language-plaintext highlighter-rouge">bouquet.VaseId</code> (null for online).
+<strong>Accept</strong>: an online bouquet can be added to the cart, checked out and paid with Stripe (stub and
+real), and a legacy vase-less catalog bouquet still cannot.</p>
+
+<h3 id="req-onl-10--delivery-only-for-online-listings--p0">REQ-ONL-10 — Delivery only for online listings — P0</h3>
+<p>An order containing any <code class="language-plaintext highlighter-rouge">Online</code> line must use <code class="language-plaintext highlighter-rouge">DeliveryMethod.Delivery</code>. <code class="language-plaintext highlighter-rouge">Pickup</code> fails with
+<code class="language-plaintext highlighter-rouge">pickup-not-offered</code>. <code class="language-plaintext highlighter-rouge">POST /api/v1/orders/preview</code> reports <code class="language-plaintext highlighter-rouge">pickupAvailable: false</code> so clients can
+hide the choice. The delivery address, geocoding, fee and <code class="language-plaintext highlighter-rouge">Delivery:MaxDistanceKm</code> range checks are
+the existing ones (distance from the vendor location, <code class="language-plaintext highlighter-rouge">VendorLocationResolver</code>). An order cannot mix
+<code class="language-plaintext highlighter-rouge">Vase</code> and <code class="language-plaintext highlighter-rouge">Online</code> lines. The existing one-vendor-per-order rule makes this rare, but it must still
+be checked, because it would make the pickup rule ambiguous.
+<strong>Accept</strong>: handler tests for pickup refused, mixed lines refused and out-of-range delivery refused.</p>
+
+<h3 id="req-onl-11--vendor-fulfilment-without-vase-side-effects--p1">REQ-ONL-11 — Vendor fulfilment without vase side effects — P1</h3>
+<p>Vendor order transitions (<code class="language-plaintext highlighter-rouge">Paid → Preparing → InDelivery → Delivered</code>) work for online lines. Vase
+steps (clear vase, MQTT <code class="language-plaintext highlighter-rouge">delivery_started</code>/<code class="language-plaintext highlighter-rouge">delivery_complete</code>, vase state reset) are skipped by the
+existing null guards. <code class="language-plaintext highlighter-rouge">Delivered</code> still marks the bouquet <code class="language-plaintext highlighter-rouge">Sold</code>. <code class="language-plaintext highlighter-rouge">ReadyForPickup</code> is not offered
+for online orders.
+<strong>Accept</strong>: a handler test walks an online order from paid to delivered with no
+<code class="language-plaintext highlighter-rouge">ISmartVaseRepository</code>/<code class="language-plaintext highlighter-rouge">IMqttService</code> call.</p>
+
+<hr />
+
+<h2 id="d-discovery">D. Discovery</h2>
+
+<h3 id="req-onl-12--the-map-shows-only-purchasable-bouquets--p0">REQ-ONL-12 — The map shows only purchasable bouquets — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">GetNearbyBouquets</code> and <code class="language-plaintext highlighter-rouge">GetAvailableBouquets</code> include a bouquet only when <code class="language-plaintext highlighter-rouge">IsPurchasable</code> (and the
+vase is online, for <code class="language-plaintext highlighter-rouge">Vase</code> bouquets). This <strong>fixes a current leak</strong>: vase-less catalog bouquets with
+a price appear on the map today, but customers can’t buy them.
+<strong>Accept</strong>: a query test with one vase bouquet, one online bouquet and one vase-less catalog
+bouquet returns the first two.</p>
+
+<h3 id="req-onl-13--delivery-only-presentation-and-location--p1">REQ-ONL-13 — Delivery-only presentation and location — P1</h3>
+<p><code class="language-plaintext highlighter-rouge">NearbyBouquetDto</code> and <code class="language-plaintext highlighter-rouge">BouquetDetailDto</code> gain <code class="language-plaintext highlighter-rouge">listingChannel</code> (<code class="language-plaintext highlighter-rouge">"vase"</code>/<code class="language-plaintext highlighter-rouge">"online"</code>) and
+<code class="language-plaintext highlighter-rouge">deliveryOnly: true</code> for online listings. The map pin sits at the vendor’s dispatch location, and an
+online-only vendor’s pin is fuzzed like freelance florists’ already are (<code class="language-plaintext highlighter-rouge">ExactAddressHidden</code>). An
+online shop has no counter to walk to, so the exact address is not useful to the customer and is a
+privacy cost to the vendor. Online listings are returned only when the customer is within delivery
+range: <code class="language-plaintext highlighter-rouge">min(radiusKm, Delivery:MaxDistanceKm)</code>. The distance shown is “delivers to you”, not “walk
+here”.
+<strong>Accept</strong>: contract update; a customer outside delivery range does not see online listings.</p>
+
+<hr />
+
+<h2 id="e-vendor-api-and-portals">E. Vendor API and portals</h2>
+
+<h3 id="req-onl-14--create-an-online-listing--p0">REQ-ONL-14 — Create an online listing — P0</h3>
+<p><code class="language-plaintext highlighter-rouge">POST /api/v1/vendor/online-listings</code> (<code class="language-plaintext highlighter-rouge">VendorAccess</code>, multipart: fields + 1 photo) runs
+<code class="language-plaintext highlighter-rouge">ListOnlineBouquetCommand</code>. The command checks the same gates as <code class="language-plaintext highlighter-rouge">CreateBouquetCommand</code> (approval
+EP-19, subscription EP-20), stores the photo through <code class="language-plaintext highlighter-rouge">IFileStorageService</code> (R2) with the same key
+scheme as <code class="language-plaintext highlighter-rouge">/bouquets/{id}/photo</code>, and returns the bouquet. It refuses with <code class="language-plaintext highlighter-rouge">vendor-not-online</code> when
+the vendor’s <code class="language-plaintext highlighter-rouge">SalesMode</code> is <code class="language-plaintext highlighter-rouge">InStore</code>. Listing, editing, price change, photo replacement and removal
+reuse the existing bouquet endpoints, which are already vase-agnostic or become so through REQ-ONL-07.
+<code class="language-plaintext highlighter-rouge">Idempotency-Key</code> is supported, as in EP-30 stock movements.
+<strong>Accept</strong>: controller tests for 201, 403 (other tenant), 409 <code class="language-plaintext highlighter-rouge">vendor-not-online</code>, 402/403 subscription
+inactive.</p>
+
+<h3 id="req-onl-15--vendor-portal-for-online-only-vendors--p0">REQ-ONL-15 — Vendor Portal for online-only vendors — P0</h3>
+<p>When <code class="language-plaintext highlighter-rouge">SalesMode == OnlineOnly</code>:</p>
+<ul>
+  <li>“Add a bouquet” (app bar and nav) opens the new <code class="language-plaintext highlighter-rouge">Pages/Bouquets/Create</code> (name, photo, price,
+freshness, flower types, description) instead of <code class="language-plaintext highlighter-rouge">/Vases/Index</code>.</li>
+  <li>The “My Vases” nav, the dashboard vase tiles and active-vase counts, and the vase-ordering prompts
+(EP-21) are hidden. The <code class="language-plaintext highlighter-rouge">Vases/*</code> pages redirect to the Bouquets page with an explanation.</li>
+  <li>The Bouquets list shows an “Online” badge, the expiry countdown (REQ-ONL-08) and “Remove listing”.
+<code class="language-plaintext highlighter-rouge">SetPrice</code> hides vase-only actions.</li>
+  <li>AI Florist (EP-28/33) “save recipe” can prefill the Create form (name, description, flower types,
+suggested price).
+<strong>Accept</strong>: Playwright/portal tests for both modes; an InStore vendor’s portal is unchanged.</li>
+</ul>
+
+<h3 id="req-onl-16--customer-app--p1">REQ-ONL-16 — Customer App — P1</h3>
+<p>The Customer App map and detail pages show a “Delivery only” badge for online listings, and checkout
+hides Pickup when <code class="language-plaintext highlighter-rouge">pickupAvailable</code> is false. Any “find the vase / scan the QR in the shop” wording is
+hidden for online listings. The QR short-code share link (<code class="language-plaintext highlighter-rouge">/b/{code}</code>) keeps working.</p>
+
+<hr />
+
+<h2 id="f-mobile-follow-ups">F. Mobile follow-ups</h2>
+
+<h3 id="req-onl-17--vendor-mobile-app--p1">REQ-ONL-17 — Vendor mobile app — P1</h3>
+<p>EP-M19 in the vendor app repo: the sales mode in settings, an “Add online bouquet” flow (camera photo
+→ <code class="language-plaintext highlighter-rouge">POST /vendor/online-listings</code>), hiding vase screens for online-only vendors, and the “Online” badge
+with expiry. The API is ready after S-39-05.</p>
+
+<h3 id="req-onl-18--customer-mobile-app--p1">REQ-ONL-18 — Customer mobile app — P1</h3>
+<p>Customer mobile app repo: the “Delivery only” badge, hiding pickup when <code class="language-plaintext highlighter-rouge">pickupAvailable</code> is false,
+and handling <code class="language-plaintext highlighter-rouge">bouquet-not-listed</code> / <code class="language-plaintext highlighter-rouge">pickup-not-offered</code>.</p>
+
+<hr />
+
+<h2 id="g-quality">G. Quality</h2>
+
+<h3 id="req-onl-19--tests-contract-and-docs--p1">REQ-ONL-19 — Tests, contract and docs — P1</h3>
+<p>Domain, handler and integration tests for REQ-ONL-01…14. <code class="language-plaintext highlighter-rouge">docs/API-CONTRACTS.md</code> gets a new §25
+“Online-only vendors (EP-39)” and changes to §3 (<code class="language-plaintext highlighter-rouge">listingChannel</code>, <code class="language-plaintext highlighter-rouge">deliveryOnly</code>) and §5
+(<code class="language-plaintext highlighter-rouge">pickupAvailable</code>, the new error codes). The Vendor Portal and Customer App manuals get an “online
+only” section (vendor/customer audiences, EP-38), plus a changelog entry.</p>
+
+<hr />
+
+<h2 id="h-open-decisions">H. Open decisions</h2>
+
+<ol>
+  <li><strong>Hybrid vendors.</strong> Should a shop with vases also be able to list online-only, made-to-order
+bouquets that are not on display (<code class="language-plaintext highlighter-rouge">SalesMode = Hybrid</code>, with a per-bouquet choice)? The model
+supports it: <code class="language-plaintext highlighter-rouge">ListingChannel</code> is per bouquet, so it would be one more enum value and a picker on
+Create. <em>Proposed: not in v1.</em></li>
+  <li><strong>Collection by appointment.</strong> Should some online-only florists allow pickup from their studio?
+It is out of scope per the brief (“no collections expected”). If it is needed later, add a
+per-vendor <code class="language-plaintext highlighter-rouge">OffersPickup</code> flag rather than reintroducing a vase.</li>
+  <li><strong>Repeatable products.</strong> Online shops often sell the same arrangement many times (“21 red roses”).
+The <code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate is one physical unit, and v1 keeps it that way: one listing, one sale.
+A catalog product with quantity or made-to-order capacity would be a separate epic (it could
+reuse EP-30 stock to check capacity).</li>
+  <li><strong>Per-vendor delivery radius.</strong> v1 uses the platform-wide <code class="language-plaintext highlighter-rouge">Delivery:MaxDistanceKm</code> and fee.
+Online shops may want their own radius and fee.</li>
+</ol>
+
+    </div>
+  </main>
+</div>
+
+<!-- DIAGRAM MODAL -->
+<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
+  <div class="diagram-modal-toolbar">
+    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
+    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
+    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
+    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
+    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
+    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
+  </div>
+  <div class="diagram-modal-body" id="dmBody">
+    <div class="diagram-modal-canvas" id="dmCanvas"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  // ── 1. Convert Jekyll ```mermaid blocks → <div class="mermaid"> ──
+  document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid-wrap';
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    const btn = document.createElement('button');
+    btn.className = 'mermaid-expand-btn';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand';
+    wrap.appendChild(div);
+    wrap.appendChild(btn);
+    code.parentElement.replaceWith(wrap);
+  });
+
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
+
+  // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
+  const modal    = document.getElementById('diagramModal');
+  const dmCanvas = document.getElementById('dmCanvas');
+  const dmBody   = document.getElementById('dmBody');
+  const dmTitle  = document.getElementById('modalTitle');
+  const dmLabel  = document.getElementById('dmZoomLabel');
+
+  let natW = 800, natH = 600, curScale = 1;
+
+  function setSvgSize() {
+    const svg = dmCanvas.querySelector('svg');
+    if (!svg) return;
+    svg.setAttribute('width',  Math.round(natW * curScale));
+    svg.setAttribute('height', Math.round(natH * curScale));
+    dmLabel.textContent = Math.round(curScale * 100) + '%';
+  }
+
+  function fitToView() {
+    const bw = dmBody.clientWidth  - 48;
+    const bh = dmBody.clientHeight - 48;
+    curScale = Math.min(bw / natW, bh / natH, 1.5);
+    setSvgSize();
+    // scroll to centre
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = (dmCanvas.offsetWidth  - dmBody.clientWidth)  / 2;
+      dmBody.scrollTop  = (dmCanvas.offsetHeight - dmBody.clientHeight) / 2;
+    });
+  }
+
+  function openModal(svgEl, title) {
+    dmTitle.textContent = title || 'Diagram';
+    dmCanvas.innerHTML  = '';
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    natW = (vb && vb.width  > 0) ? vb.width  : (parseFloat(svgEl.getAttribute('width'))  || 1200);
+    natH = (vb && vb.height > 0) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 800);
+
+    const clone = svgEl.cloneNode(true);
+    // remove any style that might constrain size
+    clone.style.cssText = 'display:block;max-width:none;';
+    dmCanvas.appendChild(clone);
+
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(fitToView);
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function changeZoom(factor) {
+    curScale = Math.min(Math.max(curScale * factor, 0.05), 10);
+    // remember scroll centre so zoom feels anchored
+    const cx = dmBody.scrollLeft + dmBody.clientWidth  / 2;
+    const cy = dmBody.scrollTop  + dmBody.clientHeight / 2;
+    const relX = cx / (natW * (curScale / factor));
+    const relY = cy / (natH * (curScale / factor));
+    setSvgSize();
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = relX * natW * curScale - dmBody.clientWidth  / 2;
+      dmBody.scrollTop  = relY * natH * curScale - dmBody.clientHeight / 2;
+    });
+  }
+
+  document.getElementById('dmClose').addEventListener('click', closeModal);
+  document.getElementById('dmZoomIn').addEventListener('click',  () => changeZoom(1.4));
+  document.getElementById('dmZoomOut').addEventListener('click', () => changeZoom(1 / 1.4));
+  document.getElementById('dmReset').addEventListener('click',   fitToView);
+
+  // Ctrl/Cmd+wheel zoom (plain wheel = scroll handled by browser natively)
+  dmBody.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    changeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+
+  // Drag-to-scroll / pan
+  let dragging = false, dragSX, dragSY, scrollLX, scrollLY;
+  dmBody.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragging = true; dragSX = e.clientX; dragSY = e.clientY;
+    scrollLX = dmBody.scrollLeft; scrollLY = dmBody.scrollTop;
+    dmBody.classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    dmBody.scrollLeft = scrollLX - (e.clientX - dragSX);
+    dmBody.scrollTop  = scrollLY - (e.clientY - dragSY);
+  });
+  window.addEventListener('mouseup', () => { dragging = false; dmBody.classList.remove('grabbing'); });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── 3. Wire expand buttons — look up SVG fresh on every click ──
+  // Do NOT capture svg in a closure: Mermaid may not have rendered yet
+  // when the observer fires, so always call querySelector at click time.
+  function wireDiagramWrap(wrap) {
+    if (wrap.dataset.wired) return;
+    wrap.dataset.wired = '1';
+    const mermaidDiv = wrap.querySelector('.mermaid');
+    const expandBtn  = wrap.querySelector('.mermaid-expand-btn');
+    const activate = () => {
+      const svg = mermaidDiv && mermaidDiv.querySelector('svg');
+      if (svg) openModal(svg, document.title);
+    };
+    if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
+    if (mermaidDiv) mermaidDiv.addEventListener('click', activate);
+  }
+
+  // Wire immediately for any wraps already in DOM, then watch for new ones
+  document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // ── 4. Sidebar accordion ──
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // ── 5. Active link highlight ──
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // ── 6. Mobile hamburger ──
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+
+  // ── 7. Global page navigation (Next / Back) ──
+  // Built from the sidebar so readers only page through what FlowerShop.DocsPortal left in it (EP-38).
+  const NAV_PAGES = [{ path: '/', title: 'Home' }].concat(
+    Array.from(document.querySelectorAll('#sidebar .sidebar-link')).map(a => ({ path: a.getAttribute('href'), title: a.dataset.navTitle || a.textContent }))
+  );
+
+  (function () {
+    const norm = p => p.replace(/\/$/, '') || '/';
+    const cur  = norm(window.location.pathname);
+    const idx  = NAV_PAGES.findIndex(p => norm(p.path) === cur);
+    if (idx === -1) return;
+
+    const prev = idx > 0              ? NAV_PAGES[idx - 1] : null;
+    const next = idx < NAV_PAGES.length - 1 ? NAV_PAGES[idx + 1] : null;
+
+    const nav = document.createElement('div');
+    nav.className = 'page-nav';
+
+    if (prev) {
+      nav.innerHTML += `<a class="page-nav-btn back" href="${prev.path}">
+        <span class="page-nav-label">← Back</span>
+        <span class="page-nav-title">${prev.title}</span>
+      </a>`;
+    } else {
+      nav.innerHTML += `<span></span>`;
+    }
+
+    if (next) {
+      nav.innerHTML += `<a class="page-nav-btn next" href="${next.path}">
+        <span class="page-nav-label">Next →</span>
+        <span class="page-nav-title">${next.title}</span>
+      </a>`;
+    }
+
+    document.querySelector('.main').appendChild(nav);
+  })();
+
+  // ── 7b. Search (EP-38) — /search.json is served by FlowerShop.DocsPortal with only the reader's pages ──
+  (function () {
+    const box = document.getElementById('docsSearch');
+    const input = document.getElementById('docsSearchInput');
+    const results = document.getElementById('docsSearchResults');
+    if (!box || !input || !window.fetch) return;
+    let index = null;
+    fetch('/search.json', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { index = data; box.hidden = false; })
+      .catch(() => {});
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      if (!index || q.length < 2) { results.innerHTML = ''; return; }
+      const hits = index.filter(p => (p.title + ' ' + p.text).toLowerCase().includes(q)).slice(0, 10);
+      results.innerHTML = hits.length
+        ? hits.map(p => `<a class="topbar-search-hit" href="${esc(p.url)}">${esc(p.title)}</a>`).join('')
+        : '<span class="topbar-search-empty">No results</span>';
+    });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') { input.value = ''; results.innerHTML = ''; } });
+  })();
+
+  // ── 8. Dark / light mode toggle ──
+  (function () {
+    const root = document.documentElement;
+    const btn  = document.getElementById('themeToggle');
+    const icon = document.getElementById('themeIcon');
+    const lbl  = document.getElementById('themeLabel');
+    const LIGHT = {'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'};
+    const DARK  = {'--bg':'#0f1117','--surface':'#1a1d27','--surface2':'#22263a','--border':'#2e3350','--accent':'#6c8cff','--accent2':'#a78bfa','--text':'#e2e8f0','--text-muted':'#8892a4','--text-dim':'#566070','--topbar-bg':'rgba(15,17,23,.9)','--content-text':'#c8d0dc','--link-hover':'#9bb5ff','--code-color':'#a5d6ff','--pre-code-color':'#c9d1d9'};
+
+    function applyTheme(mode) {
+      const vars = mode === 'light' ? LIGHT : DARK;
+      Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+      if (mode === 'light') {
+        root.classList.add('light');
+        if (icon) icon.innerHTML = '&#127769;';
+        if (lbl)  lbl.textContent = 'Dark';
+      } else {
+        root.classList.remove('light');
+        if (icon) icon.innerHTML = '&#9728;&#65039;';
+        if (lbl)  lbl.textContent = 'Light';
+      }
+    }
+
+    const saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved);
+
+    if (btn) btn.addEventListener('click', () => {
+      const next = root.classList.contains('light') ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
+  })();
+</script>
+</body>
+</html>
