@@ -4636,7 +4636,7 @@ flow. <strong>Never changes stock levels.</strong> Create the session with <code
 <p><code class="language-plaintext highlighter-rouge">DesignSessionDto.analysis</code> (null until analysed): <code class="language-plaintext highlighter-rouge">{ purpose: "Inspiration", analyzedAt, items: [{ id, kind, name,
 colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, visibility, match: StockMatchDto|null,
 alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }], missing: [{ name, kind,
-colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet"), palette[],
+colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet", "colours-only" — the free Palette analyzer measured colours only and its item names are placeholders; show it), palette[],
 procurement: { available: false, providers: [] } }</code>. <code class="language-plaintext highlighter-rouge">StockMatchDto</code>: <code class="language-plaintext highlighter-rouge">{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }</code>. Bands: High ≥ 80, Medium
 50–79, Low &lt; 50 — a Low match is shown but never linked unless the florist chooses it. <code class="language-plaintext highlighter-rouge">missing</code> lists Missing items
