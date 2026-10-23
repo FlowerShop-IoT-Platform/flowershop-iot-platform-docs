@@ -2,6 +2,26 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-23 — EP-40 Recognition confidence from human feedback (additive; `needsCheck` meaning changes)
+
+- **What changed**: new verdict endpoints `PUT /api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict`,
+  `PUT …/inventory/items/{itemId}/verdict` and `PUT /api/v1/vendor/stock/counts/{countId}/lines/{lineId}/verdict`;
+  recognised line DTOs gain `confidenceScore` and `verdict`; `DesignStyleProfileDto` gains `shareRecognitionFeedback`
+  (default true, omitted on PUT = unchanged); `AiFloristQualityDto` gains `calibration`; the feedback CSV gains verdict
+  columns; admin `POST …/ai-florist/recognition-verdicts/backfill`; config `BouquetDesign:Confidence:*`; migration
+  `AddRecognitionConfidence` (`API-CONTRACTS.md` §21.5).
+- **Behaviour changes** (once `BouquetDesign:Confidence:ScoresEnabled` is switched on — it ships off, so at first only
+  the verdict endpoints and `verdict` fields are live): `confidence` (raw) is still returned but deprecated for display. `StockCountLineDto.needsCheck`
+  is now true when the calibrated count score is Low **or there are no checks yet** — at launch every new count line
+  is flagged; clients that untick flagged lines by default should base that on `confidenceScore.count` instead (the
+  Vendor Portal does). Bouquet analysis lines that florists' checks show are often wrong are no longer auto-linked, so
+  some lines move from Matched/Short to Missing until the florist confirms them. Match scores use the calibrated score
+  (about 5 points lower at cold start for 90 %-sure lines).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M20: verdict control, display states, opt-out); Vendor
+  Portal and Admin Portal in this repo.
+- **Deployment order**: API first (migration applies on start), then the portals, then the mobile build. Old clients
+  ignore the new fields; an old client's house-style PUT leaves `shareRecognitionFeedback` as it is.
+
 ## 2026-10-23 — EP-39 Online-only vendors (additive, with nullable vase ids and stricter status codes)
 
 - **What changed**: new `POST /api/v1/vendor/online-listings`, `GET/PUT /api/v1/vendor/settings/sales-mode` and

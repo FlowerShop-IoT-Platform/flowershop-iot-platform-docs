@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.2.0</span>
+    <span class="topbar-badge">Docs v1.3.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -1875,6 +1875,13 @@
       <td>Vendor Portal, vendor mobile app (EP-M15)</td>
     </tr>
     <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict</code>, <code class="language-plaintext highlighter-rouge">/inventory/items/{itemId}/verdict</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ identity: correct\|wrong\|unsure, actualName?, actualColor?, actualVariety?, notInBouquet?, actualQuantity? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> — recognition verdict, idempotent per line (EP-40)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M20)</td>
+    </tr>
+    <tr>
       <td>GET/POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments</code></td>
       <td>POST <code class="language-plaintext highlighter-rouge">{ note? }</code> (+ optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>)</td>
@@ -1999,6 +2006,13 @@
       <td><code class="language-plaintext highlighter-rouge">{ lines[{ stockItemId, countedQuantity }] }</code> + <strong>required</strong> <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
       <td><code class="language-plaintext highlighter-rouge">StockCountDto</code> — Counted movements, all or nothing (EP-34)</td>
       <td>Vendor Portal, vendor mobile app (EP-M14)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/stock/counts/{countId}/lines/{lineId}/verdict</code></td>
+      <td>same body as the design verdicts</td>
+      <td><code class="language-plaintext highlighter-rouge">StockCountDto</code> — recognition verdict, no stock change (EP-40)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M20)</td>
     </tr>
     <tr>
       <td>GET/POST</td>
@@ -2160,8 +2174,15 @@
       <td>GET</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics/ai-florist/feedback-export</code></td>
       <td>Query: <code class="language-plaintext highlighter-rouge">from?, to?</code></td>
-      <td><code class="language-plaintext highlighter-rouge">text/csv</code> of consented, scrubbed feedback (audit-logged, EP-33)</td>
+      <td><code class="language-plaintext highlighter-rouge">text/csv</code> of consented, scrubbed feedback (audit-logged, EP-33); EP-40 adds verdict rows/columns</td>
       <td>Admin Portal</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics/ai-florist/recognition-verdicts/backfill</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">{ fromCorrections, fromConfirmedSessions, skipped, platformCells }</code> — one-off, idempotent (EP-40)</td>
+      <td>Operator (curl)</td>
     </tr>
     <tr>
       <td>POST</td>
@@ -3233,6 +3254,12 @@
       <td>bool</td>
       <td>One validator-guided repair call per composition (global $ cap, not vendor quota)</td>
       <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:*</code></td>
+      <td>object</td>
+      <td>Recognition confidence from florists’ verdicts (EP-40): <code class="language-plaintext highlighter-rouge">ScoresEnabled</code> (rollout switch, scores off until the pilot check), <code class="language-plaintext highlighter-rouge">ImplicitWeight</code>, <code class="language-plaintext highlighter-rouge">HalfLifeDays</code>, <code class="language-plaintext highlighter-rouge">PriorStrength</code>, <code class="language-plaintext highlighter-rouge">ShopStrength</code>, <code class="language-plaintext highlighter-rouge">MinChecks</code>, <code class="language-plaintext highlighter-rouge">MinVendorsPerCell</code>, <code class="language-plaintext highlighter-rouge">MaxPerVendorPerCell</code>, <code class="language-plaintext highlighter-rouge">CapWindowDays</code>, <code class="language-plaintext highlighter-rouge">HighBand</code>, <code class="language-plaintext highlighter-rouge">MediumBand</code>, <code class="language-plaintext highlighter-rouge">ColdStartFactor</code>, <code class="language-plaintext highlighter-rouge">InheritFrom</code>, <code class="language-plaintext highlighter-rouge">InheritStrength</code>, <code class="language-plaintext highlighter-rouge">BurstLines</code>, <code class="language-plaintext highlighter-rouge">BurstSeconds</code>, <code class="language-plaintext highlighter-rouge">RefreshMinutes</code></td>
+      <td><code class="language-plaintext highlighter-rouge">false</code> (appsettings; code default <code class="language-plaintext highlighter-rouge">true</code>), <code class="language-plaintext highlighter-rouge">0.25</code>, <code class="language-plaintext highlighter-rouge">120</code>, <code class="language-plaintext highlighter-rouge">10</code>, <code class="language-plaintext highlighter-rouge">10</code>, <code class="language-plaintext highlighter-rouge">5</code>, <code class="language-plaintext highlighter-rouge">3</code>, <code class="language-plaintext highlighter-rouge">30</code>, <code class="language-plaintext highlighter-rouge">30</code>, <code class="language-plaintext highlighter-rouge">0.85</code>, <code class="language-plaintext highlighter-rouge">0.6</code>, <code class="language-plaintext highlighter-rouge">0.8</code>, <code class="language-plaintext highlighter-rouge">{}</code>, <code class="language-plaintext highlighter-rouge">0.5</code>, <code class="language-plaintext highlighter-rouge">5</code>, <code class="language-plaintext highlighter-rouge">2</code>, <code class="language-plaintext highlighter-rouge">60</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">OnlineListings:MaxListingDays</code> / <code class="language-plaintext highlighter-rouge">CheckIntervalMinutes</code></td>

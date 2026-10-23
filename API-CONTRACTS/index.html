@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.2.0</span>
+    <span class="topbar-badge">Docs v1.3.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -4667,8 +4667,9 @@ flow. <strong>Never changes stock levels.</strong> Create the session with <code
 </table>
 
 <p><code class="language-plaintext highlighter-rouge">DesignSessionDto.analysis</code> (null until analysed): <code class="language-plaintext highlighter-rouge">{ purpose: "Inspiration", analyzedAt, items: [{ id, kind, name,
-colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, visibility, match: StockMatchDto|null,
-alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }], missing: [{ name, kind,
+colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, confidenceScore, verdict, visibility,
+match: StockMatchDto|null, alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }] (EP-40
+</code>confidenceScore<code class="language-plaintext highlighter-rouge">/</code>verdict<code class="language-plaintext highlighter-rouge">: §21.5), missing: [{ name, kind,
 colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet", "colours-only" — the free Palette analyzer measured colours only and its item names are placeholders; show it), palette[],
 procurement: { available: false, providers: [] } }</code>. <code class="language-plaintext highlighter-rouge">StockMatchDto</code>: <code class="language-plaintext highlighter-rouge">{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }</code>. Bands: High ≥ 80, Medium
@@ -4777,6 +4778,99 @@ is missing. <code class="language-plaintext highlighter-rouge">DesignCostProfile
 for bouquets already made. Errors: 409 <code class="language-plaintext highlighter-rouge">invalid-state</code> / <code class="language-plaintext highlighter-rouge">version-conflict</code>, 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code> / <code class="language-plaintext highlighter-rouge">spend-cap-reached</code>
 (with <code class="language-plaintext highlighter-rouge">Retry-After</code>), 403 <code class="language-plaintext highlighter-rouge">feature-disabled</code>, 502 <code class="language-plaintext highlighter-rouge">provider-failed</code> (state <code class="language-plaintext highlighter-rouge">Failed</code>; counted only if submitted),
 400 <code class="language-plaintext highlighter-rouge">invalid-request</code> / <code class="language-plaintext highlighter-rouge">invalid-inventory</code> / <code class="language-plaintext highlighter-rouge">invalid-photo</code>, 422 <code class="language-plaintext highlighter-rouge">photo-limit</code>.</p>
+
+<h3 id="215-recognition-confidence-from-human-feedback-ep-40">21.5 Recognition confidence from human feedback (EP-40)</h3>
+
+<p>The model’s own “NN % sure” (<code class="language-plaintext highlighter-rouge">confidence</code>, still returned, <strong>deprecated for display</strong>) is replaced by a calibrated
+<code class="language-plaintext highlighter-rouge">confidenceScore</code> on every recognised line: how often this kind of answer was right when florists checked it. It is
+computed in code (Beta-Binomial: the model’s raw-confidence bucket prior → anonymous platform counts per provider ×
+model × prompt version × task × flower type, used only with ≥ 3 contributing vendors → this shop’s own counts), never
+by the model. Florists’ verdicts feed it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict</code></td>
+      <td><code class="language-plaintext highlighter-rouge">RecognitionVerdictRequest</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/inventory/items/{itemId}/verdict</code></td>
+      <td><code class="language-plaintext highlighter-rouge">RecognitionVerdictRequest</code> (recognised Photos-mode lines only)</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/stock/counts/{countId}/lines/{lineId}/verdict</code></td>
+      <td><code class="language-plaintext highlighter-rouge">RecognitionVerdictRequest</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">StockCountDto</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">RecognitionVerdictRequest</code>: <code class="language-plaintext highlighter-rouge">{ "identity": "correct|wrong|unsure", "actualName"?: "Scabiosa", "actualColor"?, "actualVariety"?,
+"notInBouquet"?: false, "actualQuantity"?: 12 }</code>. “Right” means the <strong>flower type</strong> matches (colour and variety are
+kept but don’t decide it). <code class="language-plaintext highlighter-rouge">wrong</code> needs <code class="language-plaintext highlighter-rouge">actualName</code> or <code class="language-plaintext highlighter-rouge">notInBouquet: true</code> (a false positive). The verdict is about
+recognition, <strong>not</strong> stock: “not in my stock” (<code class="language-plaintext highlighter-rouge">PUT …/analysis/items/{itemId}</code> <code class="language-plaintext highlighter-rouge">notInStock</code>) is unchanged and separate.
+Idempotent: one verdict per line, a repeat updates it. No model call. Another vendor’s session/count → 404; unknown
+line → 404; bad body → 400 <code class="language-plaintext highlighter-rouge">invalid-request</code>. A wrong verdict with <code class="language-plaintext highlighter-rouge">actualName</code> also stores the EP-33 rename
+correction (hints). Five or more verdicts on one review within 2 s are kept as implicit (“mark all right” bursts).</p>
+
+<p><strong>Implicit verdicts</strong> (weight 0.25, never overwriting an explicit one) are written by the existing confirms: Photos-mode
+<code class="language-plaintext highlighter-rouge">PUT …/inventory</code> with <code class="language-plaintext highlighter-rouge">confirmed: true</code> (kept → right, renamed to another type → wrong, removed → not in the bouquet,
+count compared), <code class="language-plaintext highlighter-rouge">POST …/analysis/use</code> (only lines it used; Missing lines and “not in my stock” give none),
+<code class="language-plaintext highlighter-rouge">PUT /vendor/cost-assessments/{id}/lines</code> (EP-36) and <code class="language-plaintext highlighter-rouge">POST /vendor/stock/counts/{id}/apply</code> (applied lines).</p>
+
+<p>Line DTOs (<code class="language-plaintext highlighter-rouge">DesignAnalysisItemDto</code>, <code class="language-plaintext highlighter-rouge">InventoryItemDto</code> for recognised lines, <code class="language-plaintext highlighter-rouge">StockCountLineDto</code>) gain:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>confidenceScore: {
+  identity: { score: 0.72, band: "High|Medium|Low", basis: "shop|platform|model|none", checks: 12.5 },
+  count:    { … } | null
+} | null,                       // null for lines made before EP-40 and for manual lines
+verdict: { identity: "correct|wrong|unsure", actualName, actualColor, actualVariety, notInBouquet,
+           actualQuantity, countCorrect, weight: "explicit|implicit", updatedAt } | null
+</code></pre></div></div>
+
+<p>Bands: High ≥ 0.85, Medium ≥ 0.6, Low &lt; 0.6. <code class="language-plaintext highlighter-rouge">basis: "none"</code> = not enough checks yet — show “not enough checks yet”,
+not a number. <code class="language-plaintext highlighter-rouge">checks</code> is the weighted number of verdicts behind the basis (an implicit confirm counts 0.25). Scores are
+computed at the end of the job and recomputed from the current cells on <code class="language-plaintext highlighter-rouge">GET</code> of the session / count. Decisions now
+use the score: <code class="language-plaintext highlighter-rouge">StockMatcher</code> multiplies by the calibrated identity score (factor text <code class="language-plaintext highlighter-rouge">"right NN% of the time"</code> once
+there are checks); an identity band <strong>Low on real checks</strong> (basis ≠ none) is never auto-linked; a stock count line’s
+<code class="language-plaintext highlighter-rouge">needsCheck</code> is true when the count band is Low or there are no checks yet (lines counted before EP-40 keep the old
+“raw &lt; 0.6” rule); the Cost Assessor widens the min/max quantity of lines with a Low count score by 25 % before the cost range.</p>
+
+<p><code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code> gains <code class="language-plaintext highlighter-rouge">shareRecognitionFeedback</code> (default <strong>true</strong>; PUT accepts it, omitted keeps it): “Help
+improve recognition for everyone”. Off → the vendor’s verdicts stay out of the next platform rebuild (hourly) but still
+feed its own shop cells; it still receives platform scores. Shared data is counts per flower type only — no vendor id,
+names typed by florists, photos, notes, prices or stock.</p>
+
+<p><strong>Admin (PlatformAdmin)</strong>: <code class="language-plaintext highlighter-rouge">AiFloristQualityDto</code> gains <code class="language-plaintext highlighter-rouge">calibration: [{ provider, model, promptVersion, task, verdicts,
+explicit, implicit, unchecked|null, reliability: [{ bucket, checked, meanRaw, observed }], eceRaw, eceCalibrated,
+types: [{ typeKey, checked, accuracy }] (top 20, worst first), countAccuracy, countChecked }]</code> — groups, buckets and types
+with fewer than 3 vendors are left out. The feedback export adds one <code class="language-plaintext highlighter-rouge">RecognitionVerdict</code> row per verdict of consenting
+vendors (<code class="language-plaintext highlighter-rouge">source, type_key, detected_name, identity, actual_name, count_correct, weight</code>, scrubbed).
+<code class="language-plaintext highlighter-rouge">POST /api/v1/admin/analytics/ai-florist/recognition-verdicts/backfill</code> → <code class="language-plaintext highlighter-rouge">{ fromCorrections, fromConfirmedSessions,
+skipped, platformCells }</code>: one-off, idempotent conversion of existing corrections and confirmed Photos-mode sessions into
+implicit verdicts, then a cell rebuild.</p>
+
+<p>Config <code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:*</code>: <code class="language-plaintext highlighter-rouge">ScoresEnabled</code> (rollout switch — <code class="language-plaintext highlighter-rouge">false</code> in <code class="language-plaintext highlighter-rouge">appsettings.json</code>: verdicts are
+captured but <code class="language-plaintext highlighter-rouge">confidenceScore</code> stays null and every decision keeps the model’s own rating; switch on after the pilot’s
+calibration check), <code class="language-plaintext highlighter-rouge">ImplicitWeight</code> 0.25, <code class="language-plaintext highlighter-rouge">HalfLifeDays</code> 120, <code class="language-plaintext highlighter-rouge">PriorStrength</code> 10, <code class="language-plaintext highlighter-rouge">ShopStrength</code> 10,
+<code class="language-plaintext highlighter-rouge">MinChecks</code> 5, <code class="language-plaintext highlighter-rouge">MinVendorsPerCell</code> 3, <code class="language-plaintext highlighter-rouge">MaxPerVendorPerCell</code> 30 (per <code class="language-plaintext highlighter-rouge">CapWindowDays</code> 30), <code class="language-plaintext highlighter-rouge">HighBand</code> 0.85, <code class="language-plaintext highlighter-rouge">MediumBand</code>
+0.6, <code class="language-plaintext highlighter-rouge">ColdStartFactor</code> 0.8, <code class="language-plaintext highlighter-rouge">InheritFrom</code> (<code class="language-plaintext highlighter-rouge">"provider|model|prompt": "provider|model|prompt"</code> — a new version uses its
+predecessor’s bucket prior at <code class="language-plaintext highlighter-rouge">InheritStrength</code> 0.5), <code class="language-plaintext highlighter-rouge">BurstLines</code> 5 / <code class="language-plaintext highlighter-rouge">BurstSeconds</code> 2, <code class="language-plaintext highlighter-rouge">RefreshMinutes</code> 60.
+Migration <code class="language-plaintext highlighter-rouge">AddRecognitionConfidence</code> (tables <code class="language-plaintext highlighter-rouge">RecognitionVerdicts</code>, <code class="language-plaintext highlighter-rouge">RecognitionConfidenceCells</code>,
+<code class="language-plaintext highlighter-rouge">RecognitionConfidenceShopCells</code>; column <code class="language-plaintext highlighter-rouge">DesignStyleProfiles.ShareRecognitionFeedback</code>).</p>
 
 <hr />
 
@@ -5060,8 +5154,10 @@ shared with §22.1 recognitions) under the AI Florist kill switch, pilot list an
 </table>
 
 <p><code class="language-plaintext highlighter-rouge">StockCountDto</code>: <code class="language-plaintext highlighter-rouge">{ id, state: "Recognising|Ready|Failed|Applied", lines: [{ lineId, stockItemId|null, kind, name,
-color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId }],
-photoCount, errorMessage, appliedLines, createdAt, appliedAt }</code>. <code class="language-plaintext highlighter-rouge">needsCheck</code> is true below 0.6 confidence.
+color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId, confidenceScore,
+verdict }], photoCount, errorMessage, appliedLines, createdAt, appliedAt }</code>. <code class="language-plaintext highlighter-rouge">needsCheck</code> (EP-40) is true when the
+calibrated count score is Low or there are no checks yet; counts made before EP-40 keep “below 0.6 confidence”. Verdicts:
+<code class="language-plaintext highlighter-rouge">PUT /vendor/stock/counts/{countId}/lines/{lineId}/verdict</code> (§21.5); applying writes implicit verdicts for applied lines.
 Errors: 422 <code class="language-plaintext highlighter-rouge">unknown-item</code> (a line not linked to an active item of yours), 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code>/<code class="language-plaintext highlighter-rouge">spend-cap-reached</code>,
 403 <code class="language-plaintext highlighter-rouge">feature-disabled</code>, 502 <code class="language-plaintext highlighter-rouge">provider-failed</code>. <code class="language-plaintext highlighter-rouge">StockItemDto</code> also gains <code class="language-plaintext highlighter-rouge">mainPhotoId</code>.</p>
 

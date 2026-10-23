@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.2.0</span>
+    <span class="topbar-badge">Docs v1.3.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -782,6 +782,28 @@
       <h1 id="contract-change-log">Contract change log</h1>
 
 <p>Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.</p>
+
+<h2 id="2026-10-23--ep-40-recognition-confidence-from-human-feedback-additive-needscheck-meaning-changes">2026-10-23 — EP-40 Recognition confidence from human feedback (additive; <code class="language-plaintext highlighter-rouge">needsCheck</code> meaning changes)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new verdict endpoints <code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict</code>,
+<code class="language-plaintext highlighter-rouge">PUT …/inventory/items/{itemId}/verdict</code> and <code class="language-plaintext highlighter-rouge">PUT /api/v1/vendor/stock/counts/{countId}/lines/{lineId}/verdict</code>;
+recognised line DTOs gain <code class="language-plaintext highlighter-rouge">confidenceScore</code> and <code class="language-plaintext highlighter-rouge">verdict</code>; <code class="language-plaintext highlighter-rouge">DesignStyleProfileDto</code> gains <code class="language-plaintext highlighter-rouge">shareRecognitionFeedback</code>
+(default true, omitted on PUT = unchanged); <code class="language-plaintext highlighter-rouge">AiFloristQualityDto</code> gains <code class="language-plaintext highlighter-rouge">calibration</code>; the feedback CSV gains verdict
+columns; admin <code class="language-plaintext highlighter-rouge">POST …/ai-florist/recognition-verdicts/backfill</code>; config <code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:*</code>; migration
+<code class="language-plaintext highlighter-rouge">AddRecognitionConfidence</code> (<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §21.5).</li>
+  <li><strong>Behaviour changes</strong> (once <code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:ScoresEnabled</code> is switched on — it ships off, so at first only
+the verdict endpoints and <code class="language-plaintext highlighter-rouge">verdict</code> fields are live): <code class="language-plaintext highlighter-rouge">confidence</code> (raw) is still returned but deprecated for display. <code class="language-plaintext highlighter-rouge">StockCountLineDto.needsCheck</code>
+is now true when the calibrated count score is Low <strong>or there are no checks yet</strong> — at launch every new count line
+is flagged; clients that untick flagged lines by default should base that on <code class="language-plaintext highlighter-rouge">confidenceScore.count</code> instead (the
+Vendor Portal does). Bouquet analysis lines that florists’ checks show are often wrong are no longer auto-linked, so
+some lines move from Matched/Short to Missing until the florist confirms them. Match scores use the calibrated score
+(about 5 points lower at cold start for 90 %-sure lines).</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M20: verdict control, display states, opt-out); Vendor
+Portal and Admin Portal in this repo.</li>
+  <li><strong>Deployment order</strong>: API first (migration applies on start), then the portals, then the mobile build. Old clients
+ignore the new fields; an old client’s house-style PUT leaves <code class="language-plaintext highlighter-rouge">shareRecognitionFeedback</code> as it is.</li>
+</ul>
 
 <h2 id="2026-10-23--ep-39-online-only-vendors-additive-with-nullable-vase-ids-and-stricter-status-codes">2026-10-23 — EP-39 Online-only vendors (additive, with nullable vase ids and stricter status codes)</h2>
 

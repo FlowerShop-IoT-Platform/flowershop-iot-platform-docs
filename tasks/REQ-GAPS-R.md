@@ -4,7 +4,7 @@
 > and REQ-GAPS-N.md (EP-34 stock count, EP-35 bouquet analysis, EP-36 cost assessor).
 > Requirement refs point at the tasks in `tasks-ep40-recognition-confidence-feedback.json`.
 > Analysis date: 2026-10-23
-> Status: proposed (EP-40, see `EPICS-R.md`). Open decisions are in section H.
+> Status: implemented in this repo (EP-40, see `EPICS-R.md`); vendor app EP-M20 pending. Section H decided 2026-10-23 as proposed.
 
 ## Context
 
@@ -282,7 +282,7 @@ gets a "How sure is the AI?" page (EP-38 vendor audience), and the changelog an 
 
 ---
 
-## H. Open decisions
+## H. Decisions (decided 2026-10-23 as proposed: opt-out sharing, flower type only, no shared crops, starting values in config)
 
 1. **Default for sharing.** Opt-out (on by default, proposed) or opt-in. Opt-in keeps EP-33's promise
    strictly, but the platform cells would fill slowly.

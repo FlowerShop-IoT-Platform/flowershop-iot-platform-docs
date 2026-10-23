@@ -258,6 +258,7 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | POST | `/api/v1/vendor/design-sessions/{id}/analyze` | `{ expectedVersion }` + **required** `Idempotency-Key` | 202 `DesignSessionDto` — `BouquetAnalysis` job (EP-35, one recognition) | Vendor Portal, vendor mobile app (EP-M15) |
 | PUT | `/api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}` | `{ stockItemId?, notInStock, quantity? }` | `DesignSessionDto` (EP-35) | Vendor Portal, vendor mobile app (EP-M15) |
 | POST | `/api/v1/vendor/design-sessions/{id}/analysis/use` | `{ expectedVersion }` | `DesignSessionDto` — matched items become confirmed inventory (EP-35) | Vendor Portal, vendor mobile app (EP-M15) |
+| PUT | `/api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict`, `/inventory/items/{itemId}/verdict` | `{ identity: correct\|wrong\|unsure, actualName?, actualColor?, actualVariety?, notInBouquet?, actualQuantity? }` | `DesignSessionDto` — recognition verdict, idempotent per line (EP-40) | Vendor Portal, vendor mobile app (EP-M20) |
 | GET/POST | `/api/v1/vendor/cost-assessments` | POST `{ note? }` (+ optional `Idempotency-Key`) | `CostAssessmentSummaryDto[]` / 201 `CostAssessmentDto` (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
 | GET/DELETE | `/api/v1/vendor/cost-assessments/{id}` | — | `CostAssessmentDto` / 204 (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
 | POST/DELETE | `/api/v1/vendor/cost-assessments/{id}/photos[/{photoId}]` | multipart `photo` | `CostAssessmentDto` (EP-36) | Vendor Portal, vendor mobile app (EP-M16) |
@@ -276,6 +277,7 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | GET/POST | `/api/v1/admin/bouquet-requests[/{id}/hide\|unhide\|cancel]` | `{ reason? }` | `AdminRequestDto[]` (EP-37) | Admin Portal |
 | WS | `/hubs/marketplace` (SignalR) | — | `request.*`, `offer.*`, `order.*` events (EP-37, §23.4) | Customer App, Vendor Portal, mobile apps |
 | POST | `/api/v1/vendor/stock/counts/{countId}/apply` | `{ lines[{ stockItemId, countedQuantity }] }` + **required** `Idempotency-Key` | `StockCountDto` — Counted movements, all or nothing (EP-34) | Vendor Portal, vendor mobile app (EP-M14) |
+| PUT | `/api/v1/vendor/stock/counts/{countId}/lines/{lineId}/verdict` | same body as the design verdicts | `StockCountDto` — recognition verdict, no stock change (EP-40) | Vendor Portal, vendor mobile app (EP-M20) |
 | GET/POST | `/api/v1/vendor/stock` | GET `?search&kind&status&includeArchived`; POST `{ kind, name, color?, unit?, quantity, unitCost?, lowStockThreshold?, supplier?, notes? }` | `StockOverviewDto` / 201 `StockItemDto` (EP-30) | Vendor Portal, vendor mobile app |
 | GET/PUT/DELETE | `/api/v1/vendor/stock/{id}` | PUT `{ expectedVersion, …fields }` | `StockItemDetailsDto` / `StockItemDto` / 204 archive | Vendor Portal, vendor mobile app |
 | POST | `/api/v1/vendor/stock/{id}/restore` | — | `StockItemDto` | Vendor Portal, vendor mobile app |
@@ -301,7 +303,8 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | GET | `/api/v1/admin/analytics` | Query: `fromDate?, toDate?, includeVendorBreakdown, includeLocationAnalysis` | `PlatformAnalyticsDto` | Admin Portal |
 | PUT | `/api/v1/admin/vendors/{id}/sales-mode` | `{ salesMode }` | `{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }` / 409 `vendor-has-vases` (EP-39) | Admin Portal |
 | GET | `/api/v1/admin/analytics/ai-florist` | Query: `from?, to?, step?, promptVersion?` | `AiFloristQualityDto` (aggregates only, EP-33) | Admin Portal |
-| GET | `/api/v1/admin/analytics/ai-florist/feedback-export` | Query: `from?, to?` | `text/csv` of consented, scrubbed feedback (audit-logged, EP-33) | Admin Portal |
+| GET | `/api/v1/admin/analytics/ai-florist/feedback-export` | Query: `from?, to?` | `text/csv` of consented, scrubbed feedback (audit-logged, EP-33); EP-40 adds verdict rows/columns | Admin Portal |
+| POST | `/api/v1/admin/analytics/ai-florist/recognition-verdicts/backfill` | — | `{ fromCorrections, fromConfirmedSessions, skipped, platformCells }` — one-off, idempotent (EP-40) | Operator (curl) |
 | POST | `/api/v1/admin/reports/vendor-onboarding` | `VendorOnboardingReportRequest` | `VendorOnboardingReportDto` | Admin Portal |
 | POST | `/api/v1/smartvases` | `{ deviceId, latitude, longitude, locationName?, vendorId?, vendorType? }` | `VaseRegistrationResult` 201 | Admin Portal |
 | GET | `/api/v1/smartvases` | — | `List<VaseDetailsDto>` | Admin Portal |
@@ -551,6 +554,7 @@ Confidential client **`flowershop-docs`** (authorization code + PKCE S256, servi
 | `BouquetDesign:Assessment:MonthlyLimit` | int | Cost assessments per vendor per month (EP-36) | `30` |
 | `BouquetDesign:LegacyPhotosMode` | bool | Offer `inputMode: "Photos"` for new wizard sessions (EP-34); switch off after vendor app EP-M14 | `true` |
 | `BouquetDesign:Composition:RepairEnabled` | bool | One validator-guided repair call per composition (global $ cap, not vendor quota) | `true` |
+| `BouquetDesign:Confidence:*` | object | Recognition confidence from florists' verdicts (EP-40): `ScoresEnabled` (rollout switch, scores off until the pilot check), `ImplicitWeight`, `HalfLifeDays`, `PriorStrength`, `ShopStrength`, `MinChecks`, `MinVendorsPerCell`, `MaxPerVendorPerCell`, `CapWindowDays`, `HighBand`, `MediumBand`, `ColdStartFactor`, `InheritFrom`, `InheritStrength`, `BurstLines`, `BurstSeconds`, `RefreshMinutes` | `false` (appsettings; code default `true`), `0.25`, `120`, `10`, `10`, `5`, `3`, `30`, `30`, `0.85`, `0.6`, `0.8`, `{}`, `0.5`, `5`, `2`, `60` |
 | `OnlineListings:MaxListingDays` / `CheckIntervalMinutes` | int | Online listings (EP-39) expire after this many days at most (or sooner when the declared freshness runs out); expiry pass interval | `3` / `15` |
 | `Marketplace:Enabled` | bool | EP-37 kill switch for new requests and offers (existing orders keep working) | `true` |
 | `Marketplace:MaxOpenRequestsPerCustomer` / `MaxRequestsPer7Days` | int | Customer request limits (429 `request-limit`) | `3` / `10` |

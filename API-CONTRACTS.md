@@ -2542,8 +2542,9 @@ flow. **Never changes stock levels.** Create the session with `inputMode: "Bouqu
 | POST | `/vendor/design-sessions/{id}/analysis/use` | `{ expectedVersion }` | 200 `DesignSessionDto` (state `InventoryConfirmed`). Linked items become confirmed inventory lines linked by `stockItemId`, quantity capped at what's in stock, priced from the stock cost; Missing items never become lines. 409 `insufficient-stock` when nothing is linked |
 
 `DesignSessionDto.analysis` (null until analysed): `{ purpose: "Inspiration", analyzedAt, items: [{ id, kind, name,
-colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, visibility, match: StockMatchDto|null,
-alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }], missing: [{ name, kind,
+colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confidence, confidenceScore, verdict, visibility,
+match: StockMatchDto|null, alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }] (EP-40
+`confidenceScore`/`verdict`: §21.5), missing: [{ name, kind,
 colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet", "colours-only" — the free Palette analyzer measured colours only and its item names are placeholders; show it), palette[],
 procurement: { available: false, providers: [] } }`. `StockMatchDto`: `{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }`. Bands: High ≥ 80, Medium
@@ -2592,6 +2593,75 @@ is missing. `DesignCostProfileDto` gains `targetMarginPercent` (default 60; PUT 
 for bouquets already made. Errors: 409 `invalid-state` / `version-conflict`, 429 `quota-exhausted` / `spend-cap-reached`
 (with `Retry-After`), 403 `feature-disabled`, 502 `provider-failed` (state `Failed`; counted only if submitted),
 400 `invalid-request` / `invalid-inventory` / `invalid-photo`, 422 `photo-limit`.
+
+### 21.5 Recognition confidence from human feedback (EP-40)
+
+The model's own "NN % sure" (`confidence`, still returned, **deprecated for display**) is replaced by a calibrated
+`confidenceScore` on every recognised line: how often this kind of answer was right when florists checked it. It is
+computed in code (Beta-Binomial: the model's raw-confidence bucket prior → anonymous platform counts per provider ×
+model × prompt version × task × flower type, used only with ≥ 3 contributing vendors → this shop's own counts), never
+by the model. Florists' verdicts feed it.
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| PUT | `/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict` | `RecognitionVerdictRequest` | 200 `DesignSessionDto` |
+| PUT | `/vendor/design-sessions/{id}/inventory/items/{itemId}/verdict` | `RecognitionVerdictRequest` (recognised Photos-mode lines only) | 200 `DesignSessionDto` |
+| PUT | `/vendor/stock/counts/{countId}/lines/{lineId}/verdict` | `RecognitionVerdictRequest` | 200 `StockCountDto` |
+
+`RecognitionVerdictRequest`: `{ "identity": "correct|wrong|unsure", "actualName"?: "Scabiosa", "actualColor"?, "actualVariety"?,
+"notInBouquet"?: false, "actualQuantity"?: 12 }`. "Right" means the **flower type** matches (colour and variety are
+kept but don't decide it). `wrong` needs `actualName` or `notInBouquet: true` (a false positive). The verdict is about
+recognition, **not** stock: "not in my stock" (`PUT …/analysis/items/{itemId}` `notInStock`) is unchanged and separate.
+Idempotent: one verdict per line, a repeat updates it. No model call. Another vendor's session/count → 404; unknown
+line → 404; bad body → 400 `invalid-request`. A wrong verdict with `actualName` also stores the EP-33 rename
+correction (hints). Five or more verdicts on one review within 2 s are kept as implicit ("mark all right" bursts).
+
+**Implicit verdicts** (weight 0.25, never overwriting an explicit one) are written by the existing confirms: Photos-mode
+`PUT …/inventory` with `confirmed: true` (kept → right, renamed to another type → wrong, removed → not in the bouquet,
+count compared), `POST …/analysis/use` (only lines it used; Missing lines and "not in my stock" give none),
+`PUT /vendor/cost-assessments/{id}/lines` (EP-36) and `POST /vendor/stock/counts/{id}/apply` (applied lines).
+
+Line DTOs (`DesignAnalysisItemDto`, `InventoryItemDto` for recognised lines, `StockCountLineDto`) gain:
+
+```
+confidenceScore: {
+  identity: { score: 0.72, band: "High|Medium|Low", basis: "shop|platform|model|none", checks: 12.5 },
+  count:    { … } | null
+} | null,                       // null for lines made before EP-40 and for manual lines
+verdict: { identity: "correct|wrong|unsure", actualName, actualColor, actualVariety, notInBouquet,
+           actualQuantity, countCorrect, weight: "explicit|implicit", updatedAt } | null
+```
+
+Bands: High ≥ 0.85, Medium ≥ 0.6, Low < 0.6. `basis: "none"` = not enough checks yet — show "not enough checks yet",
+not a number. `checks` is the weighted number of verdicts behind the basis (an implicit confirm counts 0.25). Scores are
+computed at the end of the job and recomputed from the current cells on `GET` of the session / count. Decisions now
+use the score: `StockMatcher` multiplies by the calibrated identity score (factor text `"right NN% of the time"` once
+there are checks); an identity band **Low on real checks** (basis ≠ none) is never auto-linked; a stock count line's
+`needsCheck` is true when the count band is Low or there are no checks yet (lines counted before EP-40 keep the old
+"raw < 0.6" rule); the Cost Assessor widens the min/max quantity of lines with a Low count score by 25 % before the cost range.
+
+`DesignStyleProfileDto` gains `shareRecognitionFeedback` (default **true**; PUT accepts it, omitted keeps it): "Help
+improve recognition for everyone". Off → the vendor's verdicts stay out of the next platform rebuild (hourly) but still
+feed its own shop cells; it still receives platform scores. Shared data is counts per flower type only — no vendor id,
+names typed by florists, photos, notes, prices or stock.
+
+**Admin (PlatformAdmin)**: `AiFloristQualityDto` gains `calibration: [{ provider, model, promptVersion, task, verdicts,
+explicit, implicit, unchecked|null, reliability: [{ bucket, checked, meanRaw, observed }], eceRaw, eceCalibrated,
+types: [{ typeKey, checked, accuracy }] (top 20, worst first), countAccuracy, countChecked }]` — groups, buckets and types
+with fewer than 3 vendors are left out. The feedback export adds one `RecognitionVerdict` row per verdict of consenting
+vendors (`source, type_key, detected_name, identity, actual_name, count_correct, weight`, scrubbed).
+`POST /api/v1/admin/analytics/ai-florist/recognition-verdicts/backfill` → `{ fromCorrections, fromConfirmedSessions,
+skipped, platformCells }`: one-off, idempotent conversion of existing corrections and confirmed Photos-mode sessions into
+implicit verdicts, then a cell rebuild.
+
+Config `BouquetDesign:Confidence:*`: `ScoresEnabled` (rollout switch — `false` in `appsettings.json`: verdicts are
+captured but `confidenceScore` stays null and every decision keeps the model's own rating; switch on after the pilot's
+calibration check), `ImplicitWeight` 0.25, `HalfLifeDays` 120, `PriorStrength` 10, `ShopStrength` 10,
+`MinChecks` 5, `MinVendorsPerCell` 3, `MaxPerVendorPerCell` 30 (per `CapWindowDays` 30), `HighBand` 0.85, `MediumBand`
+0.6, `ColdStartFactor` 0.8, `InheritFrom` (`"provider|model|prompt": "provider|model|prompt"` — a new version uses its
+predecessor's bucket prior at `InheritStrength` 0.5), `BurstLines` 5 / `BurstSeconds` 2, `RefreshMinutes` 60.
+Migration `AddRecognitionConfidence` (tables `RecognitionVerdicts`, `RecognitionConfidenceCells`,
+`RecognitionConfidenceShopCells`; column `DesignStyleProfiles.ShareRecognitionFeedback`).
 
 ---
 
@@ -2698,8 +2768,10 @@ shared with §22.1 recognitions) under the AI Florist kill switch, pilot list an
 | POST | `/vendor/stock/counts/{countId}/apply` | `{ "lines": [{ "stockItemId": guid, "countedQuantity": 14 }] }`, **required** `Idempotency-Key` | 200 `StockCountDto` (state `Applied`). One `Counted` movement per line (`reference = "stock-count:{countId}"`), all or nothing; the same key replays, another key → 409 |
 
 `StockCountDto`: `{ id, state: "Recognising|Ready|Failed|Applied", lines: [{ lineId, stockItemId|null, kind, name,
-color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId }],
-photoCount, errorMessage, appliedLines, createdAt, appliedAt }`. `needsCheck` is true below 0.6 confidence.
+color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId, confidenceScore,
+verdict }], photoCount, errorMessage, appliedLines, createdAt, appliedAt }`. `needsCheck` (EP-40) is true when the
+calibrated count score is Low or there are no checks yet; counts made before EP-40 keep "below 0.6 confidence". Verdicts:
+`PUT /vendor/stock/counts/{countId}/lines/{lineId}/verdict` (§21.5); applying writes implicit verdicts for applied lines.
 Errors: 422 `unknown-item` (a line not linked to an active item of yours), 429 `quota-exhausted`/`spend-cap-reached`,
 403 `feature-disabled`, 502 `provider-failed`. `StockItemDto` also gains `mainPhotoId`.
 

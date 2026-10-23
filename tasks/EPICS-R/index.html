@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.2.0</span>
+    <span class="topbar-badge">Docs v1.3.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -799,7 +799,10 @@ Analysis date: 2026-10-23</p>
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: EP-33 (corrections, quality dashboard), EP-34/35/36 (the three reviews)
 <strong>Requirement refs</strong>: REQ-CNF-01 through REQ-CNF-16
-<strong>State</strong>: proposed (design only); open decisions in REQ-GAPS-R §H.</p>
+<strong>State</strong>: in progress — implemented in this repo (S-40-01…05, S-40-07; T-40-001…015, 017, 018); vendor app EP-M20
+(T-40-016) pending. §H decided 2026-10-23 as proposed: sharing is opt-out (on by default), “right” means the flower
+type matches, no shared image crops, starting thresholds in <code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:*</code>. Scores ship switched off
+(<code class="language-plaintext highlighter-rouge">ScoresEnabled: false</code>, see Rollout); the operator runs the backfill once after deploy.</p>
 
 <blockquote>
   <p>“90 % sure” today is the model rating itself, and it says that about almost everything. After this
@@ -862,13 +865,32 @@ follows the API.</p>
 <ol>
   <li>Ship verdict capture (S-40-02) and the backfill. Nothing changes for florists except the new
 ✓/✗/? control, and evidence starts to build.</li>
-  <li>Ship the scoring service and aggregator with the display behind
-<code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:ShowScores=false</code>. Check the Admin calibration table for the pilot
-shops.</li>
-  <li>When the platform cells for the common flower types reach the minimum, switch the display on.
-Then switch the score-driven decisions on (T-40-012).</li>
-  <li>Tune the thresholds (REQ-GAPS-R §H.4) from the dashboard after one month.</li>
+  <li>Ship the scoring service and aggregator with scores behind <code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:ScoresEnabled</code>
+(shipped as <code class="language-plaintext highlighter-rouge">false</code> in <code class="language-plaintext highlighter-rouge">appsettings.json</code>; one switch covers the display and the score-driven
+decisions). Check the Admin calibration table for the pilot shops.</li>
+  <li>When the platform cells for the common flower types reach the minimum, set <code class="language-plaintext highlighter-rouge">ScoresEnabled: true</code>
+(Fly secret/env <code class="language-plaintext highlighter-rouge">BouquetDesign__Confidence__ScoresEnabled=true</code>): labels appear and T-40-012’s
+decisions start using the score.</li>
 </ol>
+
+<h3 id="implementation-notes-2026-10-23">Implementation notes (2026-10-23)</h3>
+<ul>
+  <li>Code: <code class="language-plaintext highlighter-rouge">Domain/Aggregates/BouquetDesign/RecognitionVerdict.cs</code>, <code class="language-plaintext highlighter-rouge">Application/Services/BouquetDesign/FlowerTypeKey.cs</code>,
+<code class="language-plaintext highlighter-rouge">RecognitionConfidence.cs</code> (options, pure model, aggregation, cache, scorer, rebuilder), <code class="language-plaintext highlighter-rouge">RecognitionVerdictService.cs</code>,
+<code class="language-plaintext highlighter-rouge">Commands/BouquetDesign/RecognitionVerdictCommands.cs</code>, <code class="language-plaintext highlighter-rouge">BackfillRecognitionVerdictsCommand.cs</code>,
+<code class="language-plaintext highlighter-rouge">Infrastructure/BouquetDesign/RecognitionConfidenceAggregator.cs</code>; migration <code class="language-plaintext highlighter-rouge">AddRecognitionConfidence</code>; API contract §21.5.</li>
+  <li>Scores are stored on the line at job end (snapshot JSON) and recomputed from the current cells on <code class="language-plaintext highlighter-rouge">GET</code>.</li>
+  <li>“Low” blocks auto-linking and widens the cost range only on real evidence (basis ≠ none); “not enough checks yet”
+alone does not. The stock count <code class="language-plaintext highlighter-rouge">needsCheck</code> follows the spec (Low or no checks yet), but the Vendor Portal still ticks
+a no-evidence line by default when the AI’s own rating is ≥ 0.6.</li>
+  <li>The burst rule (REQ-CNF-07) is a window: ≥ 5 explicit verdicts on one review within 2 s are kept as implicit.</li>
+  <li>Not built: “Add a missed flower” on the bouquet analysis and stock count reviews (no add-line API); the Photos-mode
+inventory step already adds rows.
+    <ol>
+      <li>Tune the thresholds (REQ-GAPS-R §H.4) from the dashboard after one month.</li>
+    </ol>
+  </li>
+</ul>
 
     </div>
   </main>

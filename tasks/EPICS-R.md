@@ -16,7 +16,10 @@
 **Priority**: P1-high
 **Dependencies**: EP-33 (corrections, quality dashboard), EP-34/35/36 (the three reviews)
 **Requirement refs**: REQ-CNF-01 through REQ-CNF-16
-**State**: proposed (design only); open decisions in REQ-GAPS-R §H.
+**State**: in progress — implemented in this repo (S-40-01…05, S-40-07; T-40-001…015, 017, 018); vendor app EP-M20
+(T-40-016) pending. §H decided 2026-10-23 as proposed: sharing is opt-out (on by default), "right" means the flower
+type matches, no shared image crops, starting thresholds in `BouquetDesign:Confidence:*`. Scores ship switched off
+(`ScoresEnabled: false`, see Rollout); the operator runs the backfill once after deploy.
 
 > "90 % sure" today is the model rating itself, and it says that about almost everything. After this
 > epic, the number means "florists checked answers like this N times and it was right X % of the
@@ -73,9 +76,23 @@ follows the API.
 ### Rollout
 1. Ship verdict capture (S-40-02) and the backfill. Nothing changes for florists except the new
    ✓/✗/? control, and evidence starts to build.
-2. Ship the scoring service and aggregator with the display behind
-   `BouquetDesign:Confidence:ShowScores=false`. Check the Admin calibration table for the pilot
-   shops.
-3. When the platform cells for the common flower types reach the minimum, switch the display on.
-   Then switch the score-driven decisions on (T-40-012).
+2. Ship the scoring service and aggregator with scores behind `BouquetDesign:Confidence:ScoresEnabled`
+   (shipped as `false` in `appsettings.json`; one switch covers the display and the score-driven
+   decisions). Check the Admin calibration table for the pilot shops.
+3. When the platform cells for the common flower types reach the minimum, set `ScoresEnabled: true`
+   (Fly secret/env `BouquetDesign__Confidence__ScoresEnabled=true`): labels appear and T-40-012's
+   decisions start using the score.
+
+### Implementation notes (2026-10-23)
+- Code: `Domain/Aggregates/BouquetDesign/RecognitionVerdict.cs`, `Application/Services/BouquetDesign/FlowerTypeKey.cs`,
+  `RecognitionConfidence.cs` (options, pure model, aggregation, cache, scorer, rebuilder), `RecognitionVerdictService.cs`,
+  `Commands/BouquetDesign/RecognitionVerdictCommands.cs`, `BackfillRecognitionVerdictsCommand.cs`,
+  `Infrastructure/BouquetDesign/RecognitionConfidenceAggregator.cs`; migration `AddRecognitionConfidence`; API contract §21.5.
+- Scores are stored on the line at job end (snapshot JSON) and recomputed from the current cells on `GET`.
+- "Low" blocks auto-linking and widens the cost range only on real evidence (basis ≠ none); "not enough checks yet"
+  alone does not. The stock count `needsCheck` follows the spec (Low or no checks yet), but the Vendor Portal still ticks
+  a no-evidence line by default when the AI's own rating is ≥ 0.6.
+- The burst rule (REQ-CNF-07) is a window: ≥ 5 explicit verdicts on one review within 2 s are kept as implicit.
+- Not built: "Add a missed flower" on the bouquet analysis and stock count reviews (no add-line API); the Photos-mode
+  inventory step already adds rows.
 4. Tune the thresholds (REQ-GAPS-R §H.4) from the dashboard after one month.
