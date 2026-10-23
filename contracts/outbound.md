@@ -174,10 +174,10 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | Method | Path | Request Body | Response | Counterpart |
 |--------|------|-------------|----------|-------------|
 | GET | `/api/v1/cart` | — | `CartDto` | Mobile App |
-| POST | `/api/v1/cart/items` | `{ bouquetId }` | `CartDto` | Mobile App |
+| POST | `/api/v1/cart/items` | `{ bouquetId }` | `CartDto` (`items[].vaseId` null for online listings) / 409 `bouquet-reserved` or `bouquet-not-listed` (EP-39) | Mobile App |
 | DELETE | `/api/v1/cart/items/{bouquetId}` | — | 204 | Mobile App |
 | DELETE | `/api/v1/cart` | — | 204 | Mobile App |
-| POST | `/api/v1/orders/preview` | `{ bouquetIds[], deliveryMethod, street?, city?, postalCode?, notes? }` | `OrderPreviewDto` | Mobile App |
+| POST | `/api/v1/orders/preview` | `{ bouquetIds[], deliveryMethod, street?, city?, postalCode?, notes? }` | `OrderPreviewDto` (+ `pickupAvailable`, `lines[].deliveryOnly`, EP-39) | Mobile App |
 | POST | `/api/v1/orders` | `{ bouquetIds[], deliveryMethod, expectedTotalAmount, street?, city?, postalCode?, notes? }` + `Idempotency-Key` header | `OrderCreatedDto` | Mobile App |
 | POST | `/api/v1/orders/{id}/confirm-payment` | `{ paymentIntentId, stripeCustomerId? }` | 204 | Mobile App (Stripe) |
 | POST | `/api/v1/orders/{id}/cancel` | `{ reason }` | `CancelOrderResponseDto` (200) | Mobile App |
@@ -218,7 +218,9 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | POST | `/api/v1/bouquets` | `CreateBouquetCommand` (name, description, price, currency, vaseId?, imageUrls[], flowerTypes[], ...) | `BouquetDetails` 201 | Vendor Portal |
 | GET | `/api/v1/vendors/{vendorId}/bouquets` | Query: `status?` | `List<BouquetDetails>` | Vendor Portal |
 | PUT | `/api/v1/bouquets/{id}` | `UpdateBouquetCommand` | `BouquetDetails` | Vendor Portal |
-| DELETE | `/api/v1/bouquets/{id}` | — | 204 | Vendor Portal |
+| DELETE | `/api/v1/bouquets/{id}` | — | 204 (online listings are marked Removed, not deleted; 400 while a customer holds it, EP-39) | Vendor Portal |
+| POST | `/api/v1/vendor/online-listings` | multipart `name, price, freshnessDays (1..3), description?, category?, flowerTypes?, photo` + optional `Idempotency-Key` | `OnlineListingDto` 201 / 409 `vendor-not-online` / 403 `vendor-pending-approval`, `subscription-inactive` (EP-39, §25) | Vendor Portal, vendor mobile app (EP-M19) |
+| GET/PUT | `/api/v1/vendor/settings/sales-mode` | PUT `{ salesMode: "InStore" \| "OnlineOnly" }` | `{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }` / 409 `vendor-has-vases` (EP-39) | Vendor Portal, vendor mobile app (EP-M19) |
 | PUT | `/api/v1/bouquets/{id}/price` | `{ price, currency, notes? }` | `BouquetDetails` | Vendor Portal |
 | GET | `/api/v1/bouquets/{id}/analytics` | Query: `period` | `BouquetAnalyticsDto` | Vendor Portal |
 | GET | `/api/v1/smartvases/my-vases` | — | `List<VaseDetailsDto>` | Vendor Portal |
@@ -297,6 +299,7 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | POST | `/api/v1/admin/vendors/{vendorId}/assign-technician` | `{ technicianId, scheduledDate, estimatedDuration, specialInstructions? }` | `TechnicianAssignmentResult` | Admin Portal |
 | PATCH | `/api/v1/admin/vendors/{vendorId}/status` | `{ newStatus, reason, notifyVendor }` | 200 | Admin Portal |
 | GET | `/api/v1/admin/analytics` | Query: `fromDate?, toDate?, includeVendorBreakdown, includeLocationAnalysis` | `PlatformAnalyticsDto` | Admin Portal |
+| PUT | `/api/v1/admin/vendors/{id}/sales-mode` | `{ salesMode }` | `{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }` / 409 `vendor-has-vases` (EP-39) | Admin Portal |
 | GET | `/api/v1/admin/analytics/ai-florist` | Query: `from?, to?, step?, promptVersion?` | `AiFloristQualityDto` (aggregates only, EP-33) | Admin Portal |
 | GET | `/api/v1/admin/analytics/ai-florist/feedback-export` | Query: `from?, to?` | `text/csv` of consented, scrubbed feedback (audit-logged, EP-33) | Admin Portal |
 | POST | `/api/v1/admin/reports/vendor-onboarding` | `VendorOnboardingReportRequest` | `VendorOnboardingReportDto` | Admin Portal |
@@ -383,9 +386,9 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 | `BouquetPlacedInVase` | `BouquetId, VaseId, VendorId, VendorType, PlacedAt` | `Bouquet` aggregate | — |
 | `BouquetPriceSet` | `BouquetId, Price (PriceInfo), SetBy, VendorType, Method (PricingMethod)` | `Bouquet` aggregate | `MqttService`, `RealTimeNotificationService` |
 | `BouquetPriceUpdated` | `BouquetId, PreviousPrice, NewPrice, UpdatedBy, Method, Reason` | `UpdateBouquetCommandHandler` | `RealTimeNotificationService` |
-| `BouquetBecameAvailable` | `BouquetId, VaseId, VendorId, VendorType` | `Bouquet` aggregate | `RealTimeNotificationService` |
+| `BouquetBecameAvailable` | `BouquetId, VaseId?` (null for online listings, EP-39), `VendorId, VendorType` | `Bouquet` aggregate (vase bouquets and online listings) | `RealTimeNotificationService`, `SubscriptionMatchingService` |
 | `BouquetReserved` | `BouquetId, CustomerId, ReservedAt, ReservationExpires` | `Bouquet` aggregate | `RealTimeNotificationService` |
-| `BouquetSold` | `BouquetId, VaseId, VendorId, SoldTo, OrderId, Price, SoldAt` | `Bouquet` aggregate | `RealTimeNotificationService` |
+| `BouquetSold` | `BouquetId, VaseId?` (null for online listings, EP-39), `VendorId, SoldTo, OrderId, Price, SoldAt` | `Bouquet` aggregate | `RealTimeNotificationService` |
 | `BouquetRemovedFromVase` | `BouquetId, VaseId, VendorId, Reason (RemovalReason), RemovedBy, PreviousStatus, RemovedAt` | `DeleteBouquetCommandHandler` | `RealTimeNotificationService` |
 
 ### 4b. Order Events
@@ -548,6 +551,7 @@ Confidential client **`flowershop-docs`** (authorization code + PKCE S256, servi
 | `BouquetDesign:Assessment:MonthlyLimit` | int | Cost assessments per vendor per month (EP-36) | `30` |
 | `BouquetDesign:LegacyPhotosMode` | bool | Offer `inputMode: "Photos"` for new wizard sessions (EP-34); switch off after vendor app EP-M14 | `true` |
 | `BouquetDesign:Composition:RepairEnabled` | bool | One validator-guided repair call per composition (global $ cap, not vendor quota) | `true` |
+| `OnlineListings:MaxListingDays` / `CheckIntervalMinutes` | int | Online listings (EP-39) expire after this many days at most (or sooner when the declared freshness runs out); expiry pass interval | `3` / `15` |
 | `Marketplace:Enabled` | bool | EP-37 kill switch for new requests and offers (existing orders keep working) | `true` |
 | `Marketplace:MaxOpenRequestsPerCustomer` / `MaxRequestsPer7Days` | int | Customer request limits (429 `request-limit`) | `3` / `10` |
 | `Marketplace:RequireVerifiedEmail` | bool | Verified email needed to create requests | `true` |

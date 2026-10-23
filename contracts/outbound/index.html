@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.1.0</span>
+    <span class="topbar-badge">Docs v1.2.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -1309,7 +1309,7 @@
       <td>POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/cart/items</code></td>
       <td><code class="language-plaintext highlighter-rouge">{ bouquetId }</code></td>
-      <td><code class="language-plaintext highlighter-rouge">CartDto</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CartDto</code> (<code class="language-plaintext highlighter-rouge">items[].vaseId</code> null for online listings) / 409 <code class="language-plaintext highlighter-rouge">bouquet-reserved</code> or <code class="language-plaintext highlighter-rouge">bouquet-not-listed</code> (EP-39)</td>
       <td>Mobile App</td>
     </tr>
     <tr>
@@ -1330,7 +1330,7 @@
       <td>POST</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/orders/preview</code></td>
       <td><code class="language-plaintext highlighter-rouge">{ bouquetIds[], deliveryMethod, street?, city?, postalCode?, notes? }</code></td>
-      <td><code class="language-plaintext highlighter-rouge">OrderPreviewDto</code></td>
+      <td><code class="language-plaintext highlighter-rouge">OrderPreviewDto</code> (+ <code class="language-plaintext highlighter-rouge">pickupAvailable</code>, <code class="language-plaintext highlighter-rouge">lines[].deliveryOnly</code>, EP-39)</td>
       <td>Mobile App</td>
     </tr>
     <tr>
@@ -1598,8 +1598,22 @@
       <td>DELETE</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/bouquets/{id}</code></td>
       <td>—</td>
-      <td>204</td>
+      <td>204 (online listings are marked Removed, not deleted; 400 while a customer holds it, EP-39)</td>
       <td>Vendor Portal</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/online-listings</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">name, price, freshnessDays (1..3), description?, category?, flowerTypes?, photo</code> + optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code></td>
+      <td><code class="language-plaintext highlighter-rouge">OnlineListingDto</code> 201 / 409 <code class="language-plaintext highlighter-rouge">vendor-not-online</code> / 403 <code class="language-plaintext highlighter-rouge">vendor-pending-approval</code>, <code class="language-plaintext highlighter-rouge">subscription-inactive</code> (EP-39, §25)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M19)</td>
+    </tr>
+    <tr>
+      <td>GET/PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/settings/sales-mode</code></td>
+      <td>PUT <code class="language-plaintext highlighter-rouge">{ salesMode: "InStore" \| "OnlineOnly" }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }</code> / 409 <code class="language-plaintext highlighter-rouge">vendor-has-vases</code> (EP-39)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M19)</td>
     </tr>
     <tr>
       <td>PUT</td>
@@ -2129,6 +2143,13 @@
       <td>Admin Portal</td>
     </tr>
     <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/vendors/{id}/sales-mode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ salesMode }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }</code> / 409 <code class="language-plaintext highlighter-rouge">vendor-has-vases</code> (EP-39)</td>
+      <td>Admin Portal</td>
+    </tr>
+    <tr>
       <td>GET</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/analytics/ai-florist</code></td>
       <td>Query: <code class="language-plaintext highlighter-rouge">from?, to?, step?, promptVersion?</code></td>
@@ -2501,9 +2522,9 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code></td>
-      <td><code class="language-plaintext highlighter-rouge">BouquetId, VaseId, VendorId, VendorType</code></td>
-      <td><code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate</td>
-      <td><code class="language-plaintext highlighter-rouge">RealTimeNotificationService</code></td>
+      <td><code class="language-plaintext highlighter-rouge">BouquetId, VaseId?</code> (null for online listings, EP-39), <code class="language-plaintext highlighter-rouge">VendorId, VendorType</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate (vase bouquets and online listings)</td>
+      <td><code class="language-plaintext highlighter-rouge">RealTimeNotificationService</code>, <code class="language-plaintext highlighter-rouge">SubscriptionMatchingService</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetReserved</code></td>
@@ -2513,7 +2534,7 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetSold</code></td>
-      <td><code class="language-plaintext highlighter-rouge">BouquetId, VaseId, VendorId, SoldTo, OrderId, Price, SoldAt</code></td>
+      <td><code class="language-plaintext highlighter-rouge">BouquetId, VaseId?</code> (null for online listings, EP-39), <code class="language-plaintext highlighter-rouge">VendorId, SoldTo, OrderId, Price, SoldAt</code></td>
       <td><code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate</td>
       <td><code class="language-plaintext highlighter-rouge">RealTimeNotificationService</code></td>
     </tr>
@@ -3212,6 +3233,12 @@
       <td>bool</td>
       <td>One validator-guided repair call per composition (global $ cap, not vendor quota)</td>
       <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OnlineListings:MaxListingDays</code> / <code class="language-plaintext highlighter-rouge">CheckIntervalMinutes</code></td>
+      <td>int</td>
+      <td>Online listings (EP-39) expire after this many days at most (or sooner when the declared freshness runs out); expiry pass interval</td>
+      <td><code class="language-plaintext highlighter-rouge">3</code> / <code class="language-plaintext highlighter-rouge">15</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Marketplace:Enabled</code></td>

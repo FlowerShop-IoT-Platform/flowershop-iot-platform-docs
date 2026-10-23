@@ -320,7 +320,9 @@ Returns bouquets available within a radius of the given location.
       },
       "distanceKm": 0.8,
       "availableFrom": "2025-04-10T09:15:00Z",
-      "isFavourite": false
+      "isFavourite": false,
+      "listingChannel": "vase",
+      "deliveryOnly": false
     }
   ],
   "totalCount": 42,
@@ -332,6 +334,12 @@ Returns bouquets available within a radius of the given location.
 **Notes:**
 - `isFavourite` is always `false` for unauthenticated requests.
 - `exactAddressHidden` is `true` for freelance florists; coordinates are approximate within ~500 m (SEC-06).
+- **Online listings (EP-39, §25):** `listingChannel` is `"vase"` or `"online"`; `deliveryOnly` is `true` for online
+  listings. They have no vase (`vaseId: null`), are fuzzed like freelance florists (`exactAddressHidden: true`, also for
+  any online-only vendor) and are returned only when the customer is within delivery range
+  (`min(radiusKm, Delivery:MaxDistanceKm)`); show the distance as "delivers to you", not "walk here". The map lists
+  only bouquets a customer can buy: vase-less catalog bouquets are not returned. The same two fields are on
+  `GET /bouquets/{id}/detail` and `GET /bouquets/available`.
 - **Freshness visibility (EP-25):** `initialFreshnessDays` is the vendor-declared rating
   (1–`maxFreshnessScale`, where `maxFreshnessScale` is always 3), declared when the vendor sets the
   price. `currentFreshnessDays` is the value after daily decay — the initial rating minus one per full
@@ -602,7 +610,8 @@ Returns cost breakdown for a potential order **without** creating the order or r
   "totalAmount": 89.00,
   "currency": "PLN",
   "vendorName": "Flora Elegance",
-  "deliveryMethod": "pickup"
+  "deliveryMethod": "pickup",
+  "pickupAvailable": true
 }
 ```
 
@@ -611,6 +620,8 @@ Returns cost breakdown for a potential order **without** creating the order or r
 **Notes:**
 - This endpoint does NOT reserve the bouquet. Reservation happens only on `POST /api/v1/orders`.
 - `deliveryFee` is `0.00` when `deliveryMethod` is `pickup`; flat `25.00 PLN` when delivery falls within the vendor's 10 km service radius.
+- `pickupAvailable` is `false` when any line is an online listing (EP-39, each such line has `deliveryOnly: true`):
+  hide the Pickup choice and ask for a delivery address.
 - `deliveryDistanceKm` and `resolvedDeliveryAddress` are present only on delivery previews. The server geocodes the address via Nominatim (cached for 10 minutes per address) and returns the resolved latitude/longitude so the client can surface a map preview.
 
 ---
@@ -707,8 +718,14 @@ Creates a new order and reserves the bouquet. The bouquet is locked for 10 minut
 | `geocoding-failed`          | 422  | The geocoder returned no match or errored |
 | `delivery-out-of-range`     | 422  | Resolved address is more than 10 km from the vendor location |
 | `vendor-location-unknown`   | 422  | Vendor has no configured location (can't compute distance) |
+| `pickup-not-offered`        | 422  | `deliveryMethod=pickup` for an online listing (EP-39) — create only |
+| `mixed-listing-channels`    | 422  | The order mixes online listings and vase bouquets (EP-39) — create only |
+| `bouquet-not-listed`        | 409  | The bouquet is neither an online listing nor in a vase, so it can't be bought (EP-39; replaces "not placed in a vase") |
+| `bouquet-unavailable`       | 409  | Another buyer took the bouquet first (EP-39 concurrency lock; `detail` names the bouquet) — create only |
 
-All error responses use the shape `{ "error": "<code>" }`.
+All error responses use the shape `{ "error": "<code>" }`. `POST /api/v1/cart/items` returns 409
+`{ "error": "bouquet-reserved", "message" }` when another customer holds the bouquet and 409 `bouquet-not-listed` for an
+unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry `vaseId: null` for online listings.
 
 **Side effects during the order lifecycle:**
 - **On `POST /orders/{id}/confirm-payment` for a delivery order:** the order advances from `paid` → `preparing`, and the smart vase hosting the bouquet is sent an MQTT `prepare_delivery` card carrying `display_mode=delivery`, `delivery_status=PREPARING`, `delivery_qr=geo:<lat>,<lon>?q=<url-encoded-address>`, and `delivery_address=<street, postal city>`.
@@ -2805,3 +2822,77 @@ and continues to the page. Never log the code or the URL that carries it, and ke
 (RP-initiated logout), `/auth/handoff?code=&next=`, `/search.json` (the reader's search index), `/health` (public).
 Content responses are `Cache-Control: private, no-store` and `X-Robots-Tag: noindex`; forbidden pages return 403 with
 an account switch, unknown ones 404.
+
+---
+
+## 25. Online-only vendors (EP-39)
+
+Vendors with sales mode `OnlineOnly` (online flower shops and freelance florists with no counter and no collections)
+sell finished bouquets for **delivery only, without a smart vase**. An online listing is one physical bouquet: it sells
+once, then it is gone. It comes off the map when its declared freshness runs out or after
+`OnlineListings:MaxListingDays` (default 3), whichever is first. The bouquet row is the lock against double selling:
+two buyers racing for one listing get one success and one 409.
+
+### 25.1 Sales mode
+
+| Method | Path | Auth | Body | Success | Errors |
+|---|---|---|---|---|---|
+| GET | `/vendor/settings/sales-mode` | `VendorAccess` | — | `{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }` | 404 `vendor-not-found` |
+| PUT | `/vendor/settings/sales-mode` | `VendorAccess` | `{ salesMode: "InStore" \| "OnlineOnly" }` | same shape | 400 `invalid-sales-mode`; 409 `vendor-has-vases` (return the vases first, EP-22) |
+| PUT | `/admin/vendors/{id}/sales-mode` | `PlatformAdmin` | same | same | ProblemDetails 400 / 404 / 409 (`type: vendor-has-vases`) |
+
+`POST /vendor-accounts/register-with-admin` accepts an optional `salesMode` (default `InStore`). Switching back to
+`InStore` is always allowed; existing online listings stay until sold or expired. Vendor list/detail DTOs
+(`GET /vendors`, `GET /vendors/{id}`) include `salesMode`.
+
+### 25.2 Create an online listing
+
+`POST /vendor/online-listings` — `VendorAccess`, `multipart/form-data`, optional `Idempotency-Key` (a retry with the same
+key returns the listing the first call created).
+
+| Field | Rules |
+|---|---|
+| `name` | required, ≤ 200 |
+| `price` | PLN, > 0 |
+| `freshnessDays` | required, 1–3; drives expiry |
+| `photo` | required, JPEG/PNG/WebP, ≤ 5 MB; stored like `POST /bouquets/{id}/photo` |
+| `description`, `category` | optional |
+| `flowerTypes` | optional; repeated field or comma-separated; used for customer bouquet alerts |
+
+**Response 201:**
+
+```json
+{
+  "bouquetId": "6f0c…",
+  "name": "21 red roses",
+  "description": "",
+  "price": 199.00,
+  "currency": "PLN",
+  "imageUrl": "https://img.findmyflowers.pl/bouquets/6f0c….jpg?v=1761222000",
+  "status": "Available",
+  "listingChannel": "online",
+  "freshnessDays": 2,
+  "createdAt": "2026-10-23T09:00:00Z",
+  "expiresAt": "2026-10-25T09:00:00Z"
+}
+```
+
+Errors: 400 `photo-required` / `photo-too-large` / `invalid-listing` (validation problem details for field rules);
+403 `vendor-pending-approval` or `subscription-inactive` (same gates as `POST /bouquets`); 409 `vendor-not-online` (the
+vendor's sales mode is `InStore`).
+
+Everything else reuses the bouquet endpoints: `GET /vendors/{id}/bouquets` (vendor bouquets carry `listingChannel`,
+`deliveryOnly`, `expiresAt`), `PUT /bouquets/{id}`, `PUT /bouquets/{id}/price`, `POST /bouquets/{id}/photo`.
+`DELETE /bouquets/{id}` on an online listing marks it `Removed` (kept for order history) and returns 400 while a customer
+holds it in checkout. Online listings can never be placed in a vase.
+
+### 25.3 Buying and fulfilment
+
+- Discovery: §3 (`listingChannel`, `deliveryOnly`, fuzzed pin, delivery-range filter).
+- Cart and checkout: §5 (`pickupAvailable`, `pickup-not-offered`, `mixed-listing-channels`, `bouquet-not-listed`, 409
+  on a lost race; `vaseId: null` on cart items and order lines). Delivery fee and range are the platform's
+  `Delivery:*` settings.
+- Vendor orders: `Paid → Preparing → InDelivery → Delivered` as usual, with no vase or MQTT steps; `ReadyForPickup` is
+  refused with `pickup-not-offered`. Delivered marks the bouquet `Sold`.
+- Events: `BouquetBecameAvailable` and `BouquetSold` are raised for online listings with `vaseId: null`, so the SignalR
+  new-bouquet push (§13) and customer bouquet alerts work unchanged.

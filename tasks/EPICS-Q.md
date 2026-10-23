@@ -15,7 +15,9 @@
 **Priority**: P1-high
 **Dependencies**: EP-03 (discovery), EP-04 (orders + Stripe), EP-19 (registration), EP-20 (platform access)
 **Requirement refs**: REQ-ONL-01 through REQ-ONL-19
-**State**: proposed — design only; open decisions in REQ-GAPS-Q §H.
+**State**: in progress — backend, Vendor/Admin Portal and Customer App implemented (S-39-02…05, S-39-07,
+T-39-019); vendor app EP-M19 (T-39-020) and the customer mobile app (T-39-021) are follow-ups in their repos.
+REQ-GAPS-Q §H decided as proposed (no Hybrid mode, no studio pickup, one listing = one sale, platform delivery radius).
 
 > The vase stops in-store and online customers buying the same bouquet. Online-only shops and
 > freelance florists never have walk-in customers or collections, so they don't need one. They list
@@ -61,10 +63,25 @@ See `tasks-ep39-online-only-vendors.json` (S-39-01 … S-39-07; T-39-001 … T-3
 4. **S-39-04 — Discovery** — T-39-013 purchasable-only map · T-39-014 delivery-only fields, range, pin fuzzing.
 5. **S-39-05 — Vendor API and portals** — T-39-015 online listing API · T-39-016 sales mode settings + registration · T-39-017 Vendor Portal · T-39-018 Admin Portal.
 6. **S-39-06 — Customer surfaces and mobile** — T-39-019 Customer App · T-39-020 vendor app EP-M19 · T-39-021 customer mobile app.
+   (in progress: T-39-019 done; T-39-020/021 open in the mobile repos)
 7. **S-39-07 — Tests, contract and docs** — T-39-022 tests · T-39-023 contract §25, manuals, changelog.
 
 **Suggested order**: S-39-02 → S-39-03 → S-39-04 (T-39-013 can ship first on its own, as a fix) →
 S-39-05 → S-39-06 → S-39-07.
+
+### As built
+- Domain: `SalesMode` + `SalesModeRules` (`vendor-has-vases`), `ListingChannel`, `Bouquet.ListOnline`/`IsPurchasable`/
+  `IsListed`; `Bouquet.Version` is a concurrency token bumped by every state change and by the conditional
+  reserve/release UPDATEs. Migration `AddOnlineOnlyListings`. `OnlineListingExpiryService` (config `OnlineListings:*`).
+- API: `POST /vendor/online-listings` (Idempotency-Key → deterministic bouquet id, no new column),
+  `GET/PUT /vendor/settings/sales-mode`, `PUT /admin/vendors/{id}/sales-mode`, `salesMode` on registration. Lost races
+  are 409 (`bouquet-reserved`, `bouquet-unavailable`); `bouquet-not-listed`, `pickup-not-offered`,
+  `mixed-listing-channels`. Removing an online listing marks it Removed (kept for order history), refused while a
+  customer holds it. Contract §25.
+- Portals: Vendor Portal `Bouquets/Create`, sales-mode-aware layout/dashboard/More, `OnlineOnlyVasesFilter`,
+  Settings switch, sign-up "How do you sell?", AI Florist "List online"; Admin Portal sales mode badge and switch;
+  Customer App Delivery-only badges and pickup hidden at checkout.
+- Tests: domain, handler and Postgres integration (two parallel checkouts / add-to-carts → one winner, one 409).
 
 ### Rollout
 1. Ship the migration and the domain changes. Every existing vendor is `InStore` and every bouquet

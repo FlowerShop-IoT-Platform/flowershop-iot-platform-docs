@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.1.0</span>
+    <span class="topbar-badge">Docs v1.2.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -1317,7 +1317,9 @@ grant_type=refresh_token
       </span><span class="p">},</span><span class="w">
       </span><span class="nl">"distanceKm"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w">
       </span><span class="nl">"availableFrom"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-04-10T09:15:00Z"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"isFavourite"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+      </span><span class="nl">"isFavourite"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"listingChannel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vase"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"deliveryOnly"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">],</span><span class="w">
   </span><span class="nl">"totalCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w">
@@ -1330,6 +1332,12 @@ grant_type=refresh_token
 <ul>
   <li><code class="language-plaintext highlighter-rouge">isFavourite</code> is always <code class="language-plaintext highlighter-rouge">false</code> for unauthenticated requests.</li>
   <li><code class="language-plaintext highlighter-rouge">exactAddressHidden</code> is <code class="language-plaintext highlighter-rouge">true</code> for freelance florists; coordinates are approximate within ~500 m (SEC-06).</li>
+  <li><strong>Online listings (EP-39, §25):</strong> <code class="language-plaintext highlighter-rouge">listingChannel</code> is <code class="language-plaintext highlighter-rouge">"vase"</code> or <code class="language-plaintext highlighter-rouge">"online"</code>; <code class="language-plaintext highlighter-rouge">deliveryOnly</code> is <code class="language-plaintext highlighter-rouge">true</code> for online
+listings. They have no vase (<code class="language-plaintext highlighter-rouge">vaseId: null</code>), are fuzzed like freelance florists (<code class="language-plaintext highlighter-rouge">exactAddressHidden: true</code>, also for
+any online-only vendor) and are returned only when the customer is within delivery range
+(<code class="language-plaintext highlighter-rouge">min(radiusKm, Delivery:MaxDistanceKm)</code>); show the distance as “delivers to you”, not “walk here”. The map lists
+only bouquets a customer can buy: vase-less catalog bouquets are not returned. The same two fields are on
+<code class="language-plaintext highlighter-rouge">GET /bouquets/{id}/detail</code> and <code class="language-plaintext highlighter-rouge">GET /bouquets/available</code>.</li>
   <li><strong>Freshness visibility (EP-25):</strong> <code class="language-plaintext highlighter-rouge">initialFreshnessDays</code> is the vendor-declared rating
 (1–<code class="language-plaintext highlighter-rouge">maxFreshnessScale</code>, where <code class="language-plaintext highlighter-rouge">maxFreshnessScale</code> is always 3), declared when the vendor sets the
 price. <code class="language-plaintext highlighter-rouge">currentFreshnessDays</code> is the value after daily decay — the initial rating minus one per full
@@ -1668,7 +1676,8 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
   </span><span class="nl">"totalAmount"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="p">,</span><span class="w">
   </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flora Elegance"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"deliveryMethod"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pickup"</span><span class="w">
+  </span><span class="nl">"deliveryMethod"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pickup"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"pickupAvailable"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
@@ -1678,6 +1687,8 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
 <ul>
   <li>This endpoint does NOT reserve the bouquet. Reservation happens only on <code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code>.</li>
   <li><code class="language-plaintext highlighter-rouge">deliveryFee</code> is <code class="language-plaintext highlighter-rouge">0.00</code> when <code class="language-plaintext highlighter-rouge">deliveryMethod</code> is <code class="language-plaintext highlighter-rouge">pickup</code>; flat <code class="language-plaintext highlighter-rouge">25.00 PLN</code> when delivery falls within the vendor’s 10 km service radius.</li>
+  <li><code class="language-plaintext highlighter-rouge">pickupAvailable</code> is <code class="language-plaintext highlighter-rouge">false</code> when any line is an online listing (EP-39, each such line has <code class="language-plaintext highlighter-rouge">deliveryOnly: true</code>):
+hide the Pickup choice and ask for a delivery address.</li>
   <li><code class="language-plaintext highlighter-rouge">deliveryDistanceKm</code> and <code class="language-plaintext highlighter-rouge">resolvedDeliveryAddress</code> are present only on delivery previews. The server geocodes the address via Nominatim (cached for 10 minutes per address) and returns the resolved latitude/longitude so the client can surface a map preview.</li>
 </ul>
 
@@ -1829,10 +1840,32 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
       <td>422</td>
       <td>Vendor has no configured location (can’t compute distance)</td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pickup-not-offered</code></td>
+      <td>422</td>
+      <td><code class="language-plaintext highlighter-rouge">deliveryMethod=pickup</code> for an online listing (EP-39) — create only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mixed-listing-channels</code></td>
+      <td>422</td>
+      <td>The order mixes online listings and vase bouquets (EP-39) — create only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">bouquet-not-listed</code></td>
+      <td>409</td>
+      <td>The bouquet is neither an online listing nor in a vase, so it can’t be bought (EP-39; replaces “not placed in a vase”)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">bouquet-unavailable</code></td>
+      <td>409</td>
+      <td>Another buyer took the bouquet first (EP-39 concurrency lock; <code class="language-plaintext highlighter-rouge">detail</code> names the bouquet) — create only</td>
+    </tr>
   </tbody>
 </table>
 
-<p>All error responses use the shape <code class="language-plaintext highlighter-rouge">{ "error": "&lt;code&gt;" }</code>.</p>
+<p>All error responses use the shape <code class="language-plaintext highlighter-rouge">{ "error": "&lt;code&gt;" }</code>. <code class="language-plaintext highlighter-rouge">POST /api/v1/cart/items</code> returns 409
+<code class="language-plaintext highlighter-rouge">{ "error": "bouquet-reserved", "message" }</code> when another customer holds the bouquet and 409 <code class="language-plaintext highlighter-rouge">bouquet-not-listed</code> for an
+unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry <code class="language-plaintext highlighter-rouge">vaseId: null</code> for online listings.</p>
 
 <p><strong>Side effects during the order lifecycle:</strong></p>
 <ul>
@@ -5340,6 +5373,140 @@ and continues to the page. Never log the code or the URL that carries it, and ke
 (RP-initiated logout), <code class="language-plaintext highlighter-rouge">/auth/handoff?code=&amp;next=</code>, <code class="language-plaintext highlighter-rouge">/search.json</code> (the reader’s search index), <code class="language-plaintext highlighter-rouge">/health</code> (public).
 Content responses are <code class="language-plaintext highlighter-rouge">Cache-Control: private, no-store</code> and <code class="language-plaintext highlighter-rouge">X-Robots-Tag: noindex</code>; forbidden pages return 403 with
 an account switch, unknown ones 404.</p>
+
+<hr />
+
+<h2 id="25-online-only-vendors-ep-39">25. Online-only vendors (EP-39)</h2>
+
+<p>Vendors with sales mode <code class="language-plaintext highlighter-rouge">OnlineOnly</code> (online flower shops and freelance florists with no counter and no collections)
+sell finished bouquets for <strong>delivery only, without a smart vase</strong>. An online listing is one physical bouquet: it sells
+once, then it is gone. It comes off the map when its declared freshness runs out or after
+<code class="language-plaintext highlighter-rouge">OnlineListings:MaxListingDays</code> (default 3), whichever is first. The bouquet row is the lock against double selling:
+two buyers racing for one listing get one success and one 409.</p>
+
+<h3 id="251-sales-mode">25.1 Sales mode</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Auth</th>
+      <th>Body</th>
+      <th>Success</th>
+      <th>Errors</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/settings/sales-mode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorAccess</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">{ salesMode, assignedVaseCount, canSwitchToOnlineOnly }</code></td>
+      <td>404 <code class="language-plaintext highlighter-rouge">vendor-not-found</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/settings/sales-mode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorAccess</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ salesMode: "InStore" \| "OnlineOnly" }</code></td>
+      <td>same shape</td>
+      <td>400 <code class="language-plaintext highlighter-rouge">invalid-sales-mode</code>; 409 <code class="language-plaintext highlighter-rouge">vendor-has-vases</code> (return the vases first, EP-22)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/admin/vendors/{id}/sales-mode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PlatformAdmin</code></td>
+      <td>same</td>
+      <td>same</td>
+      <td>ProblemDetails 400 / 404 / 409 (<code class="language-plaintext highlighter-rouge">type: vendor-has-vases</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">POST /vendor-accounts/register-with-admin</code> accepts an optional <code class="language-plaintext highlighter-rouge">salesMode</code> (default <code class="language-plaintext highlighter-rouge">InStore</code>). Switching back to
+<code class="language-plaintext highlighter-rouge">InStore</code> is always allowed; existing online listings stay until sold or expired. Vendor list/detail DTOs
+(<code class="language-plaintext highlighter-rouge">GET /vendors</code>, <code class="language-plaintext highlighter-rouge">GET /vendors/{id}</code>) include <code class="language-plaintext highlighter-rouge">salesMode</code>.</p>
+
+<h3 id="252-create-an-online-listing">25.2 Create an online listing</h3>
+
+<p><code class="language-plaintext highlighter-rouge">POST /vendor/online-listings</code> — <code class="language-plaintext highlighter-rouge">VendorAccess</code>, <code class="language-plaintext highlighter-rouge">multipart/form-data</code>, optional <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> (a retry with the same
+key returns the listing the first call created).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">name</code></td>
+      <td>required, ≤ 200</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">price</code></td>
+      <td>PLN, &gt; 0</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">freshnessDays</code></td>
+      <td>required, 1–3; drives expiry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">photo</code></td>
+      <td>required, JPEG/PNG/WebP, ≤ 5 MB; stored like <code class="language-plaintext highlighter-rouge">POST /bouquets/{id}/photo</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">description</code>, <code class="language-plaintext highlighter-rouge">category</code></td>
+      <td>optional</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flowerTypes</code></td>
+      <td>optional; repeated field or comma-separated; used for customer bouquet alerts</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Response 201:</strong></p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6f0c…"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"21 red roses"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"price"</span><span class="p">:</span><span class="w"> </span><span class="mf">199.00</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://img.findmyflowers.pl/bouquets/6f0c….jpg?v=1761222000"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Available"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"listingChannel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"online"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"freshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-23T09:00:00Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"expiresAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-25T09:00:00Z"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Errors: 400 <code class="language-plaintext highlighter-rouge">photo-required</code> / <code class="language-plaintext highlighter-rouge">photo-too-large</code> / <code class="language-plaintext highlighter-rouge">invalid-listing</code> (validation problem details for field rules);
+403 <code class="language-plaintext highlighter-rouge">vendor-pending-approval</code> or <code class="language-plaintext highlighter-rouge">subscription-inactive</code> (same gates as <code class="language-plaintext highlighter-rouge">POST /bouquets</code>); 409 <code class="language-plaintext highlighter-rouge">vendor-not-online</code> (the
+vendor’s sales mode is <code class="language-plaintext highlighter-rouge">InStore</code>).</p>
+
+<p>Everything else reuses the bouquet endpoints: <code class="language-plaintext highlighter-rouge">GET /vendors/{id}/bouquets</code> (vendor bouquets carry <code class="language-plaintext highlighter-rouge">listingChannel</code>,
+<code class="language-plaintext highlighter-rouge">deliveryOnly</code>, <code class="language-plaintext highlighter-rouge">expiresAt</code>), <code class="language-plaintext highlighter-rouge">PUT /bouquets/{id}</code>, <code class="language-plaintext highlighter-rouge">PUT /bouquets/{id}/price</code>, <code class="language-plaintext highlighter-rouge">POST /bouquets/{id}/photo</code>.
+<code class="language-plaintext highlighter-rouge">DELETE /bouquets/{id}</code> on an online listing marks it <code class="language-plaintext highlighter-rouge">Removed</code> (kept for order history) and returns 400 while a customer
+holds it in checkout. Online listings can never be placed in a vase.</p>
+
+<h3 id="253-buying-and-fulfilment">25.3 Buying and fulfilment</h3>
+
+<ul>
+  <li>Discovery: §3 (<code class="language-plaintext highlighter-rouge">listingChannel</code>, <code class="language-plaintext highlighter-rouge">deliveryOnly</code>, fuzzed pin, delivery-range filter).</li>
+  <li>Cart and checkout: §5 (<code class="language-plaintext highlighter-rouge">pickupAvailable</code>, <code class="language-plaintext highlighter-rouge">pickup-not-offered</code>, <code class="language-plaintext highlighter-rouge">mixed-listing-channels</code>, <code class="language-plaintext highlighter-rouge">bouquet-not-listed</code>, 409
+on a lost race; <code class="language-plaintext highlighter-rouge">vaseId: null</code> on cart items and order lines). Delivery fee and range are the platform’s
+<code class="language-plaintext highlighter-rouge">Delivery:*</code> settings.</li>
+  <li>Vendor orders: <code class="language-plaintext highlighter-rouge">Paid → Preparing → InDelivery → Delivered</code> as usual, with no vase or MQTT steps; <code class="language-plaintext highlighter-rouge">ReadyForPickup</code> is
+refused with <code class="language-plaintext highlighter-rouge">pickup-not-offered</code>. Delivered marks the bouquet <code class="language-plaintext highlighter-rouge">Sold</code>.</li>
+  <li>Events: <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> and <code class="language-plaintext highlighter-rouge">BouquetSold</code> are raised for online listings with <code class="language-plaintext highlighter-rouge">vaseId: null</code>, so the SignalR
+new-bouquet push (§13) and customer bouquet alerts work unchanged.</li>
+</ul>
 
     </div>
   </main>

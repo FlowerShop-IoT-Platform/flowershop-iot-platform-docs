@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.1.0</span>
+    <span class="topbar-badge">Docs v1.2.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -782,6 +782,30 @@
       <h1 id="contract-change-log">Contract change log</h1>
 
 <p>Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.</p>
+
+<h2 id="2026-10-23--ep-39-online-only-vendors-additive-with-nullable-vase-ids-and-stricter-status-codes">2026-10-23 — EP-39 Online-only vendors (additive, with nullable vase ids and stricter status codes)</h2>
+
+<ul>
+  <li><strong>What changed</strong>: new <code class="language-plaintext highlighter-rouge">POST /api/v1/vendor/online-listings</code>, <code class="language-plaintext highlighter-rouge">GET/PUT /api/v1/vendor/settings/sales-mode</code> and
+<code class="language-plaintext highlighter-rouge">PUT /api/v1/admin/vendors/{id}/sales-mode</code>; <code class="language-plaintext highlighter-rouge">register-with-admin</code> accepts optional <code class="language-plaintext highlighter-rouge">salesMode</code>
+(<code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §25). Bouquet read models (nearby, detail, <code class="language-plaintext highlighter-rouge">/bouquets/available</code>, vendor bouquets) gain
+<code class="language-plaintext highlighter-rouge">listingChannel</code> (<code class="language-plaintext highlighter-rouge">"vase"</code>/<code class="language-plaintext highlighter-rouge">"online"</code>) and <code class="language-plaintext highlighter-rouge">deliveryOnly</code> (vendor bouquets also <code class="language-plaintext highlighter-rouge">expiresAt</code>); vendor DTOs gain
+<code class="language-plaintext highlighter-rouge">salesMode</code>; the order preview gains <code class="language-plaintext highlighter-rouge">pickupAvailable</code> and <code class="language-plaintext highlighter-rouge">lines[].deliveryOnly</code>. <strong><code class="language-plaintext highlighter-rouge">vaseId</code> on cart items, order
+lines and vendor order lines can now be <code class="language-plaintext highlighter-rouge">null</code></strong> (online listings). The map no longer returns vase-less catalog
+bouquets (they could never be bought). New error codes: <code class="language-plaintext highlighter-rouge">bouquet-not-listed</code> (409, replaces “not placed in a vase”),
+<code class="language-plaintext highlighter-rouge">pickup-not-offered</code> / <code class="language-plaintext highlighter-rouge">mixed-listing-channels</code> (422), <code class="language-plaintext highlighter-rouge">vendor-not-online</code> / <code class="language-plaintext highlighter-rouge">vendor-has-vases</code> (409). A lost race
+for a bouquet is now <strong>409</strong> (<code class="language-plaintext highlighter-rouge">bouquet-reserved</code> on cart, <code class="language-plaintext highlighter-rouge">bouquet-unavailable</code> on checkout) instead of 400.
+<code class="language-plaintext highlighter-rouge">PUT /vendor/orders/{id}/status</code> refuses <code class="language-plaintext highlighter-rouge">ReadyForPickup</code> for online orders. Domain events <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> /
+<code class="language-plaintext highlighter-rouge">BouquetSold</code> carry a nullable <code class="language-plaintext highlighter-rouge">VaseId</code>. Config <code class="language-plaintext highlighter-rouge">OnlineListings:*</code>. Migration <code class="language-plaintext highlighter-rouge">AddOnlineOnlyListings</code> (int
+<code class="language-plaintext highlighter-rouge">SalesMode</code> on <code class="language-plaintext highlighter-rouge">FlowerShops</code>/<code class="language-plaintext highlighter-rouge">FreelanceFlorists</code>, int <code class="language-plaintext highlighter-rouge">ListingChannel</code> on <code class="language-plaintext highlighter-rouge">Bouquets</code>, all default 0; <code class="language-plaintext highlighter-rouge">CartItems.VaseId</code>
+and <code class="language-plaintext highlighter-rouge">OrderLines.VaseId</code> nullable). No MQTT or Keycloak change.</li>
+  <li><strong>Affected repos</strong>: <code class="language-plaintext highlighter-rouge">flower-shop-vendor-mobile-app</code> (EP-M19: sales mode, “Add online bouquet”; order lines must
+tolerate a null <code class="language-plaintext highlighter-rouge">vaseId</code>), customer mobile app (Delivery-only badge, hide pickup when <code class="language-plaintext highlighter-rouge">pickupAvailable</code> is false, the
+new codes; cart/order models must accept a null <code class="language-plaintext highlighter-rouge">vaseId</code> and treat 409 on add-to-cart/checkout as “taken”).</li>
+  <li><strong>Deployment order</strong>: API (migration applies on start) → portals. Mobile apps only see <code class="language-plaintext highlighter-rouge">vaseId: null</code> once an
+online-only vendor lists a bouquet, so ship the null-tolerant mobile builds before enabling the first online-only
+vendor.</li>
+</ul>
 
 <h2 id="2026-10-21--ep-38-docs-portal-access-control-additive-docs-hosting-moves">2026-10-21 — EP-38 Docs portal access control (additive; docs hosting moves)</h2>
 

@@ -2,6 +2,28 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-23 — EP-39 Online-only vendors (additive, with nullable vase ids and stricter status codes)
+
+- **What changed**: new `POST /api/v1/vendor/online-listings`, `GET/PUT /api/v1/vendor/settings/sales-mode` and
+  `PUT /api/v1/admin/vendors/{id}/sales-mode`; `register-with-admin` accepts optional `salesMode`
+  (`API-CONTRACTS.md` §25). Bouquet read models (nearby, detail, `/bouquets/available`, vendor bouquets) gain
+  `listingChannel` (`"vase"`/`"online"`) and `deliveryOnly` (vendor bouquets also `expiresAt`); vendor DTOs gain
+  `salesMode`; the order preview gains `pickupAvailable` and `lines[].deliveryOnly`. **`vaseId` on cart items, order
+  lines and vendor order lines can now be `null`** (online listings). The map no longer returns vase-less catalog
+  bouquets (they could never be bought). New error codes: `bouquet-not-listed` (409, replaces "not placed in a vase"),
+  `pickup-not-offered` / `mixed-listing-channels` (422), `vendor-not-online` / `vendor-has-vases` (409). A lost race
+  for a bouquet is now **409** (`bouquet-reserved` on cart, `bouquet-unavailable` on checkout) instead of 400.
+  `PUT /vendor/orders/{id}/status` refuses `ReadyForPickup` for online orders. Domain events `BouquetBecameAvailable` /
+  `BouquetSold` carry a nullable `VaseId`. Config `OnlineListings:*`. Migration `AddOnlineOnlyListings` (int
+  `SalesMode` on `FlowerShops`/`FreelanceFlorists`, int `ListingChannel` on `Bouquets`, all default 0; `CartItems.VaseId`
+  and `OrderLines.VaseId` nullable). No MQTT or Keycloak change.
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M19: sales mode, "Add online bouquet"; order lines must
+  tolerate a null `vaseId`), customer mobile app (Delivery-only badge, hide pickup when `pickupAvailable` is false, the
+  new codes; cart/order models must accept a null `vaseId` and treat 409 on add-to-cart/checkout as "taken").
+- **Deployment order**: API (migration applies on start) → portals. Mobile apps only see `vaseId: null` once an
+  online-only vendor lists a bouquet, so ship the null-tolerant mobile builds before enabling the first online-only
+  vendor.
+
 ## 2026-10-21 — EP-38 Docs portal access control (additive; docs hosting moves)
 
 - **What changed**: new `POST /api/v1/docs/handoff` (any signed-in role), `POST /api/v1/docs/handoff/redeem` and

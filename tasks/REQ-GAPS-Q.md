@@ -4,7 +4,8 @@
 > REQ-GAPS-O.md (EP-37 custom orders, which already sell without a vase).
 > Requirement refs point at the tasks in `tasks-ep39-online-only-vendors.json`.
 > Analysis date: 2026-10-23
-> Status: proposed (EP-39, see `EPICS-Q.md`). Open decisions are in section H.
+> Status: implemented in this repo (EP-39, see `EPICS-Q.md`); mobile follow-ups REQ-ONL-17/18 open. Section H decided
+> 2026-10-23.
 
 ## Context
 
@@ -251,18 +252,18 @@ only" section (vendor/customer audiences, EP-38), plus a changelog entry.
 
 ---
 
-## H. Open decisions
+## H. Decisions (decided 2026-10-23: all four as proposed)
 
 1. **Hybrid vendors.** Should a shop with vases also be able to list online-only, made-to-order
    bouquets that are not on display (`SalesMode = Hybrid`, with a per-bouquet choice)? The model
    supports it: `ListingChannel` is per bouquet, so it would be one more enum value and a picker on
-   Create. *Proposed: not in v1.*
+   Create. *Proposed: not in v1.* **Decided: not in v1.**
 2. **Collection by appointment.** Should some online-only florists allow pickup from their studio?
    It is out of scope per the brief ("no collections expected"). If it is needed later, add a
-   per-vendor `OffersPickup` flag rather than reintroducing a vase.
+   per-vendor `OffersPickup` flag rather than reintroducing a vase. **Decided: no pickup in v1.**
 3. **Repeatable products.** Online shops often sell the same arrangement many times ("21 red roses").
    The `Bouquet` aggregate is one physical unit, and v1 keeps it that way: one listing, one sale.
    A catalog product with quantity or made-to-order capacity would be a separate epic (it could
-   reuse EP-30 stock to check capacity).
+   reuse EP-30 stock to check capacity). **Decided: one listing, one sale in v1.**
 4. **Per-vendor delivery radius.** v1 uses the platform-wide `Delivery:MaxDistanceKm` and fee.
-   Online shops may want their own radius and fee.
+   Online shops may want their own radius and fee. **Decided: platform-wide radius and fee in v1.**

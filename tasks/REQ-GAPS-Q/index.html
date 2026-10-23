@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.1.0</span>
+    <span class="topbar-badge">Docs v1.2.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -786,7 +786,8 @@
 REQ-GAPS-O.md (EP-37 custom orders, which already sell without a vase).
 Requirement refs point at the tasks in <code class="language-plaintext highlighter-rouge">tasks-ep39-online-only-vendors.json</code>.
 Analysis date: 2026-10-23
-Status: proposed (EP-39, see <code class="language-plaintext highlighter-rouge">EPICS-Q.md</code>). Open decisions are in section H.</p>
+Status: implemented in this repo (EP-39, see <code class="language-plaintext highlighter-rouge">EPICS-Q.md</code>); mobile follow-ups REQ-ONL-17/18 open. Section H decided
+2026-10-23.</p>
 </blockquote>
 
 <h2 id="context">Context</h2>
@@ -1114,22 +1115,22 @@ only” section (vendor/customer audiences, EP-38), plus a changelog entry.</p>
 
 <hr />
 
-<h2 id="h-open-decisions">H. Open decisions</h2>
+<h2 id="h-decisions-decided-2026-10-23-all-four-as-proposed">H. Decisions (decided 2026-10-23: all four as proposed)</h2>
 
 <ol>
   <li><strong>Hybrid vendors.</strong> Should a shop with vases also be able to list online-only, made-to-order
 bouquets that are not on display (<code class="language-plaintext highlighter-rouge">SalesMode = Hybrid</code>, with a per-bouquet choice)? The model
 supports it: <code class="language-plaintext highlighter-rouge">ListingChannel</code> is per bouquet, so it would be one more enum value and a picker on
-Create. <em>Proposed: not in v1.</em></li>
+Create. <em>Proposed: not in v1.</em> <strong>Decided: not in v1.</strong></li>
   <li><strong>Collection by appointment.</strong> Should some online-only florists allow pickup from their studio?
 It is out of scope per the brief (“no collections expected”). If it is needed later, add a
-per-vendor <code class="language-plaintext highlighter-rouge">OffersPickup</code> flag rather than reintroducing a vase.</li>
+per-vendor <code class="language-plaintext highlighter-rouge">OffersPickup</code> flag rather than reintroducing a vase. <strong>Decided: no pickup in v1.</strong></li>
   <li><strong>Repeatable products.</strong> Online shops often sell the same arrangement many times (“21 red roses”).
 The <code class="language-plaintext highlighter-rouge">Bouquet</code> aggregate is one physical unit, and v1 keeps it that way: one listing, one sale.
 A catalog product with quantity or made-to-order capacity would be a separate epic (it could
-reuse EP-30 stock to check capacity).</li>
+reuse EP-30 stock to check capacity). <strong>Decided: one listing, one sale in v1.</strong></li>
   <li><strong>Per-vendor delivery radius.</strong> v1 uses the platform-wide <code class="language-plaintext highlighter-rouge">Delivery:MaxDistanceKm</code> and fee.
-Online shops may want their own radius and fee.</li>
+Online shops may want their own radius and fee. <strong>Decided: platform-wide radius and fee in v1.</strong></li>
 </ol>
 
     </div>
