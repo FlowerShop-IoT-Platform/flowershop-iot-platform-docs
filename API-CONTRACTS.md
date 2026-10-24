@@ -2539,6 +2539,8 @@ flow. **Never changes stock levels.** Create the session with `inputMode: "Bouqu
 |---|---|---|---|
 | POST | `/vendor/design-sessions/{id}/analyze` | `{ expectedVersion }`, **required** `Idempotency-Key` | 202 `DesignSessionDto` (state `Analyzing`). Job kind `BouquetAnalysis`; counts as **one recognition**; same key → same job. Ends in `AnalysisReady` (or back to `Draft` with a failed job) |
 | PUT | `/vendor/design-sessions/{id}/analysis/items/{itemId}` | `{ stockItemId?, notInStock, quantity? }` | 200 `DesignSessionDto`. Pick another of **your** stock items (scored in code; another vendor's id → 404), mark "not in my stock", or set the needed quantity (1–200). No model call; a different item than the AI's match is stored as an EP-33 correction |
+| PUT | `/vendor/design-sessions/{id}/analysis/items/{itemId}` | `{ rename: { name, variety? } }` or `{ clearRename: true }` (EP-41) | 200 `DesignSessionDto`. One-tap rename ("Could be: Seeded eucalyptus", the photo's look-alike): re-matched to your stock in code and recorded as your §21.5 verdict (same flower type → `correct` with the variety; another type → `wrong`, actual name). The AI's answer is kept as `aiName`/`aiVariety`; `clearRename` goes back to it |
+| GET | `/vendor/design-sessions/{id}/media/crops/{itemId}` | — | image (`private, no-store`): the item's crop from your photo (EP-41, §21.6). 404 when the line has no crop or the photos have expired |
 | POST | `/vendor/design-sessions/{id}/analysis/use` | `{ expectedVersion }` | 200 `DesignSessionDto` (state `InventoryConfirmed`). Linked items become confirmed inventory lines linked by `stockItemId`, quantity capped at what's in stock, priced from the stock cost; Missing items never become lines. 409 `insufficient-stock` when nothing is linked |
 
 `DesignSessionDto.analysis` (null until analysed): `{ purpose: "Inspiration", analyzedAt, items: [{ id, kind, name,
@@ -2546,7 +2548,8 @@ colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confide
 match: StockMatchDto|null, alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }] (EP-40
 `confidenceScore`/`verdict`: §21.5), missing: [{ name, kind,
 colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet", "colours-only" — the free Palette analyzer measured colours only and its item names are placeholders; show it), palette[],
-procurement: { available: false, providers: [] } }`. `StockMatchDto`: `{ stockItemId, name, color, variety, score
+procurement: { available: false, providers: [] } }`; EP-41 adds `aiName`, `aiVariety`, `atlas`, `boxes`, `cropUrl` and
+`imageMatches` to each item (§21.6). `StockMatchDto`: `{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }`. Bands: High ≥ 80, Medium
 50–79, Low < 50 — a Low match is shown but never linked unless the florist chooses it. `missing` lists Missing items
 and the shortfall of Short ones (the "to buy" list; supplier ordering is a later epic — `procurement.available` is
@@ -2662,6 +2665,74 @@ calibration check), `ImplicitWeight` 0.25, `HalfLifeDays` 120, `PriorStrength` 1
 predecessor's bucket prior at `InheritStrength` 0.5), `BurstLines` 5 / `BurstSeconds` 2, `RefreshMinutes` 60.
 Migration `AddRecognitionConfidence` (tables `RecognitionVerdicts`, `RecognitionConfidenceCells`,
 `RecognitionConfidenceShopCells`; column `DesignStyleProfiles.ShareRecognitionFeedback`).
+
+### 21.6 Flower atlas, item crops and image matching (EP-41)
+
+Each review line can show three pictures: **in your photo** (a crop), **looks like** (a reviewed reference image from the
+platform flower atlas, with its credit) and **your stock** (the matched item's main photo, `match.mainPhotoId`). Images
+from the atlas are only ever ones a platform admin approved (§26). Everything here is computed in code; nothing is
+applied to a line without the florist's tap.
+
+**Analysis items** (`DesignAnalysisItemDto`, sessions and cost assessments) gain:
+
+```
+aiName: "Astilbe" | null,          // set when the florist renamed the line; `name`/`variety` are the new ones
+aiVariety: null,
+boxes: [{ photoIndex: 0, x: 0.12, y: 0.30, w: 0.18, h: 0.22 }],   // normalised 0–1, ≤ 3, photoIndex into the live photos in order
+cropUrl: "/api/v1/vendor/design-sessions/{id}/media/crops/{itemId}" | null,   // cost assessments: /vendor/cost-assessments/{id}/media/crops/{itemId}
+atlas: {
+  flowerId, varietyId | null, typeKey: "flower:carnation",
+  name: "Goździk",                 // request language (Accept-Language pl → Polish when known), else English
+  nameEn, namePl, scientificName, varietyName | null, description,
+  imageUrl | null,                 // public R2 URL, or /api/v1/atlas/images/{imageId}/content (anonymous) on local storage
+  attribution | null, sourceUrl | null, licence | null (SPDX, e.g. CC-BY-SA-4.0), author | null,
+  couldBe: { varietyId, name: "Eucalyptus", variety: "Seeded" } | null   // a common variety the AI didn't name
+} | null,
+imageMatches: {                    // Phase 2, null while BouquetDesign:Embedding:Provider is None
+  model: "clip-vit-b32",
+  atlas: [{ flowerId | null, typeKey, name, similarity: 0.91, source: "atlas|shop" }],   // ≤ 3, grouped by flower
+  stock: [{ stockItemId, name, similarity, mainPhotoId | null }],                         // ≤ 3, your active items only
+  disagreement: { flowerId, typeKey, name: "Amaranthus", similarity: 0.11 /* the margin */, source: "atlas" } | null,
+  stockSuggestion: { stockItemId, name, similarity, mainPhotoId } | null                 // "Your stock may have this"
+} | null
+```
+
+Show `attribution` (or author + licence) with every atlas image — CC-BY and CC-BY-SA require it — and link `sourceUrl`.
+`couldBe` and `disagreement` are one-tap renames (`PUT …/analysis/items/{itemId}` with `rename`, §21.3);
+`stockSuggestion` is a one-tap `stockItemId` choice. `couldBe` is null once the line is renamed. Recognised Photos-mode
+inventory lines (`InventoryItemDto`, `estimated` or scored) and `StockCountLineDto` gain `atlas` too.
+
+**Boxes and crops.** Prompt `bouquet-analysis-v2` asks the vision model for boxes; it rolls out as an EP-33 candidate
+(`BouquetDesign:Analysis:CandidatePromptVersion` = `bouquet-analysis-v2`, `CandidatePercent` 0 → pilot). Code drops
+boxes on a photo index that wasn't sent, clamps them to the photo, drops ones under 2 % or over 80 % of the photo and
+keeps ≤ 3. The first box is cropped (padding 8 %, long edge ≤ 384 px, JPEG) from the container's own processed photo and
+stored privately under its prefix; crops follow the source photos' retention and are deleted with the session or
+assessment. v1 and the free Palette analyzer give no boxes (`boxes: []`, `cropUrl: null`).
+
+**Image matching (Phase 2, off by default).** With `BouquetDesign:Embedding:Provider` = `Onnx` or `Http`, every crop is
+fingerprinted and compared with approved atlas images and **your own** stock photos (vendor-scoped, filtered by vendor
+first; vectors of different models are never compared). The match score gains an image factor
+(`text × (1 − StockWeight) + image × StockWeight`, factor text `"photo looks like your …"`; unchanged without a
+fingerprint; the flower-type gate still applies). A verdict (§21.5) on a line with a crop stores the crop's fingerprint
+id; with `Embedding:LearnFromVerdicts` a ✓ or "it's actually …" makes the crop a labelled example of your private
+neighbourhood (`source: "shop"` neighbours) — never the shared atlas.
+
+| Method | Path | Auth | Success |
+|---|---|---|---|
+| GET | `/vendor/design-sessions/{id}/media/crops/{itemId}` | VendorAccess | image, `private, no-store` |
+| GET | `/vendor/cost-assessments/{id}/media/crops/{itemId}` | VendorAccess | image, `private, no-store` |
+| GET | `/vendor/atlas/vocabulary` | VendorAccess | `[{ name, language: "en|pl", kind, typeKey | null, source: "atlas|stock" }]` — the "What is it?" names: atlas names (request language first), then your active stock names |
+| GET | `/api/v1/atlas/images/{imageId}/content` | anonymous | image (`public, max-age=86400`); approved images only, else 404 |
+| GET | `/api/v1/atlas/attributions` | anonymous | `[{ flower, variety, imageUrl, sourceUrl, author, licence, attribution, source }]` — credits of every approved image |
+
+Config `BouquetDesign:Embedding:*`: `Provider` (`None` default | `Onnx` | `Http`), `Model` (`clip-vit-b32`), `Dimensions`
+(512), `StockWeight` 0.3, `DisagreeMargin` 0.05, `MinSimilarity` 0.6, `StockSuggestSimilarity` 0.85, `SimilarityFloor`
+0.6 / `SimilarityCeiling` 0.95 (image factor 0 → 1), `LearnFromVerdicts` false, `TimeoutSeconds` 30, `Onnx:ModelPath`,
+`Onnx:ImageSize` 224, `Onnx:Mean`/`Std` (CLIP defaults), `Http:Endpoint` (`POST {Endpoint}/embed` with
+`{ model, images: [base64] }` → `{ model, dimensions, vectors }`), `Http:ApiKey`. Migrations `AddFlowerAtlas`
+(`AtlasFlowers`, `AtlasImages`) and `AddImageEmbeddings` (`AtlasImageEmbeddings`, `StockPhotoEmbeddings`,
+`AnalysisCropEmbeddings`, `RecognitionVerdicts.CropEmbeddingId`; installs pgvector and an HNSW cosine index when the
+server offers it, otherwise similarity is computed in code).
 
 ---
 
@@ -2968,3 +3039,42 @@ holds it in checkout. Online listings can never be placed in a vase.
   refused with `pickup-not-offered`. Delivered marks the bouquet `Sold`.
 - Events: `BouquetBecameAvailable` and `BouquetSold` are raised for online listings with `vaseId: null`, so the SignalR
   new-bouquet push (§13) and customer bouquet alerts work unchanged.
+
+---
+
+## 26. Flower atlas (admin) (EP-41)
+
+The platform flower atlas behind §21.6: about 150 cut flowers and greenery (`docs/atlas/atlas-seed.json`), PL/EN names
+and aliases (also the recognition vocabulary — `FlowerTypeKey` takes the seed list's names), varieties, and reference
+images from **Wikimedia Commons and iNaturalist under CC0, CC-BY or CC-BY-SA only**, or our own photos — never Google
+Images. Every image starts `Unreviewed`; vendors see it only after it is approved. **PlatformAdmin** only; writes are
+audit-logged. Base path `/api/v1/admin/atlas`.
+
+| Method | Path | Body | Success |
+|---|---|---|---|
+| GET | `/flowers` | — | `AtlasFlowerSummaryDto[]`: `{ id, typeKey, kind, nameEn, namePl, scientificName, varieties, approvedImages, unreviewedImages, hasPrimary, primaryImageUrl }` |
+| GET | `/flowers/{id}` | — | `AtlasFlowerDto` (below) |
+| POST | `/flowers` | `{ kind, nameEn, namePl?, scientificName?, aliasesEn?, aliasesPl?, description?, colours?, searchCommons?, searchINaturalist? }` | 201 `AtlasFlowerDto`; the type key is `FlowerTypeKey` of `nameEn` (409 `duplicate` if taken) |
+| PUT | `/flowers/{id}` | same + `expectedVersion` | 200 `AtlasFlowerDto`; 409 `invalid-state` on a stale version, 409 `duplicate` |
+| DELETE | `/flowers/{id}` | — | 204; its images and fingerprints go with it |
+| POST / PUT / DELETE | `/flowers/{id}/varieties[/{varietyId}]` | `{ name, aliases?, colours?, notes?, common }` | 200 `AtlasFlowerDto`. Names unique per entry (409 `duplicate`); `common` → offered as "Could be"; deleting keeps the images on the flower |
+| POST | `/seed?updateExisting=false` | — | `{ created, existing, updated, invalid }` — creates the seed list's missing entries (idempotent); `updateExisting` overwrites names/aliases/descriptions |
+| POST | `/import` | `{ flowerId?, maxFlowers?, perSource? }` | `{ flowers, added, alreadyImported, rejected, failed, remaining, messages[] }` — 2 (`perSource` 1–4) unreviewed candidates per source for one entry, or for the next `maxFlowers` (default 10) entries with fewer than 4 images; call again while `remaining > 0`. Idempotent by source URL; NC/ND/unknown licences are skipped (`rejected`) and logged, never downloaded |
+| POST | `/images/{imageId}/review` | `{ action: "approve|reject|set-primary", moveToVarietyId? }` | 200 `AtlasFlowerDto`. The first approved image of a flower/variety becomes its main one (exactly one); a refused licence can't be approved (422 `licence-not-allowed`); `moveToVarietyId` re-files it (empty Guid: the flower). Approving fingerprints the image when Phase 2 is on |
+| POST | `/flowers/{id}/images` | multipart `photo`, `varietyId?`, `source` (`Own` \| `Licensed`), `author?`, `licence?`, `attribution?` (required for `Licensed`), `sourceUrl?`, `approve` | 201 `AtlasFlowerDto` |
+| DELETE | `/images/{imageId}` | — | 200 `AtlasFlowerDto` |
+| GET | `/images/{imageId}/content` | — | image of any status (`private, no-store`) |
+| POST | `/embeddings/backfill?batchSize=100` | — | `{ atlasImages, stockPhotos, failed, enabled }` — one batch of fingerprints for approved atlas images and existing stock photos without one (no-op while `Embedding:Provider` is None) |
+
+`AtlasFlowerDto`: `{ id, version, typeKey, kind, nameEn, namePl, scientificName, aliasesEn[], aliasesPl[], description,
+colours[], searchCommons, searchINaturalist, varieties: [{ id, name, aliases[], colours[], notes, common }], images: [{ id,
+varietyId, url, width, height, source: "WikimediaCommons|INaturalist|Own|Licensed", sourceUrl, author, licence (SPDX),
+attribution, status: "Unreviewed|Approved|Rejected", isPrimary, reviewedAt, createdAt, licenceAllowed,
+attributionRequired }], updatedAt }`. Errors: 404 `not-found`, 409 `duplicate` / `invalid-state`, 422
+`licence-not-allowed`, 400 `invalid-request` / `invalid-photo`, 502 `source-failed` (no sources configured).
+
+Config `Atlas:AllowedLicences` (licence families; empty = `CC0`, `CC-BY`, `CC-BY-SA`; NC/ND are refused whatever is
+listed), `Atlas:Import:CandidatesPerSource` 2, `MaxFlowersPerRun` 10, `EnoughImages` 4, `MaxLongEdge` 1024,
+`MaxImageBytes` 400000, `MaxDownloadBytes` 15000000, `UserAgent` (Wikimedia API etiquette), `CommonsApiUrl`,
+`INaturalistApiUrl`. Images are stored with `IFileStorageService` under `atlas/{flowerId}/{imageId}.jpg` (public R2 bucket,
+`img.findmyflowers.pl/atlas/...`).

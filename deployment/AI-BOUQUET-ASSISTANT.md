@@ -348,6 +348,46 @@ their own fixed versions.
 5. **Roll back** the same way (set `PromptVersion` back to v1). Repair can be switched off on its own with
    `BouquetDesign__Composition__RepairEnabled=false`; the kill switch still stops all paid work.
 
+### 5.4.2 Flower atlas, item crops and image matching (EP-41)
+
+Nothing changes for vendors until each step below is done; every step can be undone with config alone.
+
+1. **Migrate**: deploy the API (migrations `AddFlowerAtlas`, `AddImageEmbeddings`). The second one runs
+   `CREATE EXTENSION IF NOT EXISTS vector` and an HNSW index inside a guarded block: on a server without pgvector it
+   only logs a notice and the code ranks vectors itself, so it never blocks the deploy. Check with
+   `SELECT extversion FROM pg_extension WHERE extname = 'vector';` (Fly Postgres images ship pgvector; the database user
+   needs the right to create extensions — if it lacks it, run the statement once as the superuser and redeploy).
+2. **Atlas**: Admin Portal → **Flower atlas** → *Add seed list entries* (≈150 entries from `docs/atlas/atlas-seed.json`),
+   then *Import candidate images* repeatedly (10 entries per run, 2 candidates per source from Wikimedia Commons and
+   iNaturalist, CC0/CC-BY/CC-BY-SA only; NC/ND are skipped and logged). Images go to the **public** bucket under
+   `atlas/` (`img.findmyflowers.pl/atlas/...`) as *Unreviewed* — open each entry, check the photo, licence and credit,
+   and *Approve* (the first approved image becomes the main one). Fill variety gaps (e.g. carnation "Cappuccino") with
+   our own photos or pilot florists' photos given with written permission (*Upload a photo*, source Own/Licensed).
+   Approved images appear as "Looks like" at once (the read model refreshes within 10 minutes on other machines).
+3. **Crops**: raise the `bouquet-analysis-v2` candidate for the pilot — it is the v1 prompt plus item boxes:
+   `fly secrets set BouquetDesign__Analysis__CandidatePercent=100` together with `PilotVendorIds`, or a share. Only the
+   OpenAI analyzer uses it (the free Palette analyzer has no boxes). Check crop quality on real bouquets before
+   promoting with `BouquetDesign__Analysis__PromptVersion=bouquet-analysis-v2`.
+4. **Image fingerprints (Phase 2, off by default)**. In-process ONNX (REQ-GAPS-S H.3):
+   - get the **image encoder** of CLIP ViT-B/32 as ONNX (e.g. `Xenova/clip-vit-base-patch32` → `onnx/vision_model.onnx`,
+     ≈ 350 MB fp32 / ≈ 90 MB quantised) and put it on a Fly volume mounted on the API machine, e.g. `/data/models`;
+   - `fly secrets set BouquetDesign__Embedding__Provider=Onnx BouquetDesign__Embedding__Onnx__ModelPath=/data/models/clip-vit-b32-vision.onnx
+     BouquetDesign__Embedding__Model=clip-vit-b32 BouquetDesign__Embedding__Dimensions=512`
+     (SigLIP-base: `Dimensions=768`, `Onnx__Mean__0`…`__2=0.5`, `Onnx__Std__0`…`__2=0.5`, a new `Model` id — vectors of
+     different models are never compared, and the HNSW index covers 512 dimensions; other sizes use exact search);
+   - expect ≈ 50–150 ms CPU per crop and ≈ 300 MB more memory on the API machine that also runs the design worker —
+     size it up one step;
+   - Admin Portal → **Flower atlas** → *Backfill image fingerprints* until it reports 0 (atlas images and existing stock
+     photos; new stock photos and approved images are fingerprinted as they come);
+   - alternatively `Provider=Http` with `Http__Endpoint` (a service answering `POST /embed`, §26 of the API contract), e.g.
+     the Phase 3 detector service.
+   Switch on for the pilot and compare match corrections and verdicts before and after. `StockWeight`, `DisagreeMargin`,
+   `MinSimilarity` and `StockSuggestSimilarity` tune the signals; `LearnFromVerdicts=true` turns checked crops into the
+   shop's own examples (vectors only, never shared).
+5. **Roll back**: `BouquetDesign__Embedding__Provider=None` (signals stop at once; stored vectors are ignored),
+   `BouquetDesign__Analysis__CandidatePercent=0` (no new crops). Rejecting an atlas image removes it from the review
+   immediately.
+
 ### 5.5 Failure-mode checks (once per environment)
 
 | Scenario | How | Expected |
@@ -359,6 +399,8 @@ their own fixed versions.
 | Kill switch | `BouquetDesign__Enabled=false` | New work 403; saved recipes still open |
 | Cross-tenant | Second vendor token, first vendor's session id | 404 on session, photo and preview bytes |
 | Retention | Set `Retention__SourcePhotoDays=0`, wait for the hourly sweep (or restart) | Photos show "Expired"; recipes untouched |
+| Crop isolation (EP-41) | Second vendor token, first vendor's `media/crops/{itemId}` | 404 |
+| Unreviewed atlas image | `GET /api/v1/atlas/images/{id}/content` of an unreviewed image, no token | 404 |
 
 ### 5.6 Monitoring during the pilot
 

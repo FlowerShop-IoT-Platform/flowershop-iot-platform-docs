@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.3.0</span>
+    <span class="topbar-badge">Docs v1.4.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -771,6 +771,7 @@
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
     </div>
 
@@ -786,7 +787,8 @@
 photos) and REQ-GAPS-R.md (EP-40 recognition confidence from human feedback).
 Requirement refs point at the tasks in <code class="language-plaintext highlighter-rouge">tasks-ep41-flower-atlas-image-matching.json</code>.
 Analysis date: 2026-10-23
-Status: proposed (EP-41, see <code class="language-plaintext highlighter-rouge">EPICS-S.md</code>). Open decisions are in section H.</p>
+Status: Phase 1 + 2 implemented in this repo (EP-41, see <code class="language-plaintext highlighter-rouge">EPICS-S.md</code>); Phase 3 (REQ-ATL-13/14) and the vendor app
+(REQ-ATL-16) pending. Section H decided 2026-10-24 as proposed.</p>
 </blockquote>
 
 <h2 id="context">Context</h2>
@@ -1107,22 +1109,24 @@ disagreement flag and the “Could be” suggestions.</p>
 
 <hr />
 
-<h2 id="h-open-decisions">H. Open decisions</h2>
+<h2 id="h-decisions-decided-2026-10-24-as-proposed">H. Decisions (decided 2026-10-24 as proposed)</h2>
 
 <ol>
   <li><strong>Commercial licensed library.</strong> Wikimedia/iNaturalist cover common species well but varieties
 poorly (e.g. carnation “Cappuccino”). Should we buy a stock-image licence, or ask partner growers
 and wholesalers for their catalogue photos? <em>Proposed:</em> start with the open sources plus our own
 photos, and fill variety gaps with photos from pilot florists, with their written permission
-(source <code class="language-plaintext highlighter-rouge">Own</code>).</li>
+(source <code class="language-plaintext highlighter-rouge">Own</code>). <strong>Decided as proposed.</strong></li>
   <li><strong>Shared atlas from vendor crops.</strong> Confirmed crops from many shops would make the best atlas, but
 they are vendor photos. This interacts with EP-40’s sharing decision. <em>Proposed:</em> not in this epic.
-It needs an explicit opt-in per photo and an updated privacy notice.</li>
+It needs an explicit opt-in per photo and an updated privacy notice. <strong>Decided as proposed.</strong></li>
   <li><strong>Where embeddings run.</strong> In-process ONNX (simple, adds ~150 MB model and CPU load to the API
 machine, which already runs the design worker) or the Phase 3 service. <em>Proposed:</em> ONNX in-process
-for Phase 2, and move it when Phase 3 exists.</li>
+for Phase 2, and move it when Phase 3 exists. <strong>Decided as proposed</strong> (<code class="language-plaintext highlighter-rouge">Embedding:Provider=Onnx</code>; <code class="language-plaintext highlighter-rouge">Http</code> is ready for
+the Phase 3 service).</li>
   <li><strong>Language.</strong> Atlas names in PL and EN from the start. The review shows the vendor’s portal
-language, and other languages fall back to EN.</li>
+language, and other languages fall back to EN. <strong>Decided as proposed</strong> (the API follows Accept-Language: <code class="language-plaintext highlighter-rouge">pl</code> → Polish,
+anything else → English).</li>
 </ol>
 
     </div>

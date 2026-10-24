@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.3.0</span>
+    <span class="topbar-badge">Docs v1.4.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -771,6 +771,7 @@
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
     </div>
 
@@ -4658,6 +4659,18 @@ flow. <strong>Never changes stock levels.</strong> Create the session with <code
       <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>. Pick another of <strong>your</strong> stock items (scored in code; another vendor’s id → 404), mark “not in my stock”, or set the needed quantity (1–200). No model call; a different item than the AI’s match is stored as an EP-33 correction</td>
     </tr>
     <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/analysis/items/{itemId}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ rename: { name, variety? } }</code> or <code class="language-plaintext highlighter-rouge">{ clearRename: true }</code> (EP-41)</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">DesignSessionDto</code>. One-tap rename (“Could be: Seeded eucalyptus”, the photo’s look-alike): re-matched to your stock in code and recorded as your §21.5 verdict (same flower type → <code class="language-plaintext highlighter-rouge">correct</code> with the variety; another type → <code class="language-plaintext highlighter-rouge">wrong</code>, actual name). The AI’s answer is kept as <code class="language-plaintext highlighter-rouge">aiName</code>/<code class="language-plaintext highlighter-rouge">aiVariety</code>; <code class="language-plaintext highlighter-rouge">clearRename</code> goes back to it</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/media/crops/{itemId}</code></td>
+      <td>—</td>
+      <td>image (<code class="language-plaintext highlighter-rouge">private, no-store</code>): the item’s crop from your photo (EP-41, §21.6). 404 when the line has no crop or the photos have expired</td>
+    </tr>
+    <tr>
       <td>POST</td>
       <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/analysis/use</code></td>
       <td><code class="language-plaintext highlighter-rouge">{ expectedVersion }</code></td>
@@ -4671,7 +4684,8 @@ colors[], variety, quantity, detectedQuantity, quantityMin, quantityMax, confide
 match: StockMatchDto|null, alternatives: StockMatchDto[≤2], status: "Matched|Short|Missing", shortfall, notInStock }] (EP-40
 </code>confidenceScore<code class="language-plaintext highlighter-rouge">/</code>verdict<code class="language-plaintext highlighter-rouge">: §21.5), missing: [{ name, kind,
 colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality", "not-a-bouquet", "colours-only" — the free Palette analyzer measured colours only and its item names are placeholders; show it), palette[],
-procurement: { available: false, providers: [] } }</code>. <code class="language-plaintext highlighter-rouge">StockMatchDto</code>: <code class="language-plaintext highlighter-rouge">{ stockItemId, name, color, variety, score
+procurement: { available: false, providers: [] } }</code>; EP-41 adds <code class="language-plaintext highlighter-rouge">aiName</code>, <code class="language-plaintext highlighter-rouge">aiVariety</code>, <code class="language-plaintext highlighter-rouge">atlas</code>, <code class="language-plaintext highlighter-rouge">boxes</code>, <code class="language-plaintext highlighter-rouge">cropUrl</code> and
+<code class="language-plaintext highlighter-rouge">imageMatches</code> to each item (§21.6). <code class="language-plaintext highlighter-rouge">StockMatchDto</code>: <code class="language-plaintext highlighter-rouge">{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }</code>. Bands: High ≥ 80, Medium
 50–79, Low &lt; 50 — a Low match is shown but never linked unless the florist chooses it. <code class="language-plaintext highlighter-rouge">missing</code> lists Missing items
 and the shortfall of Short ones (the “to buy” list; supplier ordering is a later epic — <code class="language-plaintext highlighter-rouge">procurement.available</code> is
@@ -4871,6 +4885,108 @@ calibration check), <code class="language-plaintext highlighter-rouge">ImplicitW
 predecessor’s bucket prior at <code class="language-plaintext highlighter-rouge">InheritStrength</code> 0.5), <code class="language-plaintext highlighter-rouge">BurstLines</code> 5 / <code class="language-plaintext highlighter-rouge">BurstSeconds</code> 2, <code class="language-plaintext highlighter-rouge">RefreshMinutes</code> 60.
 Migration <code class="language-plaintext highlighter-rouge">AddRecognitionConfidence</code> (tables <code class="language-plaintext highlighter-rouge">RecognitionVerdicts</code>, <code class="language-plaintext highlighter-rouge">RecognitionConfidenceCells</code>,
 <code class="language-plaintext highlighter-rouge">RecognitionConfidenceShopCells</code>; column <code class="language-plaintext highlighter-rouge">DesignStyleProfiles.ShareRecognitionFeedback</code>).</p>
+
+<h3 id="216-flower-atlas-item-crops-and-image-matching-ep-41">21.6 Flower atlas, item crops and image matching (EP-41)</h3>
+
+<p>Each review line can show three pictures: <strong>in your photo</strong> (a crop), <strong>looks like</strong> (a reviewed reference image from the
+platform flower atlas, with its credit) and <strong>your stock</strong> (the matched item’s main photo, <code class="language-plaintext highlighter-rouge">match.mainPhotoId</code>). Images
+from the atlas are only ever ones a platform admin approved (§26). Everything here is computed in code; nothing is
+applied to a line without the florist’s tap.</p>
+
+<p><strong>Analysis items</strong> (<code class="language-plaintext highlighter-rouge">DesignAnalysisItemDto</code>, sessions and cost assessments) gain:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aiName: "Astilbe" | null,          // set when the florist renamed the line; `name`/`variety` are the new ones
+aiVariety: null,
+boxes: [{ photoIndex: 0, x: 0.12, y: 0.30, w: 0.18, h: 0.22 }],   // normalised 0–1, ≤ 3, photoIndex into the live photos in order
+cropUrl: "/api/v1/vendor/design-sessions/{id}/media/crops/{itemId}" | null,   // cost assessments: /vendor/cost-assessments/{id}/media/crops/{itemId}
+atlas: {
+  flowerId, varietyId | null, typeKey: "flower:carnation",
+  name: "Goździk",                 // request language (Accept-Language pl → Polish when known), else English
+  nameEn, namePl, scientificName, varietyName | null, description,
+  imageUrl | null,                 // public R2 URL, or /api/v1/atlas/images/{imageId}/content (anonymous) on local storage
+  attribution | null, sourceUrl | null, licence | null (SPDX, e.g. CC-BY-SA-4.0), author | null,
+  couldBe: { varietyId, name: "Eucalyptus", variety: "Seeded" } | null   // a common variety the AI didn't name
+} | null,
+imageMatches: {                    // Phase 2, null while BouquetDesign:Embedding:Provider is None
+  model: "clip-vit-b32",
+  atlas: [{ flowerId | null, typeKey, name, similarity: 0.91, source: "atlas|shop" }],   // ≤ 3, grouped by flower
+  stock: [{ stockItemId, name, similarity, mainPhotoId | null }],                         // ≤ 3, your active items only
+  disagreement: { flowerId, typeKey, name: "Amaranthus", similarity: 0.11 /* the margin */, source: "atlas" } | null,
+  stockSuggestion: { stockItemId, name, similarity, mainPhotoId } | null                 // "Your stock may have this"
+} | null
+</code></pre></div></div>
+
+<p>Show <code class="language-plaintext highlighter-rouge">attribution</code> (or author + licence) with every atlas image — CC-BY and CC-BY-SA require it — and link <code class="language-plaintext highlighter-rouge">sourceUrl</code>.
+<code class="language-plaintext highlighter-rouge">couldBe</code> and <code class="language-plaintext highlighter-rouge">disagreement</code> are one-tap renames (<code class="language-plaintext highlighter-rouge">PUT …/analysis/items/{itemId}</code> with <code class="language-plaintext highlighter-rouge">rename</code>, §21.3);
+<code class="language-plaintext highlighter-rouge">stockSuggestion</code> is a one-tap <code class="language-plaintext highlighter-rouge">stockItemId</code> choice. <code class="language-plaintext highlighter-rouge">couldBe</code> is null once the line is renamed. Recognised Photos-mode
+inventory lines (<code class="language-plaintext highlighter-rouge">InventoryItemDto</code>, <code class="language-plaintext highlighter-rouge">estimated</code> or scored) and <code class="language-plaintext highlighter-rouge">StockCountLineDto</code> gain <code class="language-plaintext highlighter-rouge">atlas</code> too.</p>
+
+<p><strong>Boxes and crops.</strong> Prompt <code class="language-plaintext highlighter-rouge">bouquet-analysis-v2</code> asks the vision model for boxes; it rolls out as an EP-33 candidate
+(<code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:CandidatePromptVersion</code> = <code class="language-plaintext highlighter-rouge">bouquet-analysis-v2</code>, <code class="language-plaintext highlighter-rouge">CandidatePercent</code> 0 → pilot). Code drops
+boxes on a photo index that wasn’t sent, clamps them to the photo, drops ones under 2 % or over 80 % of the photo and
+keeps ≤ 3. The first box is cropped (padding 8 %, long edge ≤ 384 px, JPEG) from the container’s own processed photo and
+stored privately under its prefix; crops follow the source photos’ retention and are deleted with the session or
+assessment. v1 and the free Palette analyzer give no boxes (<code class="language-plaintext highlighter-rouge">boxes: []</code>, <code class="language-plaintext highlighter-rouge">cropUrl: null</code>).</p>
+
+<p><strong>Image matching (Phase 2, off by default).</strong> With <code class="language-plaintext highlighter-rouge">BouquetDesign:Embedding:Provider</code> = <code class="language-plaintext highlighter-rouge">Onnx</code> or <code class="language-plaintext highlighter-rouge">Http</code>, every crop is
+fingerprinted and compared with approved atlas images and <strong>your own</strong> stock photos (vendor-scoped, filtered by vendor
+first; vectors of different models are never compared). The match score gains an image factor
+(<code class="language-plaintext highlighter-rouge">text × (1 − StockWeight) + image × StockWeight</code>, factor text <code class="language-plaintext highlighter-rouge">"photo looks like your …"</code>; unchanged without a
+fingerprint; the flower-type gate still applies). A verdict (§21.5) on a line with a crop stores the crop’s fingerprint
+id; with <code class="language-plaintext highlighter-rouge">Embedding:LearnFromVerdicts</code> a ✓ or “it’s actually …” makes the crop a labelled example of your private
+neighbourhood (<code class="language-plaintext highlighter-rouge">source: "shop"</code> neighbours) — never the shared atlas.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Auth</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/design-sessions/{id}/media/crops/{itemId}</code></td>
+      <td>VendorAccess</td>
+      <td>image, <code class="language-plaintext highlighter-rouge">private, no-store</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/cost-assessments/{id}/media/crops/{itemId}</code></td>
+      <td>VendorAccess</td>
+      <td>image, <code class="language-plaintext highlighter-rouge">private, no-store</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/vendor/atlas/vocabulary</code></td>
+      <td>VendorAccess</td>
+      <td><code class="language-plaintext highlighter-rouge">[{ name, language: "en|pl", kind, typeKey | null, source: "atlas|stock" }]</code> — the “What is it?” names: atlas names (request language first), then your active stock names</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/atlas/images/{imageId}/content</code></td>
+      <td>anonymous</td>
+      <td>image (<code class="language-plaintext highlighter-rouge">public, max-age=86400</code>); approved images only, else 404</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/atlas/attributions</code></td>
+      <td>anonymous</td>
+      <td><code class="language-plaintext highlighter-rouge">[{ flower, variety, imageUrl, sourceUrl, author, licence, attribution, source }]</code> — credits of every approved image</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Config <code class="language-plaintext highlighter-rouge">BouquetDesign:Embedding:*</code>: <code class="language-plaintext highlighter-rouge">Provider</code> (<code class="language-plaintext highlighter-rouge">None</code> default | <code class="language-plaintext highlighter-rouge">Onnx</code> | <code class="language-plaintext highlighter-rouge">Http</code>), <code class="language-plaintext highlighter-rouge">Model</code> (<code class="language-plaintext highlighter-rouge">clip-vit-b32</code>), <code class="language-plaintext highlighter-rouge">Dimensions</code>
+(512), <code class="language-plaintext highlighter-rouge">StockWeight</code> 0.3, <code class="language-plaintext highlighter-rouge">DisagreeMargin</code> 0.05, <code class="language-plaintext highlighter-rouge">MinSimilarity</code> 0.6, <code class="language-plaintext highlighter-rouge">StockSuggestSimilarity</code> 0.85, <code class="language-plaintext highlighter-rouge">SimilarityFloor</code>
+0.6 / <code class="language-plaintext highlighter-rouge">SimilarityCeiling</code> 0.95 (image factor 0 → 1), <code class="language-plaintext highlighter-rouge">LearnFromVerdicts</code> false, <code class="language-plaintext highlighter-rouge">TimeoutSeconds</code> 30, <code class="language-plaintext highlighter-rouge">Onnx:ModelPath</code>,
+<code class="language-plaintext highlighter-rouge">Onnx:ImageSize</code> 224, <code class="language-plaintext highlighter-rouge">Onnx:Mean</code>/<code class="language-plaintext highlighter-rouge">Std</code> (CLIP defaults), <code class="language-plaintext highlighter-rouge">Http:Endpoint</code> (<code class="language-plaintext highlighter-rouge">POST {Endpoint}/embed</code> with
+<code class="language-plaintext highlighter-rouge">{ model, images: [base64] }</code> → <code class="language-plaintext highlighter-rouge">{ model, dimensions, vectors }</code>), <code class="language-plaintext highlighter-rouge">Http:ApiKey</code>. Migrations <code class="language-plaintext highlighter-rouge">AddFlowerAtlas</code>
+(<code class="language-plaintext highlighter-rouge">AtlasFlowers</code>, <code class="language-plaintext highlighter-rouge">AtlasImages</code>) and <code class="language-plaintext highlighter-rouge">AddImageEmbeddings</code> (<code class="language-plaintext highlighter-rouge">AtlasImageEmbeddings</code>, <code class="language-plaintext highlighter-rouge">StockPhotoEmbeddings</code>,
+<code class="language-plaintext highlighter-rouge">AnalysisCropEmbeddings</code>, <code class="language-plaintext highlighter-rouge">RecognitionVerdicts.CropEmbeddingId</code>; installs pgvector and an HNSW cosine index when the
+server offers it, otherwise similarity is computed in code).</p>
 
 <hr />
 
@@ -5603,6 +5719,120 @@ refused with <code class="language-plaintext highlighter-rouge">pickup-not-offer
   <li>Events: <code class="language-plaintext highlighter-rouge">BouquetBecameAvailable</code> and <code class="language-plaintext highlighter-rouge">BouquetSold</code> are raised for online listings with <code class="language-plaintext highlighter-rouge">vaseId: null</code>, so the SignalR
 new-bouquet push (§13) and customer bouquet alerts work unchanged.</li>
 </ul>
+
+<hr />
+
+<h2 id="26-flower-atlas-admin-ep-41">26. Flower atlas (admin) (EP-41)</h2>
+
+<p>The platform flower atlas behind §21.6: about 150 cut flowers and greenery (<code class="language-plaintext highlighter-rouge">docs/atlas/atlas-seed.json</code>), PL/EN names
+and aliases (also the recognition vocabulary — <code class="language-plaintext highlighter-rouge">FlowerTypeKey</code> takes the seed list’s names), varieties, and reference
+images from <strong>Wikimedia Commons and iNaturalist under CC0, CC-BY or CC-BY-SA only</strong>, or our own photos — never Google
+Images. Every image starts <code class="language-plaintext highlighter-rouge">Unreviewed</code>; vendors see it only after it is approved. <strong>PlatformAdmin</strong> only; writes are
+audit-logged. Base path <code class="language-plaintext highlighter-rouge">/api/v1/admin/atlas</code>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Body</th>
+      <th>Success</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">AtlasFlowerSummaryDto[]</code>: <code class="language-plaintext highlighter-rouge">{ id, typeKey, kind, nameEn, namePl, scientificName, varieties, approvedImages, unreviewedImages, hasPrimary, primaryImageUrl }</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers/{id}</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code> (below)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ kind, nameEn, namePl?, scientificName?, aliasesEn?, aliasesPl?, description?, colours?, searchCommons?, searchINaturalist? }</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code>; the type key is <code class="language-plaintext highlighter-rouge">FlowerTypeKey</code> of <code class="language-plaintext highlighter-rouge">nameEn</code> (409 <code class="language-plaintext highlighter-rouge">duplicate</code> if taken)</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers/{id}</code></td>
+      <td>same + <code class="language-plaintext highlighter-rouge">expectedVersion</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code>; 409 <code class="language-plaintext highlighter-rouge">invalid-state</code> on a stale version, 409 <code class="language-plaintext highlighter-rouge">duplicate</code></td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers/{id}</code></td>
+      <td>—</td>
+      <td>204; its images and fingerprints go with it</td>
+    </tr>
+    <tr>
+      <td>POST / PUT / DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers/{id}/varieties[/{varietyId}]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ name, aliases?, colours?, notes?, common }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code>. Names unique per entry (409 <code class="language-plaintext highlighter-rouge">duplicate</code>); <code class="language-plaintext highlighter-rouge">common</code> → offered as “Could be”; deleting keeps the images on the flower</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/seed?updateExisting=false</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">{ created, existing, updated, invalid }</code> — creates the seed list’s missing entries (idempotent); <code class="language-plaintext highlighter-rouge">updateExisting</code> overwrites names/aliases/descriptions</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/import</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ flowerId?, maxFlowers?, perSource? }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ flowers, added, alreadyImported, rejected, failed, remaining, messages[] }</code> — 2 (<code class="language-plaintext highlighter-rouge">perSource</code> 1–4) unreviewed candidates per source for one entry, or for the next <code class="language-plaintext highlighter-rouge">maxFlowers</code> (default 10) entries with fewer than 4 images; call again while <code class="language-plaintext highlighter-rouge">remaining &gt; 0</code>. Idempotent by source URL; NC/ND/unknown licences are skipped (<code class="language-plaintext highlighter-rouge">rejected</code>) and logged, never downloaded</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/images/{imageId}/review</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ action: "approve|reject|set-primary", moveToVarietyId? }</code></td>
+      <td>200 <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code>. The first approved image of a flower/variety becomes its main one (exactly one); a refused licence can’t be approved (422 <code class="language-plaintext highlighter-rouge">licence-not-allowed</code>); <code class="language-plaintext highlighter-rouge">moveToVarietyId</code> re-files it (empty Guid: the flower). Approving fingerprints the image when Phase 2 is on</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/flowers/{id}/images</code></td>
+      <td>multipart <code class="language-plaintext highlighter-rouge">photo</code>, <code class="language-plaintext highlighter-rouge">varietyId?</code>, <code class="language-plaintext highlighter-rouge">source</code> (<code class="language-plaintext highlighter-rouge">Own</code> | <code class="language-plaintext highlighter-rouge">Licensed</code>), <code class="language-plaintext highlighter-rouge">author?</code>, <code class="language-plaintext highlighter-rouge">licence?</code>, <code class="language-plaintext highlighter-rouge">attribution?</code> (required for <code class="language-plaintext highlighter-rouge">Licensed</code>), <code class="language-plaintext highlighter-rouge">sourceUrl?</code>, <code class="language-plaintext highlighter-rouge">approve</code></td>
+      <td>201 <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code></td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/images/{imageId}</code></td>
+      <td>—</td>
+      <td>200 <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code></td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/images/{imageId}/content</code></td>
+      <td>—</td>
+      <td>image of any status (<code class="language-plaintext highlighter-rouge">private, no-store</code>)</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/embeddings/backfill?batchSize=100</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">{ atlasImages, stockPhotos, failed, enabled }</code> — one batch of fingerprints for approved atlas images and existing stock photos without one (no-op while <code class="language-plaintext highlighter-rouge">Embedding:Provider</code> is None)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code>: <code class="language-plaintext highlighter-rouge">{ id, version, typeKey, kind, nameEn, namePl, scientificName, aliasesEn[], aliasesPl[], description,
+colours[], searchCommons, searchINaturalist, varieties: [{ id, name, aliases[], colours[], notes, common }], images: [{ id,
+varietyId, url, width, height, source: "WikimediaCommons|INaturalist|Own|Licensed", sourceUrl, author, licence (SPDX),
+attribution, status: "Unreviewed|Approved|Rejected", isPrimary, reviewedAt, createdAt, licenceAllowed,
+attributionRequired }], updatedAt }</code>. Errors: 404 <code class="language-plaintext highlighter-rouge">not-found</code>, 409 <code class="language-plaintext highlighter-rouge">duplicate</code> / <code class="language-plaintext highlighter-rouge">invalid-state</code>, 422
+<code class="language-plaintext highlighter-rouge">licence-not-allowed</code>, 400 <code class="language-plaintext highlighter-rouge">invalid-request</code> / <code class="language-plaintext highlighter-rouge">invalid-photo</code>, 502 <code class="language-plaintext highlighter-rouge">source-failed</code> (no sources configured).</p>
+
+<p>Config <code class="language-plaintext highlighter-rouge">Atlas:AllowedLicences</code> (licence families; empty = <code class="language-plaintext highlighter-rouge">CC0</code>, <code class="language-plaintext highlighter-rouge">CC-BY</code>, <code class="language-plaintext highlighter-rouge">CC-BY-SA</code>; NC/ND are refused whatever is
+listed), <code class="language-plaintext highlighter-rouge">Atlas:Import:CandidatesPerSource</code> 2, <code class="language-plaintext highlighter-rouge">MaxFlowersPerRun</code> 10, <code class="language-plaintext highlighter-rouge">EnoughImages</code> 4, <code class="language-plaintext highlighter-rouge">MaxLongEdge</code> 1024,
+<code class="language-plaintext highlighter-rouge">MaxImageBytes</code> 400000, <code class="language-plaintext highlighter-rouge">MaxDownloadBytes</code> 15000000, <code class="language-plaintext highlighter-rouge">UserAgent</code> (Wikimedia API etiquette), <code class="language-plaintext highlighter-rouge">CommonsApiUrl</code>,
+<code class="language-plaintext highlighter-rouge">INaturalistApiUrl</code>. Images are stored with <code class="language-plaintext highlighter-rouge">IFileStorageService</code> under <code class="language-plaintext highlighter-rouge">atlas/{flowerId}/{imageId}.jpg</code> (public R2 bucket,
+<code class="language-plaintext highlighter-rouge">img.findmyflowers.pl/atlas/...</code>).</p>
 
     </div>
   </main>

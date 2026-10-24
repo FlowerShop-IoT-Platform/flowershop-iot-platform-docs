@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.3.0</span>
+    <span class="topbar-badge">Docs v1.4.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -771,6 +771,7 @@
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
     </div>
 
@@ -1863,9 +1864,30 @@
     <tr>
       <td>PUT</td>
       <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}</code></td>
-      <td><code class="language-plaintext highlighter-rouge">{ stockItemId?, notInStock, quantity? }</code></td>
-      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (EP-35)</td>
-      <td>Vendor Portal, vendor mobile app (EP-M15)</td>
+      <td><code class="language-plaintext highlighter-rouge">{ stockItemId?, notInStock, quantity? }</code> or EP-41 <code class="language-plaintext highlighter-rouge">{ rename: { name, variety? } }</code> / <code class="language-plaintext highlighter-rouge">{ clearRename: true }</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DesignSessionDto</code> (EP-35; rename re-matches and records a verdict, EP-41)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M15, EP-M21)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/design-sessions/{id}/media/crops/{itemId}</code>, <code class="language-plaintext highlighter-rouge">/api/v1/vendor/cost-assessments/{id}/media/crops/{itemId}</code></td>
+      <td>—</td>
+      <td>image — private crop of an analysed item (EP-41)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M21)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/atlas/vocabulary</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">[{ name, language, kind, typeKey, source }]</code> — “What is it?” names (EP-41)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M21)</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/atlas/images/{imageId}/content</code>, <code class="language-plaintext highlighter-rouge">/api/v1/atlas/attributions</code></td>
+      <td>— (anonymous)</td>
+      <td>approved atlas image / image credits (EP-41)</td>
+      <td>Vendor Portal, vendor mobile app (EP-M21)</td>
     </tr>
     <tr>
       <td>POST</td>
@@ -2183,6 +2205,20 @@
       <td>—</td>
       <td><code class="language-plaintext highlighter-rouge">{ fromCorrections, fromConfirmedSessions, skipped, platformCells }</code> — one-off, idempotent (EP-40)</td>
       <td>Operator (curl)</td>
+    </tr>
+    <tr>
+      <td>GET/POST/PUT/DELETE</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/atlas/flowers[/{id}[/varieties[/{varietyId}]]]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AtlasFlowerInput</code> / <code class="language-plaintext highlighter-rouge">AtlasVarietyInput</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AtlasFlowerSummaryDto[]</code> / <code class="language-plaintext highlighter-rouge">AtlasFlowerDto</code> — flower atlas curation (EP-41, <code class="language-plaintext highlighter-rouge">API-CONTRACTS.md</code> §26)</td>
+      <td>Admin Portal</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/admin/atlas/seed</code>, <code class="language-plaintext highlighter-rouge">/import</code>, <code class="language-plaintext highlighter-rouge">/images/{imageId}/review</code>, <code class="language-plaintext highlighter-rouge">/flowers/{id}/images</code>, <code class="language-plaintext highlighter-rouge">/embeddings/backfill</code></td>
+      <td>see §26</td>
+      <td>seed list, licensed import (Wikimedia Commons, iNaturalist), review, own upload, fingerprint backfill (EP-41)</td>
+      <td>Admin Portal, Operator</td>
     </tr>
     <tr>
       <td>POST</td>
@@ -3254,6 +3290,24 @@
       <td>bool</td>
       <td>One validator-guided repair call per composition (global $ cap, not vendor quota)</td>
       <td><code class="language-plaintext highlighter-rouge">true</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Analysis:CandidatePromptVersion</code></td>
+      <td>string</td>
+      <td>EP-41 <code class="language-plaintext highlighter-rouge">bouquet-analysis-v2</code> (item boxes for crops) as a candidate at <code class="language-plaintext highlighter-rouge">CandidatePercent</code></td>
+      <td><code class="language-plaintext highlighter-rouge">bouquet-analysis-v2</code> / <code class="language-plaintext highlighter-rouge">0</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Embedding:*</code></td>
+      <td>object</td>
+      <td>Image fingerprints (EP-41 Phase 2): <code class="language-plaintext highlighter-rouge">Provider</code> (<code class="language-plaintext highlighter-rouge">None</code>|<code class="language-plaintext highlighter-rouge">Onnx</code>|<code class="language-plaintext highlighter-rouge">Http</code>), <code class="language-plaintext highlighter-rouge">Model</code>, <code class="language-plaintext highlighter-rouge">Dimensions</code>, <code class="language-plaintext highlighter-rouge">StockWeight</code>, <code class="language-plaintext highlighter-rouge">DisagreeMargin</code>, <code class="language-plaintext highlighter-rouge">MinSimilarity</code>, <code class="language-plaintext highlighter-rouge">StockSuggestSimilarity</code>, <code class="language-plaintext highlighter-rouge">SimilarityFloor</code>, <code class="language-plaintext highlighter-rouge">SimilarityCeiling</code>, <code class="language-plaintext highlighter-rouge">LearnFromVerdicts</code>, <code class="language-plaintext highlighter-rouge">TimeoutSeconds</code>, <code class="language-plaintext highlighter-rouge">Onnx:{ModelPath,ImageSize,Mean,Std}</code>, <code class="language-plaintext highlighter-rouge">Http:{Endpoint,ApiKey}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">None</code>, <code class="language-plaintext highlighter-rouge">clip-vit-b32</code>, <code class="language-plaintext highlighter-rouge">512</code>, <code class="language-plaintext highlighter-rouge">0.3</code>, <code class="language-plaintext highlighter-rouge">0.05</code>, <code class="language-plaintext highlighter-rouge">0.6</code>, <code class="language-plaintext highlighter-rouge">0.85</code>, <code class="language-plaintext highlighter-rouge">0.6</code>, <code class="language-plaintext highlighter-rouge">0.95</code>, <code class="language-plaintext highlighter-rouge">false</code>, <code class="language-plaintext highlighter-rouge">30</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Atlas:AllowedLicences</code> / <code class="language-plaintext highlighter-rouge">Atlas:Import:*</code></td>
+      <td>list / object</td>
+      <td>Flower atlas (EP-41): licence families (empty = CC0, CC-BY, CC-BY-SA; NC/ND always refused); import <code class="language-plaintext highlighter-rouge">CandidatesPerSource</code>, <code class="language-plaintext highlighter-rouge">MaxFlowersPerRun</code>, <code class="language-plaintext highlighter-rouge">EnoughImages</code>, <code class="language-plaintext highlighter-rouge">MaxLongEdge</code>, <code class="language-plaintext highlighter-rouge">MaxImageBytes</code>, <code class="language-plaintext highlighter-rouge">MaxDownloadBytes</code>, <code class="language-plaintext highlighter-rouge">UserAgent</code>, <code class="language-plaintext highlighter-rouge">CommonsApiUrl</code>, <code class="language-plaintext highlighter-rouge">INaturalistApiUrl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">[]</code>, <code class="language-plaintext highlighter-rouge">2</code>, <code class="language-plaintext highlighter-rouge">10</code>, <code class="language-plaintext highlighter-rouge">4</code>, <code class="language-plaintext highlighter-rouge">1024</code>, <code class="language-plaintext highlighter-rouge">400000</code>, <code class="language-plaintext highlighter-rouge">15000000</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">BouquetDesign:Confidence:*</code></td>

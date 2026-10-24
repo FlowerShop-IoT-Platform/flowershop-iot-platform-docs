@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.3.0</span>
+    <span class="topbar-badge">Docs v1.4.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -771,6 +771,7 @@
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
     </div>
 
@@ -798,7 +799,9 @@ Analysis date: 2026-10-23</p>
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: EP-35/36 (analysis review), EP-31 (stock photos), EP-40 (<code class="language-plaintext highlighter-rouge">FlowerTypeKey</code>, verdicts)
 <strong>Requirement refs</strong>: REQ-ATL-01 through REQ-ATL-16
-<strong>State</strong>: proposed (design only); open decisions in REQ-GAPS-S §H.</p>
+<strong>State</strong>: in progress — Phase 1 (S-41-02, S-41-03) and Phase 2 (S-41-04) implemented with tests, contract and docs
+(S-41-06 except the vendor app); Phase 3 (S-41-05) and vendor app EP-M21 (T-41-018) pending. REQ-GAPS-S §H decided
+2026-10-24 as proposed (open sources + own/pilot photos, no shared atlas from vendor crops, in-process ONNX, PL + EN).</p>
 
 <blockquote>
   <p>Each line in the bouquet review shows three pictures: what the AI saw in your photo, what that
@@ -857,6 +860,25 @@ on a hand-labelled set of 50–100 photos. Labelling starts during Phase 1.</li>
 
 <p><strong>Suggested order</strong>: S-41-02 → S-41-03 (start labelling T-41-014 in parallel) → S-41-04 → S-41-05 →
 S-41-06. T-41-002 needs EP-40’s <code class="language-plaintext highlighter-rouge">FlowerTypeKey</code> (T-40-003), so build that first, or carry a local copy.</p>
+
+<h3 id="what-was-built-phase-1--2">What was built (Phase 1 + 2)</h3>
+<ul>
+  <li><strong>Atlas</strong> (<code class="language-plaintext highlighter-rouge">Domain/Aggregates/Atlas/*</code>, migration <code class="language-plaintext highlighter-rouge">AddFlowerAtlas</code>): entries keyed by the EP-40 flower type key, PL/EN
+names, aliases, varieties (a <em>common</em> one powers “Could be”), images with full provenance and SPDX licence; only
+CC0/CC-BY/CC-BY-SA imports, NC/ND always refused, exactly one main image, unreviewed images never reach vendors.
+Seed list <code class="language-plaintext highlighter-rouge">docs/atlas/atlas-seed.json</code> (152 entries) is embedded and also feeds <code class="language-plaintext highlighter-rouge">FlowerTypeKey</code>’s synonyms.</li>
+  <li><strong>Curation</strong>: <code class="language-plaintext highlighter-rouge">/api/v1/admin/atlas/*</code> and Admin Portal <em>Flower atlas</em> (coverage, seed, import from Wikimedia Commons
+and iNaturalist, review, own upload, fingerprint backfill). Public credits at <code class="language-plaintext highlighter-rouge">/api/v1/atlas/attributions</code> and Vendor
+Portal <em>Image credits</em>.</li>
+  <li><strong>Review</strong>: <code class="language-plaintext highlighter-rouge">atlas</code>, <code class="language-plaintext highlighter-rouge">boxes</code>, <code class="language-plaintext highlighter-rouge">cropUrl</code>, <code class="language-plaintext highlighter-rouge">imageMatches</code>, <code class="language-plaintext highlighter-rouge">aiName</code> on analysis lines (decorated in one MediatR
+behaviour), three pictures per line with tap-to-highlight, “Could be”, look-alike and “Your stock may have this”
+one-tap actions; renames are recorded as EP-40 verdicts.</li>
+  <li><strong>Crops</strong>: <code class="language-plaintext highlighter-rouge">bouquet-analysis-v2</code> (0 % candidate) boxes, cleaned in code, cropped with Skia into private storage,
+deleted with the session/assessment and with photo retention.</li>
+  <li><strong>Fingerprints</strong> (off by default): <code class="language-plaintext highlighter-rouge">IImageEmbedder</code> None/Onnx/Http, <code class="language-plaintext highlighter-rouge">AddImageEmbeddings</code> (real[] vectors, pgvector +
+HNSW when available, in-code ranking otherwise), image factor in <code class="language-plaintext highlighter-rouge">StockMatcher</code>, disagreement flags, verdict links and
+opt-in learning from the shop’s own checks.</li>
+</ul>
 
 <h3 id="rollout">Rollout</h3>
 <ol>

@@ -655,7 +655,7 @@
   <a href="/" class="topbar-logo">
     <span class="topbar-logo-icon">🌸</span>
     FlowerShop IoT Platform
-    <span class="topbar-badge">Docs v1.3.0</span>
+    <span class="topbar-badge">Docs v1.4.0</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-search" id="docsSearch" hidden>
@@ -771,6 +771,7 @@
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
     </div>
 
@@ -1321,6 +1322,51 @@ operator change — never automatic.</li>
 <code class="language-plaintext highlighter-rouge">BouquetDesign__Composition__RepairEnabled=false</code>; the kill switch still stops all paid work.</li>
 </ol>
 
+<h3 id="542-flower-atlas-item-crops-and-image-matching-ep-41">5.4.2 Flower atlas, item crops and image matching (EP-41)</h3>
+
+<p>Nothing changes for vendors until each step below is done; every step can be undone with config alone.</p>
+
+<ol>
+  <li><strong>Migrate</strong>: deploy the API (migrations <code class="language-plaintext highlighter-rouge">AddFlowerAtlas</code>, <code class="language-plaintext highlighter-rouge">AddImageEmbeddings</code>). The second one runs
+<code class="language-plaintext highlighter-rouge">CREATE EXTENSION IF NOT EXISTS vector</code> and an HNSW index inside a guarded block: on a server without pgvector it
+only logs a notice and the code ranks vectors itself, so it never blocks the deploy. Check with
+<code class="language-plaintext highlighter-rouge">SELECT extversion FROM pg_extension WHERE extname = 'vector';</code> (Fly Postgres images ship pgvector; the database user
+needs the right to create extensions — if it lacks it, run the statement once as the superuser and redeploy).</li>
+  <li><strong>Atlas</strong>: Admin Portal → <strong>Flower atlas</strong> → <em>Add seed list entries</em> (≈150 entries from <code class="language-plaintext highlighter-rouge">docs/atlas/atlas-seed.json</code>),
+then <em>Import candidate images</em> repeatedly (10 entries per run, 2 candidates per source from Wikimedia Commons and
+iNaturalist, CC0/CC-BY/CC-BY-SA only; NC/ND are skipped and logged). Images go to the <strong>public</strong> bucket under
+<code class="language-plaintext highlighter-rouge">atlas/</code> (<code class="language-plaintext highlighter-rouge">img.findmyflowers.pl/atlas/...</code>) as <em>Unreviewed</em> — open each entry, check the photo, licence and credit,
+and <em>Approve</em> (the first approved image becomes the main one). Fill variety gaps (e.g. carnation “Cappuccino”) with
+our own photos or pilot florists’ photos given with written permission (<em>Upload a photo</em>, source Own/Licensed).
+Approved images appear as “Looks like” at once (the read model refreshes within 10 minutes on other machines).</li>
+  <li><strong>Crops</strong>: raise the <code class="language-plaintext highlighter-rouge">bouquet-analysis-v2</code> candidate for the pilot — it is the v1 prompt plus item boxes:
+<code class="language-plaintext highlighter-rouge">fly secrets set BouquetDesign__Analysis__CandidatePercent=100</code> together with <code class="language-plaintext highlighter-rouge">PilotVendorIds</code>, or a share. Only the
+OpenAI analyzer uses it (the free Palette analyzer has no boxes). Check crop quality on real bouquets before
+promoting with <code class="language-plaintext highlighter-rouge">BouquetDesign__Analysis__PromptVersion=bouquet-analysis-v2</code>.</li>
+  <li><strong>Image fingerprints (Phase 2, off by default)</strong>. In-process ONNX (REQ-GAPS-S H.3):
+    <ul>
+      <li>get the <strong>image encoder</strong> of CLIP ViT-B/32 as ONNX (e.g. <code class="language-plaintext highlighter-rouge">Xenova/clip-vit-base-patch32</code> → <code class="language-plaintext highlighter-rouge">onnx/vision_model.onnx</code>,
+≈ 350 MB fp32 / ≈ 90 MB quantised) and put it on a Fly volume mounted on the API machine, e.g. <code class="language-plaintext highlighter-rouge">/data/models</code>;</li>
+      <li><code class="language-plaintext highlighter-rouge">fly secrets set BouquetDesign__Embedding__Provider=Onnx BouquetDesign__Embedding__Onnx__ModelPath=/data/models/clip-vit-b32-vision.onnx
+BouquetDesign__Embedding__Model=clip-vit-b32 BouquetDesign__Embedding__Dimensions=512</code>
+(SigLIP-base: <code class="language-plaintext highlighter-rouge">Dimensions=768</code>, <code class="language-plaintext highlighter-rouge">Onnx__Mean__0</code>…<code class="language-plaintext highlighter-rouge">__2=0.5</code>, <code class="language-plaintext highlighter-rouge">Onnx__Std__0</code>…<code class="language-plaintext highlighter-rouge">__2=0.5</code>, a new <code class="language-plaintext highlighter-rouge">Model</code> id — vectors of
+different models are never compared, and the HNSW index covers 512 dimensions; other sizes use exact search);</li>
+      <li>expect ≈ 50–150 ms CPU per crop and ≈ 300 MB more memory on the API machine that also runs the design worker —
+size it up one step;</li>
+      <li>Admin Portal → <strong>Flower atlas</strong> → <em>Backfill image fingerprints</em> until it reports 0 (atlas images and existing stock
+photos; new stock photos and approved images are fingerprinted as they come);</li>
+      <li>alternatively <code class="language-plaintext highlighter-rouge">Provider=Http</code> with <code class="language-plaintext highlighter-rouge">Http__Endpoint</code> (a service answering <code class="language-plaintext highlighter-rouge">POST /embed</code>, §26 of the API contract), e.g.
+the Phase 3 detector service.
+Switch on for the pilot and compare match corrections and verdicts before and after. <code class="language-plaintext highlighter-rouge">StockWeight</code>, <code class="language-plaintext highlighter-rouge">DisagreeMargin</code>,
+<code class="language-plaintext highlighter-rouge">MinSimilarity</code> and <code class="language-plaintext highlighter-rouge">StockSuggestSimilarity</code> tune the signals; <code class="language-plaintext highlighter-rouge">LearnFromVerdicts=true</code> turns checked crops into the
+shop’s own examples (vectors only, never shared).</li>
+    </ul>
+  </li>
+  <li><strong>Roll back</strong>: <code class="language-plaintext highlighter-rouge">BouquetDesign__Embedding__Provider=None</code> (signals stop at once; stored vectors are ignored),
+<code class="language-plaintext highlighter-rouge">BouquetDesign__Analysis__CandidatePercent=0</code> (no new crops). Rejecting an atlas image removes it from the review
+immediately.</li>
+</ol>
+
 <h3 id="55-failure-mode-checks-once-per-environment">5.5 Failure-mode checks (once per environment)</h3>
 
 <table>
@@ -1366,6 +1412,16 @@ operator change — never automatic.</li>
       <td>Retention</td>
       <td>Set <code class="language-plaintext highlighter-rouge">Retention__SourcePhotoDays=0</code>, wait for the hourly sweep (or restart)</td>
       <td>Photos show “Expired”; recipes untouched</td>
+    </tr>
+    <tr>
+      <td>Crop isolation (EP-41)</td>
+      <td>Second vendor token, first vendor’s <code class="language-plaintext highlighter-rouge">media/crops/{itemId}</code></td>
+      <td>404</td>
+    </tr>
+    <tr>
+      <td>Unreviewed atlas image</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /api/v1/atlas/images/{id}/content</code> of an unreviewed image, no token</td>
+      <td>404</td>
     </tr>
   </tbody>
 </table>

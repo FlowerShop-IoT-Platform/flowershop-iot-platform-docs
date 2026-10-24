@@ -2,6 +2,24 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-24 — EP-41 Flower atlas, item crops and image matching (additive)
+
+- **What changed**: analysis items gain `aiName`, `aiVariety`, `atlas`, `boxes`, `cropUrl`, `imageMatches`; recognised
+  inventory lines and stock count lines gain `atlas` (`API-CONTRACTS.md` §21.6). `PUT …/analysis/items/{itemId}` accepts
+  `rename` / `clearRename`. New routes: `GET /api/v1/vendor/design-sessions/{id}/media/crops/{itemId}`,
+  `GET /api/v1/vendor/cost-assessments/{id}/media/crops/{itemId}`, `GET /api/v1/vendor/atlas/vocabulary`, anonymous
+  `GET /api/v1/atlas/images/{imageId}/content` and `GET /api/v1/atlas/attributions`, and the admin atlas API
+  `/api/v1/admin/atlas/*` (§26). Prompt `bouquet-analysis-v2` (boxes) as a 0 % candidate. Config
+  `BouquetDesign:Embedding:*` (Provider `None` by default) and `Atlas:*`. Migrations `AddFlowerAtlas` and
+  `AddImageEmbeddings` (installs pgvector when the server offers it; never fails without it).
+- **Behaviour changes**: none until an admin approves atlas images (then `atlas.imageUrl` appears), the v2 candidate
+  is raised above 0 % (then crops appear), or the embedding provider is switched on (then `imageMatches` and the image
+  factor in match scores). A renamed line reports the florist's name in `name` (the AI's in `aiName`).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (EP-M21: three thumbnails, tap-to-highlight, disagreement flag,
+  "Could be"); Vendor Portal and Admin Portal in this repo.
+- **Deployment order**: API first (migrations apply on start), then the portals, then the mobile build. Old clients
+  ignore the new fields.
+
 ## 2026-10-23 — EP-40 Recognition confidence from human feedback (additive; `needsCheck` meaning changes)
 
 - **What changed**: new verdict endpoints `PUT /api/v1/vendor/design-sessions/{id}/analysis/items/{itemId}/verdict`,

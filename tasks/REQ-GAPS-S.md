@@ -4,7 +4,8 @@
 > photos) and REQ-GAPS-R.md (EP-40 recognition confidence from human feedback).
 > Requirement refs point at the tasks in `tasks-ep41-flower-atlas-image-matching.json`.
 > Analysis date: 2026-10-23
-> Status: proposed (EP-41, see `EPICS-S.md`). Open decisions are in section H.
+> Status: Phase 1 + 2 implemented in this repo (EP-41, see `EPICS-S.md`); Phase 3 (REQ-ATL-13/14) and the vendor app
+> (REQ-ATL-16) pending. Section H decided 2026-10-24 as proposed.
 
 ## Context
 
@@ -251,18 +252,20 @@ disagreement flag and the "Could be" suggestions.
 
 ---
 
-## H. Open decisions
+## H. Decisions (decided 2026-10-24 as proposed)
 
 1. **Commercial licensed library.** Wikimedia/iNaturalist cover common species well but varieties
    poorly (e.g. carnation "Cappuccino"). Should we buy a stock-image licence, or ask partner growers
    and wholesalers for their catalogue photos? *Proposed:* start with the open sources plus our own
    photos, and fill variety gaps with photos from pilot florists, with their written permission
-   (source `Own`).
+   (source `Own`). **Decided as proposed.**
 2. **Shared atlas from vendor crops.** Confirmed crops from many shops would make the best atlas, but
    they are vendor photos. This interacts with EP-40's sharing decision. *Proposed:* not in this epic.
-   It needs an explicit opt-in per photo and an updated privacy notice.
+   It needs an explicit opt-in per photo and an updated privacy notice. **Decided as proposed.**
 3. **Where embeddings run.** In-process ONNX (simple, adds ~150 MB model and CPU load to the API
    machine, which already runs the design worker) or the Phase 3 service. *Proposed:* ONNX in-process
-   for Phase 2, and move it when Phase 3 exists.
+   for Phase 2, and move it when Phase 3 exists. **Decided as proposed** (`Embedding:Provider=Onnx`; `Http` is ready for
+   the Phase 3 service).
 4. **Language.** Atlas names in PL and EN from the start. The review shows the vendor's portal
-   language, and other languages fall back to EN.
+   language, and other languages fall back to EN. **Decided as proposed** (the API follows Accept-Language: `pl` → Polish,
+   anything else → English).

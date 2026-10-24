@@ -15,7 +15,9 @@
 **Priority**: P1-high
 **Dependencies**: EP-35/36 (analysis review), EP-31 (stock photos), EP-40 (`FlowerTypeKey`, verdicts)
 **Requirement refs**: REQ-ATL-01 through REQ-ATL-16
-**State**: proposed (design only); open decisions in REQ-GAPS-S §H.
+**State**: in progress — Phase 1 (S-41-02, S-41-03) and Phase 2 (S-41-04) implemented with tests, contract and docs
+(S-41-06 except the vendor app); Phase 3 (S-41-05) and vendor app EP-M21 (T-41-018) pending. REQ-GAPS-S §H decided
+2026-10-24 as proposed (open sources + own/pilot photos, no shared atlas from vendor crops, in-process ONNX, PL + EN).
 
 > Each line in the bouquet review shows three pictures: what the AI saw in your photo, what that
 > flower looks like, and the stock item it was matched to. Later, the pictures themselves are
@@ -69,6 +71,23 @@ See `tasks-ep41-flower-atlas-image-matching.json` (S-41-01 … S-41-06; T-41-001
 
 **Suggested order**: S-41-02 → S-41-03 (start labelling T-41-014 in parallel) → S-41-04 → S-41-05 →
 S-41-06. T-41-002 needs EP-40's `FlowerTypeKey` (T-40-003), so build that first, or carry a local copy.
+
+### What was built (Phase 1 + 2)
+- **Atlas** (`Domain/Aggregates/Atlas/*`, migration `AddFlowerAtlas`): entries keyed by the EP-40 flower type key, PL/EN
+  names, aliases, varieties (a *common* one powers "Could be"), images with full provenance and SPDX licence; only
+  CC0/CC-BY/CC-BY-SA imports, NC/ND always refused, exactly one main image, unreviewed images never reach vendors.
+  Seed list `docs/atlas/atlas-seed.json` (152 entries) is embedded and also feeds `FlowerTypeKey`'s synonyms.
+- **Curation**: `/api/v1/admin/atlas/*` and Admin Portal *Flower atlas* (coverage, seed, import from Wikimedia Commons
+  and iNaturalist, review, own upload, fingerprint backfill). Public credits at `/api/v1/atlas/attributions` and Vendor
+  Portal *Image credits*.
+- **Review**: `atlas`, `boxes`, `cropUrl`, `imageMatches`, `aiName` on analysis lines (decorated in one MediatR
+  behaviour), three pictures per line with tap-to-highlight, "Could be", look-alike and "Your stock may have this"
+  one-tap actions; renames are recorded as EP-40 verdicts.
+- **Crops**: `bouquet-analysis-v2` (0 % candidate) boxes, cleaned in code, cropped with Skia into private storage,
+  deleted with the session/assessment and with photo retention.
+- **Fingerprints** (off by default): `IImageEmbedder` None/Onnx/Http, `AddImageEmbeddings` (real[] vectors, pgvector +
+  HNSW when available, in-code ranking otherwise), image factor in `StockMatcher`, disagreement flags, verdict links and
+  opt-in learning from the shop's own checks.
 
 ### Rollout
 1. Import and curate the atlas in the Admin Portal. Nothing shows to vendors until images are reviewed.
