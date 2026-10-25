@@ -35,7 +35,23 @@
   .cover .badge-pill { background: rgba(255,255,255,.2); border-radius: 50px; padding: 4px 14px; font-size: .8rem; display: inline-block; margin-top: 14px; }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
-  @media print { .sidebar { display: none; } .main-content { max-width: 100%; padding: 20px; } .topbar { position: static; } }
+  @media print { .sidebar, .nav-toggle { display: none; } .main-content { max-width: 100%; padding: 20px; } .topbar { position: static; } }
+.nav-toggle { display: none; }
+@media (max-width: 768px) {
+  .topbar { padding: 10px 14px; gap: 10px; }
+  .topbar-title { font-size: 1.05rem; }
+  .topbar-subtitle { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .layout { display: block; min-height: 0; }
+  .sidebar { display: none; position: fixed; top: 52px; left: 0; right: 0; bottom: 0; width: auto; min-width: 0; height: auto; z-index: 999; border-right: 0; box-shadow: 0 8px 16px rgba(0,0,0,.2); }
+  body.nav-open .sidebar { display: block; }
+  body.nav-open { overflow: hidden; }
+  .main-content { max-width: 100%; padding: 16px; }
+  .page-entry { padding: 16px; }
+  .cover { padding: 24px; margin-bottom: 24px; }
+  .cover h1 { font-size: 1.5rem; }
+  .page-entry .shots img.phone { width: 100%; }
+}
 
   /* DARK MODE */
   body.dark { background: #0f1117 !important; color: #e2e8f0 !important; }
@@ -56,14 +72,15 @@
 </head>
 <body>
 <div class="topbar" style="justify-content:space-between;">
-  <div>
+  <button class="dark-toggle nav-toggle" id="navToggle" type="button" aria-controls="manualNav" aria-expanded="false">&#9776; Contents</button>
+  <div style="flex:1;min-width:0;">
     <div class="topbar-title">Customer App</div>
     <div class="topbar-subtitle">User Manual</div>
   </div>
   <button class="dark-toggle" id="darkToggle" title="Toggle theme"><span id="darkIcon">&#9728;&#65039;</span> <span id="darkLabel">Light</span></button>
 </div>
 <div class="layout">
-  <nav class="sidebar"><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Browse Bouquets <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-1-page-1" onclick="highlightLink(this)">Bouquet Map (Guest)</a></li><li><a href="#section-1-page-2" onclick="highlightLink(this)">Bouquet Map (Logged In)</a></li><li><a href="#section-1-page-3" onclick="highlightLink(this)">Bouquet Details</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Authentication <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-2-page-1" onclick="highlightLink(this)">Login via Keycloak</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Shopping <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-3-page-1" onclick="highlightLink(this)">Shopping Cart</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">My Orders <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-4-page-1" onclick="highlightLink(this)">Order History</a></li><li><a href="#section-4-page-2" onclick="highlightLink(this)">Order Details</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">My Account <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-5-page-1" onclick="highlightLink(this)">Favourites</a></li><li><a href="#section-5-page-2" onclick="highlightLink(this)">Subscriptions</a></li><li><a href="#section-5-page-3" onclick="highlightLink(this)">My Profile</a></li><li><a href="#section-5-page-4" onclick="highlightLink(this)">Saved Addresses</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Bouquet Requests <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-6-page-1" onclick="highlightLink(this)">Request a Bouquet</a></li><li><a href="#section-6-page-2" onclick="highlightLink(this)">Compare Offers and Pay</a></li><li><a href="#section-6-page-3" onclick="highlightLink(this)">Follow Your Custom Order</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Delivery-only Bouquets <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-7-page-1" onclick="highlightLink(this)">Delivery-only Bouquets</a></li><li><a href="#section-7-page-2" onclick="highlightLink(this)">Ordering a Delivery-only Bouquet</a></li></ul></div></nav>
+  <nav class="sidebar" id="manualNav"><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Browse Bouquets <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-1-page-1" onclick="highlightLink(this)">Bouquet Map (Guest)</a></li><li><a href="#section-1-page-2" onclick="highlightLink(this)">Bouquet Map (Logged In)</a></li><li><a href="#section-1-page-3" onclick="highlightLink(this)">Bouquet Details</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Authentication <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-2-page-1" onclick="highlightLink(this)">Login via Keycloak</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Shopping <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-3-page-1" onclick="highlightLink(this)">Shopping Cart</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">My Orders <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-4-page-1" onclick="highlightLink(this)">Order History</a></li><li><a href="#section-4-page-2" onclick="highlightLink(this)">Order Details</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">My Account <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-5-page-1" onclick="highlightLink(this)">Favourites</a></li><li><a href="#section-5-page-2" onclick="highlightLink(this)">Subscriptions</a></li><li><a href="#section-5-page-3" onclick="highlightLink(this)">My Profile</a></li><li><a href="#section-5-page-4" onclick="highlightLink(this)">Saved Addresses</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Bouquet Requests <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-6-page-1" onclick="highlightLink(this)">Request a Bouquet</a></li><li><a href="#section-6-page-2" onclick="highlightLink(this)">Compare Offers and Pay</a></li><li><a href="#section-6-page-3" onclick="highlightLink(this)">Follow Your Custom Order</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Delivery-only Bouquets <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-7-page-1" onclick="highlightLink(this)">Delivery-only Bouquets</a></li><li><a href="#section-7-page-2" onclick="highlightLink(this)">Ordering a Delivery-only Bouquet</a></li></ul></div></nav>
   <div class="main-content">
     <div class="cover">
       <h1>Customer App</h1>
@@ -81,10 +98,13 @@ function toggleSection(el) {
   ul.classList.toggle('collapsed');
   el.querySelector('.arrow').textContent = ul.classList.contains('collapsed') ? '▸' : '▾';
 }
+function setNav(open){ document.body.classList.toggle('nav-open', open); var b=document.getElementById('navToggle'); if(b) b.setAttribute('aria-expanded', open ? 'true' : 'false'); }
 function highlightLink(el) {
   document.querySelectorAll('.sidebar-links a').forEach(a => a.classList.remove('active'));
   el.classList.add('active');
+  if (window.matchMedia('(max-width: 768px)').matches) setNav(false);
 }
+(function(){ var b=document.getElementById('navToggle'); if(!b) return; b.addEventListener('click', function(){ setNav(!document.body.classList.contains('nav-open')); }); window.addEventListener('resize', function(){ if (!window.matchMedia('(max-width: 768px)').matches) setNav(false); }); })();
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(e => {
     if (e.isIntersecting) {
