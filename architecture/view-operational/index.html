@@ -1028,8 +1028,8 @@ dotnet ef database update
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code></td>
-      <td>Events published through it are dropped; <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real impl. Prod sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> (selects the stub), so <code class="language-plaintext highlighter-rouge">IEventBus</code> events are dropped in prod — but the <strong>outbox</strong> (<code class="language-plaintext highlighter-rouge">OutboxDispatcherService</code>) is the actual delivery path and is unaffected</td>
+      <td>No RabbitMQ event bus</td>
+      <td><code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> (MediatR) is the only bus in dev and prod; <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> stops startup instead of dropping events (the stub was removed)</td>
       <td>EP-09 S-09-06</td>
     </tr>
     <tr>
@@ -1101,9 +1101,9 @@ dotnet ef database update
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus</code> stub</td>
+      <td>No RabbitMQ event bus</td>
       <td>All sub-domains (async events)</td>
-      <td>Events published through <code class="language-plaintext highlighter-rouge">IEventBus</code> are dropped (prod selects the stub via <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code>); the outbox pattern is the real delivery path and is unaffected</td>
+      <td>Events run in-process through MediatR only; a second process or external consumer can’t receive them until EP-09 adds a broker</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">AnalyticsHandlers</code> benchmark <code class="language-plaintext highlighter-rouge">VendorId.New()</code> fallback</td>

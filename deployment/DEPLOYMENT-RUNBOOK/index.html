@@ -935,7 +935,7 @@ psql <span class="s2">"postgres://postgres:</span><span class="nv">$PG_PASSWORD<
 
 <h3 id="2c-rabbitmq--not-provisioned-in-prod">2c. RabbitMQ — not provisioned in prod</h3>
 
-<p>RabbitMQ is likewise <strong>dev-only</strong>. Prod <code class="language-plaintext highlighter-rouge">appsettings</code> sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code>, but <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub; the working event path in production is the <strong>Outbox pattern</strong>, with <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> as the effective in-process fallback. No managed broker is provisioned — skip to 2d.</p>
+<p>RabbitMQ is likewise <strong>dev-only</strong>. Prod <code class="language-plaintext highlighter-rouge">appsettings</code> sets <code class="language-plaintext highlighter-rouge">EventBus:Type=InMemory</code> (MediatR, in-process; the Outbox dispatches through it too). There is no RabbitMQ client: setting <code class="language-plaintext highlighter-rouge">EventBus__Type=RabbitMQ</code> makes the API refuse to start. No managed broker is provisioned — skip to 2d.</p>
 
 <h3 id="2d-hivemq-cloud">2d. HiveMQ Cloud</h3>
 

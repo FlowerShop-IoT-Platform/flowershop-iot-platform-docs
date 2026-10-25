@@ -858,7 +858,7 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">rabbitmq-dev</code> (RabbitMQ :5672)</td>
       <td><strong>All sub-domains (async events)</strong></td>
-      <td>Intended cross-service event bus; <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is still a stub — <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> plus the outbox pattern is the active path</td>
+      <td>Intended cross-service event bus, not used yet (no RabbitMQ client); <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> plus the outbox pattern is the active path</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">keycloak-dev</code> (Keycloak 23 :8090)</td>
@@ -1299,7 +1299,7 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">EventBus__Type</code></td>
-      <td><code class="language-plaintext highlighter-rouge">InMemory</code> (dev) / <code class="language-plaintext highlighter-rouge">RabbitMQ</code> (prod — selects the stub <code class="language-plaintext highlighter-rouge">RabbitMQEventBus</code>; outbox remains the live delivery path)</td>
+      <td>Not set — defaults to <code class="language-plaintext highlighter-rouge">InMemory</code>, the only bus; any other value stops startup</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FileStorage__Provider</code></td>

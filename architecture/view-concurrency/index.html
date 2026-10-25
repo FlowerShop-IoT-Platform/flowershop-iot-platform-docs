@@ -926,7 +926,7 @@
 </code></pre>
 
 <blockquote>
-  <p><strong>Known gap (EP-09):</strong> <code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> is a stub — events published through it are silently dropped. <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> is the real implementation. Note that prod appsettings sets <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> (selecting the stub), so <code class="language-plaintext highlighter-rouge">IEventBus</code>-published events are dropped in prod; the outbox pattern above is the real event-delivery path and is unaffected.</p>
+  <p><strong>Known gap (EP-09):</strong> No RabbitMQ bus exists yet: <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> (MediatR) is the only <code class="language-plaintext highlighter-rouge">IEventBus</code>, in dev and prod, and the outbox dispatcher publishes through it. The old <code class="language-plaintext highlighter-rouge">RabbitMQEventBus</code> stub, which silently dropped events, was removed; <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> now stops startup. A real broker (EP-09 S-09-06) must also feed consumed events back into MediatR.</p>
 </blockquote>
 
 <h3 id="4-vase-health-monitor--iot--mqtt">4. Vase Health Monitor — <strong>IoT / MQTT</strong></h3>

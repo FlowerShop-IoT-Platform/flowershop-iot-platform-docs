@@ -103,7 +103,7 @@ Redis is a **dev-only** dependency (docker-compose.dev.yml). There is no managed
 
 ### 2c. RabbitMQ — not provisioned in prod
 
-RabbitMQ is likewise **dev-only**. Prod `appsettings` sets `EventBus:Type=RabbitMQ`, but `RabbitMQEventBus.PublishAsync` is a stub; the working event path in production is the **Outbox pattern**, with `InMemoryEventBus` as the effective in-process fallback. No managed broker is provisioned — skip to 2d.
+RabbitMQ is likewise **dev-only**. Prod `appsettings` sets `EventBus:Type=InMemory` (MediatR, in-process; the Outbox dispatches through it too). There is no RabbitMQ client: setting `EventBus__Type=RabbitMQ` makes the API refuse to start. No managed broker is provisioned — skip to 2d.
 
 ### 2d. HiveMQ Cloud
 

@@ -380,8 +380,7 @@ All command payloads share `command` (string) and `timestamp` (long). There is *
 ## 4. Domain / Integration Events (Event Bus)
 
 **Current implementation**: `InMemoryEventBus` via MediatR (in-process)
-**Planned implementation**: `RabbitMQEventBus` — EP-09 (currently stub, events silently dropped)
-**RabbitMQ connection**: `amqp://flowershop:dev123@localhost:5672/` (dev)
+**Planned implementation**: RabbitMQ — EP-09 (not implemented; `EventBus:Type=RabbitMQ` fails at startup)
 **Counterpart repos**: None currently (all in-process); future: analytics service, notification worker
 
 > When RabbitMQ is wired, these events will become inter-service contracts.
@@ -538,8 +537,7 @@ Confidential client **`flowershop-docs`** (authorization code + PKCE S256, servi
 | `MQTT:BrokerPort` | int | MQTT broker port | `1883` |
 | `MQTT:Username` | string | MQTT auth username | `flowershop` |
 | `MQTT:Password` | string | MQTT auth password | `dev123` |
-| `EventBus:Type` | string | `InMemory` or `RabbitMQ` | `InMemory` |
-| `EventBus:RabbitMQ:ConnectionString` | string | RabbitMQ AMQP URL | `amqp://flowershop:dev123@localhost:5672/` |
+| `EventBus:Type` | string | Optional; `InMemory` is the only bus — any other value stops startup | `InMemory` (unset) |
 | `Features:EnableRealTimeUpdates` | bool | Enable SignalR hub | `true` |
 | `Features:EnableAnalytics` | bool | Enable analytics handlers | `true` |
 | `Features:EnableVaseHealthMonitoring` | bool | Enable background heartbeat monitor | `false` (dev) |
@@ -680,7 +678,7 @@ The three portals (served from this repo) consume the REST API above. This secti
 
 | Gap | Risk Level | Epic |
 |-----|-----------|------|
-| `RabbitMQEventBus.PublishAsync` returns `Task.CompletedTask` — all events silently dropped when RabbitMQ is configured | High | EP-09 S-09-06 |
+| No RabbitMQ bus — `EventBus:Type=RabbitMQ` fails at startup (the stub that dropped events was removed) | Low | EP-09 S-09-06 |
 | `INotificationServiceClient` is a no-op stub — no FCM pushes sent | High | EP-06 |
 | `AnalyticsController` uses `VendorId.New()` — all analytics return wrong tenant data | High | EP-10 T-10-001 |
 | `CacheService` uses `IMemoryCache` not Redis | Medium | EP-09 T-09-003 |

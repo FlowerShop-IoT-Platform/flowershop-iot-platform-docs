@@ -2533,8 +2533,7 @@
 <h2 id="4-domain--integration-events-event-bus">4. Domain / Integration Events (Event Bus)</h2>
 
 <p><strong>Current implementation</strong>: <code class="language-plaintext highlighter-rouge">InMemoryEventBus</code> via MediatR (in-process)
-<strong>Planned implementation</strong>: <code class="language-plaintext highlighter-rouge">RabbitMQEventBus</code> — EP-09 (currently stub, events silently dropped)
-<strong>RabbitMQ connection</strong>: <code class="language-plaintext highlighter-rouge">amqp://flowershop:dev123@localhost:5672/</code> (dev)
+<strong>Planned implementation</strong>: RabbitMQ — EP-09 (not implemented; <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> fails at startup)
 <strong>Counterpart repos</strong>: None currently (all in-process); future: analytics service, notification worker</p>
 
 <blockquote>
@@ -3168,14 +3167,8 @@
     <tr>
       <td><code class="language-plaintext highlighter-rouge">EventBus:Type</code></td>
       <td>string</td>
-      <td><code class="language-plaintext highlighter-rouge">InMemory</code> or <code class="language-plaintext highlighter-rouge">RabbitMQ</code></td>
-      <td><code class="language-plaintext highlighter-rouge">InMemory</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">EventBus:RabbitMQ:ConnectionString</code></td>
-      <td>string</td>
-      <td>RabbitMQ AMQP URL</td>
-      <td><code class="language-plaintext highlighter-rouge">amqp://flowershop:dev123@localhost:5672/</code></td>
+      <td>Optional; <code class="language-plaintext highlighter-rouge">InMemory</code> is the only bus — any other value stops startup</td>
+      <td><code class="language-plaintext highlighter-rouge">InMemory</code> (unset)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Features:EnableRealTimeUpdates</code></td>
@@ -3769,8 +3762,8 @@
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">RabbitMQEventBus.PublishAsync</code> returns <code class="language-plaintext highlighter-rouge">Task.CompletedTask</code> — all events silently dropped when RabbitMQ is configured</td>
-      <td>High</td>
+      <td>No RabbitMQ bus — <code class="language-plaintext highlighter-rouge">EventBus:Type=RabbitMQ</code> fails at startup (the stub that dropped events was removed)</td>
+      <td>Low</td>
       <td>EP-09 S-09-06</td>
     </tr>
     <tr>
