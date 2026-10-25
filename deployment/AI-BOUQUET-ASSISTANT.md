@@ -144,7 +144,7 @@ Every `fly secrets set` restarts the machine; batch them. Add the new keys to
 
 > **Model ids are configuration, not code.** Before switching a provider on, confirm the id is
 > current (`gpt-4.1-mini` was the plan's priced baseline; GPT Image models are named like
-> `gpt-image-1`/`gpt-image-2`). If you use GPT Image for previews set
+> `gpt-image-2`; `gpt-image-1` is retired). If you use GPT Image for previews set
 > `BouquetDesign__Preview__Model` and `__EstimatedUsd=0.075`.
 
 ### 2.5 Deploy
@@ -189,12 +189,17 @@ Price: ≈ $0.014 per 1 MP text-to-image, slightly more with reference images �
 there is no recovery handle, so a response lost mid-flight is recorded as `OutcomeUnknown` and never
 re-sent automatically. Medium quality ≈ $0.053 output + input → budgeted at $0.075.
 
-Set the model explicitly (`BouquetDesign__Preview__Model=gpt-image-1`): the default `flux-2-klein-4b`
-is a BFL model and OpenAI rejects it. While previews are enabled, the API **refuses to start** when
+Set the model explicitly (`BouquetDesign__Preview__Model=gpt-image-2`): the default `flux-2-klein-4b`
+is a BFL model and OpenAI rejects it. `gpt-image-1` is retired — OpenAI answers `400 invalid_value
+(param model): The model 'gpt-image-1' does not exist`; pick a current `gpt-image-*` id from the
+organization's **Limits → Rate limits** list (a restricted key cannot list models). While previews are enabled, the API **refuses to start** when
 `Preview__Provider=OpenAI` has a non-`gpt-image-*` model or no `OpenAI__ApiKey`, or when
 `Preview__Provider=Bfl` has a non-`flux-*` model or no `Bfl__ApiKey` (`PreviewConfigValidator`).
 A request the provider rejects (4xx, or 429/5xx after the retries) is not billed, so it uses no
-preview allowance and books $0 against the global cap.
+preview allowance and books $0 against the global cap. Each rejection is logged on one line —
+`OpenAI POST /v1/images/generations returned 400 Bad Request: type=… code=… param=… message=…
+requestId=… body=…` — and the `Design job … failed` line carries the same summary; vendors only see
+the generic message.
 
 ### 3.3 Optional experiment: self-hosting FLUX.2 [klein] 4B on a serverless GPU
 

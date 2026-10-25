@@ -1075,7 +1075,7 @@ fly secrets <span class="nb">set</span> <span class="nt">--app</span> <span clas
 <blockquote>
   <p><strong>Model ids are configuration, not code.</strong> Before switching a provider on, confirm the id is
 current (<code class="language-plaintext highlighter-rouge">gpt-4.1-mini</code> was the plan’s priced baseline; GPT Image models are named like
-<code class="language-plaintext highlighter-rouge">gpt-image-1</code>/<code class="language-plaintext highlighter-rouge">gpt-image-2</code>). If you use GPT Image for previews set
+<code class="language-plaintext highlighter-rouge">gpt-image-2</code>; <code class="language-plaintext highlighter-rouge">gpt-image-1</code> is retired). If you use GPT Image for previews set
 <code class="language-plaintext highlighter-rouge">BouquetDesign__Preview__Model</code> and <code class="language-plaintext highlighter-rouge">__EstimatedUsd=0.075</code>.</p>
 </blockquote>
 
@@ -1122,12 +1122,17 @@ warnings.</li>
 there is no recovery handle, so a response lost mid-flight is recorded as <code class="language-plaintext highlighter-rouge">OutcomeUnknown</code> and never
 re-sent automatically. Medium quality ≈ $0.053 output + input → budgeted at $0.075.</p>
 
-<p>Set the model explicitly (<code class="language-plaintext highlighter-rouge">BouquetDesign__Preview__Model=gpt-image-1</code>): the default <code class="language-plaintext highlighter-rouge">flux-2-klein-4b</code>
-is a BFL model and OpenAI rejects it. While previews are enabled, the API <strong>refuses to start</strong> when
+<p>Set the model explicitly (<code class="language-plaintext highlighter-rouge">BouquetDesign__Preview__Model=gpt-image-2</code>): the default <code class="language-plaintext highlighter-rouge">flux-2-klein-4b</code>
+is a BFL model and OpenAI rejects it. <code class="language-plaintext highlighter-rouge">gpt-image-1</code> is retired — OpenAI answers <code class="language-plaintext highlighter-rouge">400 invalid_value
+(param model): The model 'gpt-image-1' does not exist</code>; pick a current <code class="language-plaintext highlighter-rouge">gpt-image-*</code> id from the
+organization’s <strong>Limits → Rate limits</strong> list (a restricted key cannot list models). While previews are enabled, the API <strong>refuses to start</strong> when
 <code class="language-plaintext highlighter-rouge">Preview__Provider=OpenAI</code> has a non-<code class="language-plaintext highlighter-rouge">gpt-image-*</code> model or no <code class="language-plaintext highlighter-rouge">OpenAI__ApiKey</code>, or when
 <code class="language-plaintext highlighter-rouge">Preview__Provider=Bfl</code> has a non-<code class="language-plaintext highlighter-rouge">flux-*</code> model or no <code class="language-plaintext highlighter-rouge">Bfl__ApiKey</code> (<code class="language-plaintext highlighter-rouge">PreviewConfigValidator</code>).
 A request the provider rejects (4xx, or 429/5xx after the retries) is not billed, so it uses no
-preview allowance and books $0 against the global cap.</p>
+preview allowance and books $0 against the global cap. Each rejection is logged on one line —
+<code class="language-plaintext highlighter-rouge">OpenAI POST /v1/images/generations returned 400 Bad Request: type=… code=… param=… message=…
+requestId=… body=…</code> — and the <code class="language-plaintext highlighter-rouge">Design job … failed</code> line carries the same summary; vendors only see
+the generic message.</p>
 
 <h3 id="33-optional-experiment-self-hosting-flux2-klein-4b-on-a-serverless-gpu">3.3 Optional experiment: self-hosting FLUX.2 [klein] 4B on a serverless GPU</h3>
 
