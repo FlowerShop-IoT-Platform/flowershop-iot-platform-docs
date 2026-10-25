@@ -2551,7 +2551,11 @@ colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality
 procurement: { available: false, providers: [] } }`; EP-41 adds `aiName`, `aiVariety`, `atlas`, `boxes`, `cropUrl` and
 `imageMatches` to each item (§21.6). `StockMatchDto`: `{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }`. Bands: High ≥ 80, Medium
-50–79, Low < 50 — a Low match is shown but never linked unless the florist chooses it. `missing` lists Missing items
+50–79, Low < 50 — a Low match is shown but never linked unless the florist chooses it. `factors` are display texts
+("name ✓", "colour close|similar|differs|unknown", "variety …", "right NN% of the time", "photo …"); the model's raw
+self-rating is **not** a factor (the former `"AI NN % sure"` is no longer emitted — clients should drop it from older
+payloads). The same colour text as the stock item is always "colour close"; colour phrases are read by their main
+clause ("Bright yellow with dark brown center" = yellow). `missing` lists Missing items
 and the shortfall of Short ones (the "to buy" list; supplier ordering is a later epic — `procurement.available` is
 false). `sourceRequestId` is reserved for EP-37 ("Reconstruct with AI Florist" from a customer request).
 
@@ -2840,8 +2844,12 @@ shared with §22.1 recognitions) under the AI Florist kill switch, pilot list an
 
 `StockCountDto`: `{ id, state: "Recognising|Ready|Failed|Applied", lines: [{ lineId, stockItemId|null, kind, name,
 color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId, confidenceScore,
-verdict }], photoCount, errorMessage, appliedLines, createdAt, appliedAt }`. `needsCheck` (EP-40) is true when the
-calibrated count score is Low or there are no checks yet; counts made before EP-40 keep "below 0.6 confidence". Verdicts:
+verdict, checkNote|null, suggestedStockItemId|null }], photoCount, errorMessage, appliedLines, createdAt, appliedAt }`. `needsCheck` (EP-40) is true when the
+calibrated count score is Low or there are no checks yet, or when the line has a `checkNote`; counts made before EP-40 keep "below 0.6 confidence".
+One line per flower: the same flower listed twice (same stock item, or same type and colour) is merged with the
+**larger** quantity and `checkNote` "Listed twice: 10 + 3". A link (the model's, a name+colour match or a remembered
+rename) whose colour clearly differs from the item's colour/palette is dropped: the line keeps the detected colour,
+`stockItemId` is null, `suggestedStockItemId` names the item and `checkNote` says "Colour differs from your Rose (Red)". Verdicts:
 `PUT /vendor/stock/counts/{countId}/lines/{lineId}/verdict` (§21.5); applying writes implicit verdicts for applied lines.
 Errors: 422 `unknown-item` (a line not linked to an active item of yours), 429 `quota-exhausted`/`spend-cap-reached`,
 403 `feature-disabled`, 502 `provider-failed`. `StockItemDto` also gains `mainPhotoId`.
@@ -2906,7 +2914,7 @@ included), total, readyAt, deliveryAt, laterThanRequested, notes, images[], requ
 | GET | `/vendor/custom-orders?skip&take` | — | `VendorRequestDto[]` of your paid custom orders (revealed) |
 | POST | `/vendor/bouquet-requests/{id}/phase` | `{ phase }` | `VendorRequestDto` — the next phase only (`order.nextPhases`) |
 | POST | `/vendor/bouquet-requests/{id}/time-change` | `{ newReadyAt, newDeliveryAt?, reasons[] (≤5), note? (≤300) }` | `VendorRequestDto` (one pending change at a time) |
-| GET / PUT | `/vendor/marketplace-settings` | PUT `{ expectedVersion, serviceRadiusKm (1–50, default 15), preparationLeadMinutes (0–720, default 60), requestAlertsEnabled, quietHoursStart?, quietHoursEnd? (0–23, Europe/Warsaw), minBudget? }` | `VendorMarketplaceSettingsDto` (+ `hasLocation`, `subscriptionActive`) |
+| GET / PUT | `/vendor/marketplace-settings` | PUT `{ expectedVersion, serviceRadiusKm (1–50, default 15), preparationLeadMinutes (0–720, default 60), requestAlertsEnabled, quietHoursStart?, quietHoursEnd? (0–23, Europe/Warsaw), minBudget? }` | `VendorMarketplaceSettingsDto` (+ `hasLocation`, `latitude`/`longitude` — the matching location for the map's shop marker and radius circle, null without one — `subscriptionActive`) |
 | GET | `/vendor/notifications?unreadOnly&skip&take` | — | `VendorNotificationListDto { items[{ id, type, title, body, bouquetRequestId, orderId, isRead, createdAt }], unreadCount }` |
 | PUT | `/vendor/notifications/{id}/read`, `/vendor/notifications/read-all` | — | `true` |
 

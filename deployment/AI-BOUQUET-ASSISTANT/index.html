@@ -1122,6 +1122,13 @@ warnings.</li>
 there is no recovery handle, so a response lost mid-flight is recorded as <code class="language-plaintext highlighter-rouge">OutcomeUnknown</code> and never
 re-sent automatically. Medium quality ≈ $0.053 output + input → budgeted at $0.075.</p>
 
+<p>Set the model explicitly (<code class="language-plaintext highlighter-rouge">BouquetDesign__Preview__Model=gpt-image-1</code>): the default <code class="language-plaintext highlighter-rouge">flux-2-klein-4b</code>
+is a BFL model and OpenAI rejects it. While previews are enabled, the API <strong>refuses to start</strong> when
+<code class="language-plaintext highlighter-rouge">Preview__Provider=OpenAI</code> has a non-<code class="language-plaintext highlighter-rouge">gpt-image-*</code> model or no <code class="language-plaintext highlighter-rouge">OpenAI__ApiKey</code>, or when
+<code class="language-plaintext highlighter-rouge">Preview__Provider=Bfl</code> has a non-<code class="language-plaintext highlighter-rouge">flux-*</code> model or no <code class="language-plaintext highlighter-rouge">Bfl__ApiKey</code> (<code class="language-plaintext highlighter-rouge">PreviewConfigValidator</code>).
+A request the provider rejects (4xx, or 429/5xx after the retries) is not billed, so it uses no
+preview allowance and books $0 against the global cap.</p>
+
 <h3 id="33-optional-experiment-self-hosting-flux2-klein-4b-on-a-serverless-gpu">3.3 Optional experiment: self-hosting FLUX.2 [klein] 4B on a serverless GPU</h3>
 
 <p>Only worth it once there is measured demand (break-even analysis in the cost report: thousands of

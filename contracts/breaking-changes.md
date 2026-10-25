@@ -2,6 +2,22 @@
 
 Cross-repo contract changes, newest first. Breaking changes state the safe deployment order.
 
+## 2026-10-25 — Production bug triage fixes (additive; some texts change)
+
+- **What changed**: `VendorMarketplaceSettingsDto` gains `latitude` / `longitude` (M17-1); `StockCountLineDto` gains
+  `checkNote` and `suggestedStockItemId` (M14-2) (`API-CONTRACTS.md` §22, §23).
+- **Behaviour changes**: `StockMatchDto.factors` no longer contains `"AI NN % sure"` (M20-1); identical colour text
+  scores "colour close" and colour phrases are read by their main clause (M16-1); stock counts merge duplicate lines
+  (larger quantity, flagged) and no longer link a line to an item of a clearly different colour (M14-2); marketplace
+  alert texts (dates, distances, prices) are formatted in the invariant culture — "Sat 24 Oct 14:00", "0.2 km",
+  "45.00 PLN" — instead of the request culture (M17-2b; already stored alerts keep their text). A preview rejected by
+  the provider no longer uses the preview allowance or the $ cap (M13-1). The API refuses to start with a mismatched
+  preview provider/model or a missing provider key while previews are enabled (config, not contract).
+- **Affected repos**: `flower-shop-vendor-mobile-app` (requests map marker/circle, optional `checkNote` display, the
+  "sure" factor guard); Vendor Portal in this repo.
+- **Deployment order**: set the preview secrets first (`BouquetDesign__Preview__Provider` / `__Model` must agree), then
+  the API, then the portal and mobile build. Old clients ignore the new fields.
+
 ## 2026-10-24 — EP-41 Flower atlas, item crops and image matching (additive)
 
 - **What changed**: analysis items gain `aiName`, `aiVariety`, `atlas`, `boxes`, `cropUrl`, `imageMatches`; recognised

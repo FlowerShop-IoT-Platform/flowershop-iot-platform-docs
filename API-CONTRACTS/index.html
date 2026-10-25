@@ -4687,7 +4687,11 @@ colors[], variety, quantity, unit }], warnings[] ("mixed-bouquets", "low-quality
 procurement: { available: false, providers: [] } }</code>; EP-41 adds <code class="language-plaintext highlighter-rouge">aiName</code>, <code class="language-plaintext highlighter-rouge">aiVariety</code>, <code class="language-plaintext highlighter-rouge">atlas</code>, <code class="language-plaintext highlighter-rouge">boxes</code>, <code class="language-plaintext highlighter-rouge">cropUrl</code> and
 <code class="language-plaintext highlighter-rouge">imageMatches</code> to each item (§21.6). <code class="language-plaintext highlighter-rouge">StockMatchDto</code>: <code class="language-plaintext highlighter-rouge">{ stockItemId, name, color, variety, score
 (0–100, not a probability), band: "High|Medium|Low", factors[], available, mainPhotoId }</code>. Bands: High ≥ 80, Medium
-50–79, Low &lt; 50 — a Low match is shown but never linked unless the florist chooses it. <code class="language-plaintext highlighter-rouge">missing</code> lists Missing items
+50–79, Low &lt; 50 — a Low match is shown but never linked unless the florist chooses it. <code class="language-plaintext highlighter-rouge">factors</code> are display texts
+(“name ✓”, “colour close|similar|differs|unknown”, “variety …”, “right NN% of the time”, “photo …”); the model’s raw
+self-rating is <strong>not</strong> a factor (the former <code class="language-plaintext highlighter-rouge">"AI NN % sure"</code> is no longer emitted — clients should drop it from older
+payloads). The same colour text as the stock item is always “colour close”; colour phrases are read by their main
+clause (“Bright yellow with dark brown center” = yellow). <code class="language-plaintext highlighter-rouge">missing</code> lists Missing items
 and the shortfall of Short ones (the “to buy” list; supplier ordering is a later epic — <code class="language-plaintext highlighter-rouge">procurement.available</code> is
 false). <code class="language-plaintext highlighter-rouge">sourceRequestId</code> is reserved for EP-37 (“Reconstruct with AI Florist” from a customer request).</p>
 
@@ -5271,8 +5275,12 @@ shared with §22.1 recognitions) under the AI Florist kill switch, pilot list an
 
 <p><code class="language-plaintext highlighter-rouge">StockCountDto</code>: <code class="language-plaintext highlighter-rouge">{ id, state: "Recognising|Ready|Failed|Applied", lines: [{ lineId, stockItemId|null, kind, name,
 color, variety, unit, currentQuantity|null, countedQuantity, delta|null, confidence, needsCheck, mainPhotoId, confidenceScore,
-verdict }], photoCount, errorMessage, appliedLines, createdAt, appliedAt }</code>. <code class="language-plaintext highlighter-rouge">needsCheck</code> (EP-40) is true when the
-calibrated count score is Low or there are no checks yet; counts made before EP-40 keep “below 0.6 confidence”. Verdicts:
+verdict, checkNote|null, suggestedStockItemId|null }], photoCount, errorMessage, appliedLines, createdAt, appliedAt }</code>. <code class="language-plaintext highlighter-rouge">needsCheck</code> (EP-40) is true when the
+calibrated count score is Low or there are no checks yet, or when the line has a <code class="language-plaintext highlighter-rouge">checkNote</code>; counts made before EP-40 keep “below 0.6 confidence”.
+One line per flower: the same flower listed twice (same stock item, or same type and colour) is merged with the
+<strong>larger</strong> quantity and <code class="language-plaintext highlighter-rouge">checkNote</code> “Listed twice: 10 + 3”. A link (the model’s, a name+colour match or a remembered
+rename) whose colour clearly differs from the item’s colour/palette is dropped: the line keeps the detected colour,
+<code class="language-plaintext highlighter-rouge">stockItemId</code> is null, <code class="language-plaintext highlighter-rouge">suggestedStockItemId</code> names the item and <code class="language-plaintext highlighter-rouge">checkNote</code> says “Colour differs from your Rose (Red)”. Verdicts:
 <code class="language-plaintext highlighter-rouge">PUT /vendor/stock/counts/{countId}/lines/{lineId}/verdict</code> (§21.5); applying writes implicit verdicts for applied lines.
 Errors: 422 <code class="language-plaintext highlighter-rouge">unknown-item</code> (a line not linked to an active item of yours), 429 <code class="language-plaintext highlighter-rouge">quota-exhausted</code>/<code class="language-plaintext highlighter-rouge">spend-cap-reached</code>,
 403 <code class="language-plaintext highlighter-rouge">feature-disabled</code>, 502 <code class="language-plaintext highlighter-rouge">provider-failed</code>. <code class="language-plaintext highlighter-rouge">StockItemDto</code> also gains <code class="language-plaintext highlighter-rouge">mainPhotoId</code>.</p>
@@ -5484,7 +5492,7 @@ included), total, readyAt, deliveryAt, laterThanRequested, notes, images[], requ
       <td>GET / PUT</td>
       <td><code class="language-plaintext highlighter-rouge">/vendor/marketplace-settings</code></td>
       <td>PUT <code class="language-plaintext highlighter-rouge">{ expectedVersion, serviceRadiusKm (1–50, default 15), preparationLeadMinutes (0–720, default 60), requestAlertsEnabled, quietHoursStart?, quietHoursEnd? (0–23, Europe/Warsaw), minBudget? }</code></td>
-      <td><code class="language-plaintext highlighter-rouge">VendorMarketplaceSettingsDto</code> (+ <code class="language-plaintext highlighter-rouge">hasLocation</code>, <code class="language-plaintext highlighter-rouge">subscriptionActive</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">VendorMarketplaceSettingsDto</code> (+ <code class="language-plaintext highlighter-rouge">hasLocation</code>, <code class="language-plaintext highlighter-rouge">latitude</code>/<code class="language-plaintext highlighter-rouge">longitude</code> — the matching location for the map’s shop marker and radius circle, null without one — <code class="language-plaintext highlighter-rouge">subscriptionActive</code>)</td>
     </tr>
     <tr>
       <td>GET</td>

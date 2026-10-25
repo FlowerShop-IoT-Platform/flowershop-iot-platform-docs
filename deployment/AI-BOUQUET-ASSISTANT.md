@@ -189,6 +189,13 @@ Price: ≈ $0.014 per 1 MP text-to-image, slightly more with reference images �
 there is no recovery handle, so a response lost mid-flight is recorded as `OutcomeUnknown` and never
 re-sent automatically. Medium quality ≈ $0.053 output + input → budgeted at $0.075.
 
+Set the model explicitly (`BouquetDesign__Preview__Model=gpt-image-1`): the default `flux-2-klein-4b`
+is a BFL model and OpenAI rejects it. While previews are enabled, the API **refuses to start** when
+`Preview__Provider=OpenAI` has a non-`gpt-image-*` model or no `OpenAI__ApiKey`, or when
+`Preview__Provider=Bfl` has a non-`flux-*` model or no `Bfl__ApiKey` (`PreviewConfigValidator`).
+A request the provider rejects (4xx, or 429/5xx after the retries) is not billed, so it uses no
+preview allowance and books $0 against the global cap.
+
 ### 3.3 Optional experiment: self-hosting FLUX.2 [klein] 4B on a serverless GPU
 
 Only worth it once there is measured demand (break-even analysis in the cost report: thousands of
