@@ -52,8 +52,8 @@ Tokens are issued by Keycloak. FMF uses **OIDC Authorization Code + PKCE** flow.
 | `response_type` | `code` |
 | `scope` | `openid profile email offline_access` |
 | `code_challenge_method` | `S256` |
-| `redirect_uri` | `pl.bloomplatform.fmf://auth/callback` |
-| `post_logout_redirect_uri` | `pl.bloomplatform.fmf://auth/logout-callback` |
+| `redirect_uri` | `pl.findmyflowers.app://auth/callback` |
+| `post_logout_redirect_uri` | `pl.findmyflowers.app://auth/logout-callback` |
 
 **Google OAuth (AUTH-03):** Google social login is **live** as an Identity Provider in the `flowershop` Keycloak realm (committed export: `docker/keycloak/flowershop-realm.json`). The mobile app uses the standard OIDC Authorization Code + PKCE flow — Keycloak renders the Google login button on its hosted login page, so no additional client-side Google SDK integration or app code change is required. Google emails are trusted as verified, so no separate email-verification step applies, and a Google login is auto-linked to any existing account with the same verified email. On the first authenticated API call, the backend provisions the local `Customer` and the `customer_id` claim just-in-time (`CustomerProvisioningService`), so all `CustomerAccess` endpoints work immediately without a re-login.
 
@@ -109,7 +109,7 @@ The mobile app must perform the following steps on sign-out (PRF-07):
 ```
 GET {keycloakBase}/realms/flowershop/protocol/openid-connect/logout
     ?id_token_hint=<id_token>
-    &post_logout_redirect_uri=pl.bloomplatform.fmf://auth/logout-callback
+    &post_logout_redirect_uri=pl.findmyflowers.app://auth/logout-callback
 ```
 
 ---
@@ -239,9 +239,9 @@ Returns environment-specific configuration the mobile app needs at startup. Call
 ```json
 {
   "stripePublishableKey": "pk_live_...",
-  "supportEmail": "support@bloomplatform.pl",
-  "termsUrl": "https://bloomplatform.pl/terms",
-  "privacyPolicyUrl": "https://bloomplatform.pl/privacy",
+  "supportEmail": "contact@findmyflowers.pl",
+  "termsUrl": "https://findmyflowers.pl/terms",
+  "privacyPolicyUrl": "https://app.findmyflowers.pl/Home/Privacy",
   "minAppVersion": "1.0.0",
   "forceUpdate": false
 }
@@ -311,7 +311,7 @@ Returns bouquets available within a radius of the given location.
       "initialFreshnessDays": 3,
       "currentFreshnessDays": 2,
       "maxFreshnessScale": 3,
-      "thumbnailUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg",
+      "thumbnailUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/thumb.jpg",
       "location": {
         "latitude": 52.2297,
         "longitude": 21.0122,
@@ -392,7 +392,7 @@ Returns full detail for a single bouquet (customer-facing `BouquetDetailDto`). N
   "initialFreshnessDays": 3,
   "currentFreshnessDays": 2,
   "maxFreshnessScale": 3,
-  "imageUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg",
+  "imageUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg",
   "aiTags": [
     { "type": "rose", "label": "Roses", "count": 8 },
     { "type": "tulip", "label": "Tulips", "count": 5 },
@@ -488,7 +488,7 @@ Returns all favourited bouquets for the authenticated customer.
       "initialFreshnessDays": 3,
       "currentFreshnessDays": 2,
       "maxFreshnessScale": 3,
-      "thumbnailUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg",
+      "thumbnailUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/thumb.jpg",
       "location": {
         "latitude": 52.2297,
         "longitude": 21.0122,
@@ -570,7 +570,7 @@ Returns cost breakdown for a potential order **without** creating the order or r
     {
       "bouquetId": "b3f1a2c4-...",
       "bouquetName": "Spring Roses Bouquet",
-      "bouquetImageUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg",
+      "bouquetImageUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg",
       "unitPrice": 89.00
     }
   ],
@@ -601,7 +601,7 @@ Returns cost breakdown for a potential order **without** creating the order or r
     {
       "bouquetId": "b3f1a2c4-...",
       "bouquetName": "Spring Roses Bouquet",
-      "bouquetImageUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg",
+      "bouquetImageUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg",
       "unitPrice": 89.00
     }
   ],
@@ -688,7 +688,7 @@ Creates a new order and reserves the bouquet. The bouquet is locked for 10 minut
 
 ```json
 {
-  "type": "https://bloomplatform.pl/errors/conflict",
+  "type": "https://findmyflowers.pl/errors/conflict",
   "title": "Bouquet Already Reserved",
   "status": 409,
   "detail": "This bouquet has been reserved by another customer."
@@ -699,7 +699,7 @@ Creates a new order and reserves the bouquet. The bouquet is locked for 10 minut
 
 ```json
 {
-  "type": "https://bloomplatform.pl/errors/price-changed",
+  "type": "https://findmyflowers.pl/errors/price-changed",
   "title": "Price Changed",
   "status": 409,
   "detail": "The bouquet price has changed since your preview.",
@@ -800,7 +800,7 @@ Cancels an order. Only allowed while the order is in a cancellable state.
 |---|---|---|
 | `created` | Yes | Reservation released immediately |
 | `paid` | Yes | Automatic Stripe refund initiated |
-| `preparing` | No | Contact support: `support@bloomplatform.pl` |
+| `preparing` | No | Contact support: `contact@findmyflowers.pl` |
 | `in_delivery` | No | Contact support |
 | `delivered` | No | Use report-issue endpoint (post-MVP) |
 | `cancelled` | No | Already cancelled (returns 409) |
@@ -890,7 +890,7 @@ Returns all orders for the authenticated customer.
   "items": [
     {
       "orderId": "ord-8821",
-      "bouquetThumbnailUrl": "https://cdn.bloomplatform.pl/...",
+      "bouquetThumbnailUrl": "https://api.findmyflowers.pl/...",
       "vendorName": "Flora Elegance",
       "totalAmount": 101.00,
       "currency": "PLN",
@@ -919,7 +919,7 @@ Returns full detail of a single order.
 {
   "orderId": "ord-8821",
   "bouquetId": "b3f1a2c4-...",
-  "bouquetImageUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg",
+  "bouquetImageUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg",
   "vendorId": "vend-42",
   "vendorName": "Flora Elegance",
   "bouquetPrice": 89.00,
@@ -954,7 +954,7 @@ Returns full detail of a single order.
 {
   "orderId": "ord-8822",
   "bouquetId": "b3f1a2c4-...",
-  "bouquetImageUrl": "https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg",
+  "bouquetImageUrl": "https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg",
   "vendorId": "vend-42",
   "vendorName": "Flora Elegance",
   "bouquetPrice": 89.00,
@@ -2040,7 +2040,7 @@ A bouquet became available. Broadcast to the flat `customers` group (not per-rad
   "status": "available",
   "price": 89.00,
   "currency": "PLN",
-  "imageUrl": "https://cdn.bloomplatform.pl/...",
+  "imageUrl": "https://api.findmyflowers.pl/...",
   "timestamp": "2025-04-10T09:15:00Z"
 }
 ```
@@ -2116,7 +2116,7 @@ All API errors follow the [RFC 7807](https://tools.ietf.org/html/rfc7807) Proble
 
 ```json
 {
-  "type": "https://bloomplatform.pl/errors/bouquet-not-found",
+  "type": "https://findmyflowers.pl/errors/bouquet-not-found",
   "title": "Bouquet Not Found",
   "status": 404,
   "detail": "Bouquet 'b3f1a2c4-...' does not exist or is no longer available.",
@@ -2130,7 +2130,7 @@ For 400 validation errors, the response includes field-level details:
 
 ```json
 {
-  "type": "https://bloomplatform.pl/errors/validation-error",
+  "type": "https://findmyflowers.pl/errors/validation-error",
   "title": "Validation Error",
   "status": 400,
   "detail": "One or more validation errors occurred.",
@@ -2148,7 +2148,7 @@ For 409 price-changed errors (on `POST /api/v1/orders`), the response includes t
 
 ```json
 {
-  "type": "https://bloomplatform.pl/errors/price-changed",
+  "type": "https://findmyflowers.pl/errors/price-changed",
   "title": "Price Changed",
   "status": 409,
   "detail": "The bouquet price has changed since your preview.",

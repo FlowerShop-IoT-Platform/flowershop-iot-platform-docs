@@ -905,11 +905,11 @@
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">redirect_uri</code></td>
-      <td><code class="language-plaintext highlighter-rouge">pl.bloomplatform.fmf://auth/callback</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pl.findmyflowers.app://auth/callback</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">post_logout_redirect_uri</code></td>
-      <td><code class="language-plaintext highlighter-rouge">pl.bloomplatform.fmf://auth/logout-callback</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pl.findmyflowers.app://auth/logout-callback</code></td>
     </tr>
   </tbody>
 </table>
@@ -988,7 +988,7 @@ grant_type=refresh_token
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET {keycloakBase}/realms/flowershop/protocol/openid-connect/logout
     ?id_token_hint=&lt;id_token&gt;
-    &amp;post_logout_redirect_uri=pl.bloomplatform.fmf://auth/logout-callback
+    &amp;post_logout_redirect_uri=pl.findmyflowers.app://auth/logout-callback
 </code></pre></div></div>
 
 <hr />
@@ -1139,9 +1139,9 @@ grant_type=refresh_token
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"stripePublishableKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pk_live_..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"supportEmail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"support@bloomplatform.pl"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"termsUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/terms"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"privacyPolicyUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/privacy"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"supportEmail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"contact@findmyflowers.pl"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"termsUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://findmyflowers.pl/terms"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"privacyPolicyUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://app.findmyflowers.pl/Home/Privacy"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"minAppVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.0"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"forceUpdate"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
 </span><span class="p">}</span><span class="w">
@@ -1310,7 +1310,7 @@ grant_type=refresh_token
       </span><span class="nl">"initialFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
       </span><span class="nl">"currentFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
       </span><span class="nl">"maxFreshnessScale"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/thumb.jpg"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"location"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
         </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
         </span><span class="nl">"longitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
@@ -1412,7 +1412,7 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
   </span><span class="nl">"initialFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
   </span><span class="nl">"currentFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
   </span><span class="nl">"maxFreshnessScale"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"aiTags"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
     </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rose"</span><span class="p">,</span><span class="w"> </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Roses"</span><span class="p">,</span><span class="w"> </span><span class="nl">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">},</span><span class="w">
     </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tulip"</span><span class="p">,</span><span class="w"> </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Tulips"</span><span class="p">,</span><span class="w"> </span><span class="nl">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">},</span><span class="w">
@@ -1558,7 +1558,7 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
       </span><span class="nl">"initialFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
       </span><span class="nl">"currentFreshnessDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w">
       </span><span class="nl">"maxFreshnessScale"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/thumb.jpg"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"thumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/thumb.jpg"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"location"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
         </span><span class="nl">"latitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">52.2297</span><span class="p">,</span><span class="w">
         </span><span class="nl">"longitude"</span><span class="p">:</span><span class="w"> </span><span class="mf">21.0122</span><span class="p">,</span><span class="w">
@@ -1639,7 +1639,7 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
     </span><span class="p">{</span><span class="w">
       </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
       </span><span class="nl">"bouquetName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Spring Roses Bouquet"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"unitPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">],</span><span class="w">
@@ -1669,7 +1669,7 @@ Customer-facing endpoints are unaffected — use <code class="language-plaintext
     </span><span class="p">{</span><span class="w">
       </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
       </span><span class="nl">"bouquetName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Spring Roses Bouquet"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"unitPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">],</span><span class="w">
@@ -1790,7 +1790,7 @@ hide the Pickup choice and ask for a delivery address.</li>
 <p><strong>Response 409 (already reserved):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/errors/conflict"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://findmyflowers.pl/errors/conflict"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bouquet Already Reserved"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="mi">409</span><span class="p">,</span><span class="w">
   </span><span class="nl">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This bouquet has been reserved by another customer."</span><span class="w">
@@ -1800,7 +1800,7 @@ hide the Pickup choice and ask for a delivery address.</li>
 <p><strong>Response 409 (price changed):</strong></p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/errors/price-changed"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://findmyflowers.pl/errors/price-changed"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Price Changed"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="mi">409</span><span class="p">,</span><span class="w">
   </span><span class="nl">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"The bouquet price has changed since your preview."</span><span class="p">,</span><span class="w">
@@ -2001,7 +2001,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
     <tr>
       <td><code class="language-plaintext highlighter-rouge">preparing</code></td>
       <td>No</td>
-      <td>Contact support: <code class="language-plaintext highlighter-rouge">support@bloomplatform.pl</code></td>
+      <td>Contact support: <code class="language-plaintext highlighter-rouge">contact@findmyflowers.pl</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">in_delivery</code></td>
@@ -2166,7 +2166,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
   </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
     </span><span class="p">{</span><span class="w">
       </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ord-8821"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"bouquetThumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/..."</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"bouquetThumbnailUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/..."</span><span class="p">,</span><span class="w">
       </span><span class="nl">"vendorName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flora Elegance"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"totalAmount"</span><span class="p">:</span><span class="w"> </span><span class="mf">101.00</span><span class="p">,</span><span class="w">
       </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
@@ -2194,7 +2194,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ord-8821"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vend-42"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flora Elegance"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"bouquetPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="p">,</span><span class="w">
@@ -2228,7 +2228,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ord-8822"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"bouquetId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b3f1a2c4-..."</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"bouquetImageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/bouquets/b3f1a2c4/full.jpg"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vend-42"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"vendorName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flora Elegance"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"bouquetPrice"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="p">,</span><span class="w">
@@ -3587,7 +3587,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"available"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"price"</span><span class="p">:</span><span class="w"> </span><span class="mf">89.00</span><span class="p">,</span><span class="w">
   </span><span class="nl">"currency"</span><span class="p">:</span><span class="w"> </span><span class="s2">"PLN"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://cdn.bloomplatform.pl/..."</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"imageUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://api.findmyflowers.pl/..."</span><span class="p">,</span><span class="w">
   </span><span class="nl">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-04-10T09:15:00Z"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
@@ -3664,7 +3664,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
 <p>All API errors follow the <a href="https://tools.ietf.org/html/rfc7807">RFC 7807</a> Problem Details format:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/errors/bouquet-not-found"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://findmyflowers.pl/errors/bouquet-not-found"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bouquet Not Found"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="mi">404</span><span class="p">,</span><span class="w">
   </span><span class="nl">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bouquet 'b3f1a2c4-...' does not exist or is no longer available."</span><span class="p">,</span><span class="w">
@@ -3677,7 +3677,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
 <p>For 400 validation errors, the response includes field-level details:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/errors/validation-error"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://findmyflowers.pl/errors/validation-error"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Validation Error"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="mi">400</span><span class="p">,</span><span class="w">
   </span><span class="nl">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"One or more validation errors occurred."</span><span class="p">,</span><span class="w">
@@ -3694,7 +3694,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
 <p>For 409 price-changed errors (on <code class="language-plaintext highlighter-rouge">POST /api/v1/orders</code>), the response includes the current price:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://bloomplatform.pl/errors/price-changed"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://findmyflowers.pl/errors/price-changed"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Price Changed"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="mi">409</span><span class="p">,</span><span class="w">
   </span><span class="nl">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"The bouquet price has changed since your preview."</span><span class="p">,</span><span class="w">
