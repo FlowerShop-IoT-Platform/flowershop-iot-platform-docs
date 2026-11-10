@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Epics, Stories &amp; Tasks — Option U (Florist operating system: covering every business flow) — FlowerShop IoT Platform</title>
+  <script>(function(){var r=document.documentElement;var m=localStorage.getItem('theme')||'dark';var v=m==='light'?{'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'}:null;if(v){Object.keys(v).forEach(function(k){r.style.setProperty(k,v[k]);});r.classList.add('light');}})()</script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --text-dim: #566070;
+      --topbar-bg: rgba(15,17,23,.9);
+      --content-text: #c8d0dc;
+      --link-hover: #9bb5ff;
+      --code-color: #a5d6ff;
+      --pre-code-color: #c9d1d9;
+      --sidebar-w: 280px;
+      --header-h: 56px;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    html.light {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface2: #eef1f7;
+      --border: #d1d8e8;
+      --accent: #4361ee;
+      --accent2: #7c3aed;
+      --text: #111827;
+      --text-muted: #374151;
+      --text-dim: #374151;
+    }
+    html.light body { background: var(--bg); color: var(--text); }
+    html.light .topbar { background: rgba(245,247,251,.96) !important; border-bottom-color: var(--border) !important; }
+    html.light .topbar-logo { color: var(--text) !important; }
+    html.light .topbar-badge { background: var(--surface2) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+    html.light .topbar-link { color: var(--text-muted) !important; }
+    html.light .topbar-link:hover { color: var(--text) !important; background: var(--surface2) !important; }
+    html.light .topbar-hamburger { color: var(--text-muted) !important; }
+    html.light .sidebar { background: var(--surface); border-right-color: var(--border); }
+    html.light .sidebar-link { color: var(--text-muted); }
+    html.light .sidebar-link:hover { color: var(--text); background: var(--surface2); }
+    html.light .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(67,97,238,.07); }
+    html.light .content code { background: var(--surface2); border-color: var(--border); }
+    html.light .content pre { background: var(--surface2); border-color: var(--border); }
+    html.light .content blockquote { background: rgba(124,58,237,.05); border-left-color: var(--accent2); }
+    html.light .content blockquote p { color: var(--text-muted); }
+    html.light .content thead th { background: var(--surface2); color: var(--text); }
+    html.light .content tbody tr:hover { background: var(--surface2); }
+    html.light .mermaid { background: var(--surface2); border-color: var(--border); }
+    html.light .card { background: var(--surface); border-color: var(--border); }
+    html.light .card:hover { border-color: var(--accent); }
+    html.light .page-nav-btn { background: var(--surface); border-color: var(--border); color: var(--text); }
+    html.light .page-nav-btn:hover { background: var(--surface2); border-color: var(--accent); }
+    html.light .diagram-modal-toolbar { background: var(--surface); border-bottom-color: var(--border); }
+    html.light .dm-btn { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    html.light .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    html.light .diagram-modal-canvas { background: var(--surface2); border-color: var(--border); }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--topbar-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .topbar-hamburger:hover { background: var(--surface2); color: var(--text); }
+    .topbar-hamburger svg { display: block; }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -.2px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .topbar-badge {
+      margin-left: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      font-weight: 500;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1;
+      transition: color .15s, background .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+      font-family: var(--font);
+    }
+    .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--header-h);
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      transition: transform .25s ease;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { margin-bottom: 4px; }
+
+    .sidebar-group-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+      font-family: var(--font);
+    }
+    .sidebar-group-btn:hover { color: var(--text); }
+    .sidebar-group-btn .chevron {
+      margin-left: auto;
+      transition: transform .2s;
+      opacity: .6;
+    }
+    .sidebar-group-btn.open .chevron { transform: rotate(90deg); }
+
+    .sidebar-group-icon { font-size: 13px; }
+
+    .sidebar-items {
+      display: none;
+      padding-bottom: 4px;
+    }
+    .sidebar-items.open { display: block; }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 20px 6px 42px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      margin-left: 0;
+      transition: color .15s, background .15s, border-color .15s;
+      line-height: 1.4;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .sidebar-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(108,140,255,.08);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 40px 32px;
+    }
+
+    /* ── PROSE ── */
+    .content h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .content h1::after {
+      content: '';
+      display: block;
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-top: 12px;
+    }
+
+    .content h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem;
+    }
+
+    .content h4 { font-size: .95rem; font-weight: 600; color: var(--text-muted); margin: 1.2rem 0 .4rem; }
+
+    .content p {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: 1rem;
+    }
+
+    .content ul, .content ol {
+      padding-left: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .content li {
+      line-height: 1.75;
+      color: var(--content-text);
+      margin-bottom: .25rem;
+    }
+
+    .content a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(108,140,255,.3);
+      transition: color .15s, border-color .15s;
+    }
+    .content a:hover {
+      color: var(--link-hover);
+      border-bottom-color: var(--link-hover);
+    }
+
+    .content strong { color: var(--text); font-weight: 600; }
+    .content em { color: var(--text-muted); }
+
+    .content code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--code-color);
+    }
+
+    .content pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      position: relative;
+    }
+    .content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .82rem;
+      color: var(--pre-code-color);
+      line-height: 1.6;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--accent2);
+      margin: 1.25rem 0;
+      padding: .75rem 1.25rem;
+      background: rgba(167,139,250,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+    }
+    .content blockquote p { margin: 0; color: var(--text-muted); }
+
+    /* Tables */
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: .9rem;
+    }
+    .content thead th {
+      background: var(--surface2);
+      color: var(--text);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      font-size: .8rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .content tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .content tbody tr:hover { background: var(--surface2); }
+    .content tbody td {
+      padding: 9px 14px;
+      color: var(--content-text);
+      vertical-align: top;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    /* Page lead */
+    .page-lead {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.7;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    /* Docs version banner on home */
+    .version-banner {
+      display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+      margin: -1rem 0 2rem;
+      font-size: .9rem;
+      color: var(--text-muted);
+    }
+    .version-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    /* Cards grid on home */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 4px; }
+    .card-title { font-weight: 600; font-size: .95rem; color: var(--text); border: none; }
+    .card-desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── DIAGRAM WRAPPER ── */
+    .mermaid-wrap {
+      position: relative;
+      margin: 1.25rem 0;
+    }
+    .mermaid-wrap .mermaid {
+      margin: 0;
+      cursor: zoom-in;
+      transition: box-shadow .2s;
+    }
+    .mermaid-wrap .mermaid:hover {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .mermaid-expand-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(15,17,23,.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: color .15s, border-color .15s, background .15s;
+      backdrop-filter: blur(6px);
+      font-family: var(--font);
+    }
+    .mermaid-expand-btn:hover { color: var(--text); border-color: var(--accent); background: rgba(15,17,23,.95); }
+
+    /* ── DIAGRAM MODAL ── */
+    .diagram-modal {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(4px);
+      flex-direction: column;
+    }
+    .diagram-modal.open { display: flex; }
+
+    .diagram-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .diagram-modal-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .dm-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background .15s, border-color .15s;
+      line-height: 1;
+    }
+    .dm-btn:hover { background: var(--border); border-color: var(--accent); }
+    .dm-btn.close-btn { color: #f87171; }
+    .dm-zoom-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .diagram-modal-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      min-height: 0;
+      cursor: grab;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .diagram-modal-body.grabbing { cursor: grabbing; user-select: none; }
+
+    .diagram-modal-canvas {
+      flex-shrink: 0;
+      line-height: 0;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .diagram-modal-canvas svg {
+      display: block;
+      max-width: none !important;
+    }
+
+    /* ── PAGE NAV ── */
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 40px 60px;
+    }
+
+    .page-nav-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s, background .15s;
+      min-width: 0;
+      max-width: 46%;
+    }
+    .page-nav-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+      text-decoration: none;
+      color: var(--text);
+    }
+    .page-nav-btn.next { text-align: right; margin-left: auto; }
+    .page-nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .page-nav-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 260px; }
+      .topbar-hamburger { display: flex; }
+      .sidebar { transform: translateX(-100%); z-index: 90; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 89;
+      }
+      .sidebar-overlay.open { display: block; }
+      .main { margin-left: 0; }
+      .content { padding: 32px 20px 60px; }
+      .content h1 { font-size: 1.6rem; }
+      .page-nav { padding: 0 20px 40px; }
+      .page-nav-btn { max-width: 48%; }
+    }
+  
+/* Docs search (EP-38) */
+.topbar-search { position: relative; margin-right: 12px; }
+.topbar-search input { width: 220px; max-width: 40vw; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; }
+.topbar-search-results { position: absolute; top: 110%; right: 0; width: 320px; max-width: 80vw; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 200; }
+.topbar-search-results:empty { display: none; }
+.topbar-search-hit, .topbar-search-empty { display: block; padding: 8px 12px; font-size: 13px; color: var(--text); text-decoration: none; }
+.topbar-search-hit:hover { background: var(--surface2); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <button class="topbar-hamburger" id="hamburger" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
+      <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <a href="/" class="topbar-logo">
+    <span class="topbar-logo-icon">🌸</span>
+    FlowerShop IoT Platform
+    <span class="topbar-badge">Docs v1.5.0</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-search" id="docsSearch" hidden>
+    <input type="search" id="docsSearchInput" placeholder="Search docs" aria-label="Search the documentation" autocomplete="off">
+    <div class="topbar-search-results" id="docsSearchResults" role="listbox"></div>
+  </div>
+  <a data-audience="developer" href="/architecture/" class="topbar-link">Architecture</a>
+  <a data-audience="developer" href="/deployment/" class="topbar-link">Deployment</a>
+  <a data-audience="developer" href="/API-CONTRACTS" class="topbar-link">API</a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+    <span id="themeIcon">☀️</span>
+    <span id="themeLabel">Light</span>
+  </button>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="overlay"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn open" data-target="nav-arch">
+        <span class="sidebar-group-icon">🏗️</span> Architecture
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-arch">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Architecture Overview" href="/architecture/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Context" href="/architecture/c4-context">C4 Context</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Containers" href="/architecture/c4-containers">C4 Containers</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="C4 Components" href="/architecture/c4-components">C4 Components</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Domain Model" href="/architecture/domain-model">Domain Model</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Cross-cutting" href="/architecture/cross-cutting">Cross-cutting</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Functional View" href="/architecture/view-functional">Functional View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Information View" href="/architecture/view-information">Information View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Concurrency View" href="/architecture/view-concurrency">Concurrency View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Development View" href="/architecture/view-development">Development View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment View" href="/architecture/view-deployment">Deployment View</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Operational View" href="/architecture/view-operational">Operational View</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn open" data-target="nav-flows">
+        <span class="sidebar-group-icon">🔀</span> Flows
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-flows">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Authentication Flows" href="/architecture/flows-auth">Authentication</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Customer Flows" href="/architecture/flows-customer">Customer</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Vendor Flows" href="/architecture/flows-vendor">Vendor</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Flows" href="/architecture/flows-admin">Admin</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="IoT Flows" href="/architecture/flows-iot">IoT</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Payment Flows" href="/architecture/flows-payments">Payments</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Real-time Flows" href="/architecture/flows-realtime">Real-time</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn open" data-target="nav-api">
+        <span class="sidebar-group-icon">📡</span> API
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-api">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Mobile API Contracts" href="/API-CONTRACTS">Mobile API Contracts</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Outbound Contracts" href="/contracts/outbound">Outbound Contracts</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn" data-target="nav-deploy">
+        <span class="sidebar-group-icon">🚀</span> Deployment
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-deploy">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment Overview" href="/deployment/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Deployment Spec" href="/deployment/DEPLOYMENT-SPEC">Deployment Spec</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Registration & CI/CD" href="/deployment/REGISTRATION-AND-CICD">Registration & CI/CD</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Secrets & Env Vars" href="/deployment/SECRETS-AND-ENV-VARS">Secrets & Env Vars</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Runbook" href="/deployment/DEPLOYMENT-RUNBOOK">Runbook</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Smoke Tests" href="/deployment/POST-DEPLOY-SMOKE-TESTS">Smoke Tests</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Observability" href="/deployment/OBSERVABILITY">Observability</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Rollback & Recovery" href="/deployment/ROLLBACK-AND-RECOVERY">Rollback & Recovery</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Docs Portal" href="/deployment/DOCS-PORTAL">Docs Portal</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn" data-target="nav-features">
+        <span class="sidebar-group-icon">✨</span> Features
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-features">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Epic Features Guide" href="/EPIC-FEATURES-GUIDE">Epic Features Guide</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Stripe + BLIK" href="/STRIPE-BLIK-INTEGRATION">Stripe + BLIK</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Complete Workflow" href="/COMPLETE_WORKFLOW">Complete Workflow</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer">
+      <button class="sidebar-group-btn" data-target="nav-firmware">
+        <span class="sidebar-group-icon">📟</span> Firmware
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items" id="nav-firmware">
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Vase Registration Workflows" href="/firmware/Smart_Vase_Registration_Workflows_Minimal">Vase Registration Workflows</a>
+      </div>
+    </div>
+    <div class="sidebar-section" data-audience="developer vendor customer">
+      <button class="sidebar-group-btn open" data-target="nav-manuals">
+        <span class="sidebar-group-icon">📖</span> User Manuals
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sidebar-items open" id="nav-manuals">
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="User Manuals Overview" href="/manuals/">Overview</a>
+        <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Portal Manual" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Use-case Flows" href="/use-case-flows">Use-case flows</a>
+        <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+      <h1 id="epics-stories--tasks--option-u-florist-operating-system-covering-every-business-flow">Epics, Stories &amp; Tasks — Option U (Florist operating system: covering every business flow)</h1>
+
+<blockquote>
+  <p>Companion to EPICS-J.md (stock), EPICS-O.md (customer requests) and EPICS-Q.md (online-only vendors).
+Epics are numbered EP-43 … EP-58 to continue the sequence.
+Task trackers (ground truth): <code class="language-plaintext highlighter-rouge">docs/tasks/tasks-ep43-*.json</code> … <code class="language-plaintext highlighter-rouge">docs/tasks/tasks-ep58-*.json</code>.
+Requirements: <code class="language-plaintext highlighter-rouge">docs/tasks/REQ-GAPS-U.md</code> (REQ-FOS-01 … REQ-FOS-103).
+Mobile counterparts (vendor app, customer app) are raised as follow-up tasks inside each epic.
+Analysis date: 2026-11-09</p>
+</blockquote>
+
+<p><strong>Goal:</strong> a Polish florist or flower shop runs a normal day, and a peak day, entirely in FMF — not only sells through it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Epic</th>
+      <th>Priority</th>
+      <th>Stories</th>
+      <th>Tasks</th>
+      <th>Tracker</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EP-43 Polish-first experience, with English and Ukrainian</td>
+      <td>p1-high</td>
+      <td>7</td>
+      <td>15</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep43-polish-localisation.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-44 Florist payouts and Polish payment methods</td>
+      <td>p1-high</td>
+      <td>6</td>
+      <td>9</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep44-payments-and-payouts.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-45 Push alerts for florists and customers</td>
+      <td>p1-high</td>
+      <td>5</td>
+      <td>7</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep45-push-alerts.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-46 One order book: every channel, one production board</td>
+      <td>p1-high</td>
+      <td>5</td>
+      <td>8</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep46-unified-order-book.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-47 Made-to-order catalogue and gift order details</td>
+      <td>p1-high</td>
+      <td>4</td>
+      <td>9</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep47-catalogue-and-gift-details.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-48 Delivery slots, zones, capacity, pre-orders and closures</td>
+      <td>p1-high</td>
+      <td>4</td>
+      <td>6</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep48-delivery-slots-zones-preorders.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-49 Fulfilment proof and recipe-linked production</td>
+      <td>p1-high</td>
+      <td>5</td>
+      <td>5</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep49-fulfilment-proof-recipes.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-50 Invoices, KSeF and accounting export</td>
+      <td>p1-high</td>
+      <td>5</td>
+      <td>7</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep50-invoices-ksef-accounting.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-51 Courier dispatch and pickup partners</td>
+      <td>p2-medium</td>
+      <td>4</td>
+      <td>4</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep51-courier-dispatch-pickup.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-52 Purchasing, suppliers and demand forecast</td>
+      <td>p2-medium</td>
+      <td>4</td>
+      <td>7</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep52-purchasing-and-supply.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-53 Customer–florist conversations</td>
+      <td>p1-high</td>
+      <td>5</td>
+      <td>5</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep53-customer-conversations.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-54 Customer book, reminders and repeat sales</td>
+      <td>p2-medium</td>
+      <td>5</td>
+      <td>7</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep54-customer-book-repeat-sales.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-55 Events, weddings, funerals and business accounts</td>
+      <td>p2-medium</td>
+      <td>4</td>
+      <td>5</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep55-events-funerals-business.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-56 Locations, decision analytics and audit</td>
+      <td>p2-medium</td>
+      <td>3</td>
+      <td>4</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep56-shop-operations.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-57 Public florist profiles, SEO and social channels</td>
+      <td>p2-medium</td>
+      <td>4</td>
+      <td>7</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep57-public-profiles-seo-social.json</code></td>
+    </tr>
+    <tr>
+      <td>EP-58 Team, shifts and bouquet authorship</td>
+      <td>p1-high</td>
+      <td>7</td>
+      <td>16</td>
+      <td><code class="language-plaintext highlighter-rouge">tasks-ep58-team-shifts-authorship.json</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="ep-43-polish-first-experience-with-english-and-ukrainian">EP-43: Polish-first experience, with English and Ukrainian</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: none (EP-45 push texts, EP-53 conversations and EP-57 SEO pages build on it)
+<strong>Requirement refs</strong>: REQ-FOS-01 through REQ-FOS-10
+<strong>State</strong>: proposed. Trackers only (S-43-01). REQ-GAPS-U §A open decisions.</p>
+
+<blockquote>
+  <p>Every portal page, email and AI Florist text in Polish by default, with English and Ukrainian as full second languages.</p>
+</blockquote>
+
+<h3 id="concept">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>culture cookie / user preference / Accept-Language
+        │
+ RequestLocalization (pl-PL default · en-GB · uk-UA)  ── portals (resx SharedResources) ── &lt;html lang&gt;
+        │                                               ├─ plural rules (pl and uk have several forms)
+        │                                               └─ formatting: 25,00 zł · 14.02.2027 · 24 h (PLN in every language)
+ User.PreferredLanguage (pl | en | uk) ─▶ API emails / push / SMS / AI Florist output language
+ Vendor.LanguagesSpoken ─▶ public profile badge + customer filter "speaks Ukrainian"
+</code></pre></div></div>
+
+<h3 id="design-decisions">Design decisions</h3>
+<ul>
+  <li>Polish is the default for everyone; English and Ukrainian are selectable through a switcher and the stored preference, and are offered automatically when the browser asks for them.</li>
+  <li>Ukrainian is a full third language (uk-UA, Cyrillic), not a partial one: the same pages, emails and alerts as Polish and English, enforced by the same key-parity guard.</li>
+  <li>Resource files (<code class="language-plaintext highlighter-rouge">.resx</code>) per portal plus one shared set, not a database of strings: translations ship with the build and are reviewed in PRs. A machine-translated draft is allowed, but each language is signed off by a native speaker before release.</li>
+  <li>Prices stay in PLN in every language; only formatting changes.</li>
+  <li>AI Florist recipe names, notes and offer drafts follow the vendor’s language; prompts stay in English internally.</li>
+</ul>
+
+<h3 id="stories--tasks">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep43-polish-localisation.json</code> (S-43-01 … S-43-07; T-43-001 … T-43-015).</p>
+<ol>
+  <li><strong>S-43-01 — Trackers</strong> — T-43-001 (done).</li>
+  <li><strong>S-43-02 — Localisation infrastructure</strong> — T-43-002 Request localisation in the three portals · T-43-003 PreferredLanguage on User.</li>
+  <li><strong>S-43-03 — Vendor Portal translation</strong> — T-43-004 Extract Vendor Portal strings to resources · T-43-005 Ukrainian translation of the Vendor Portal.</li>
+  <li><strong>S-43-04 — Customer App translation</strong> — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.</li>
+  <li><strong>S-43-05 — Emails, notifications and AI output</strong> — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.</li>
+  <li><strong>S-43-06 — Ukrainian specifics</strong> — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.</li>
+  <li><strong>S-43-07 — Guard, manuals and mobile</strong> — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-44-florist-payouts-and-polish-payment-methods">EP-44: Florist payouts and Polish payment methods</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-17/18 payment resilience and card checkout; EP-20 vendor billing; EP-37 custom-request payments
+<strong>Requirement refs</strong>: REQ-FOS-11 through REQ-FOS-16
+<strong>State</strong>: proposed. Trackers only (S-44-01). REQ-GAPS-U §B open decisions.</p>
+
+<blockquote>
+  <p>Money reaches the florist automatically, with a payout statement, and customers can pay the way Poles pay.</p>
+</blockquote>
+
+<h3 id="concept-1">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Customer pays (BLIK / card / P24 / wallet)
+        │  PaymentIntent  transfer_data.destination = vendor's connected account
+        │                 application_fee_amount  = platform fee rule (0 % by default)
+        ▼
+ Stripe ─▶ connected account balance ─▶ payout to florist's bank (Stripe schedule)
+ refund / dispute ─▶ reverse_transfer + refund_application_fee
+ Vendor Portal Payments: gross · fees · refunds · net · payouts · CSV
+</code></pre></div></div>
+
+<h3 id="design-decisions-1">Design decisions</h3>
+<ul>
+  <li>Destination charges on Stripe Connect Express are proposed (§H.1): the existing Stripe integration, webhooks and refund retry stay; the florist’s KYC and payouts are handled by Stripe.</li>
+  <li>The platform fee is a configurable rule that defaults to 0 %: revenue stays the SaaS subscription until a commission is decided (§H.2).</li>
+  <li>A vendor without a verified connected account can still use the portal but cannot take paid online orders (§H.3).</li>
+</ul>
+
+<h3 id="stories--tasks-1">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep44-payments-and-payouts.json</code> (S-44-01 … S-44-06; T-44-001 … T-44-009).</p>
+<ol>
+  <li><strong>S-44-01 — Trackers</strong> — T-44-001 (done).</li>
+  <li><strong>S-44-02 — Connected accounts</strong> — T-44-002 Stripe Connect Express onboarding.</li>
+  <li><strong>S-44-03 — Destination charges and refunds</strong> — T-44-003 Destination charges with platform fee rule · T-44-004 Refund and dispute handling.</li>
+  <li><strong>S-44-04 — Payout statement and admin view</strong> — T-44-005 Vendor payout statement + CSV · T-44-006 Admin connected-account view and pre-go-live settlement list.</li>
+  <li><strong>S-44-05 — Payment methods</strong> — T-44-007 Przelewy24 and wallets · T-44-008 Pay-later option.</li>
+  <li><strong>S-44-06 — Rollout and contract</strong> — T-44-009 Onboarding campaign and contract.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-45-push-alerts-for-florists-and-customers">EP-45: Push alerts for florists and customers</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-06 (DeviceRegistration, Notification aggregate); EP-37 (VendorNotification, SLA monitor); EP-43 (texts in Polish)
+<strong>Requirement refs</strong>: REQ-FOS-17 through REQ-FOS-23
+<strong>State</strong>: proposed. Trackers only (S-45-01). REQ-GAPS-U §C open decisions.</p>
+
+<blockquote>
+  <p>Real phone notifications for the events that make or lose a sale.</p>
+</blockquote>
+
+<h3 id="concept-2">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>domain event ─▶ outbox ─▶ AlertDispatcher ─▶ preferences + quiet hours
+                                            ├─▶ Notification row (in-app inbox)
+                                            ├─▶ FCM HTTP v1 (Android / iOS via APNs) ─▶ device tokens
+                                            └─▶ email fallback (opt-in)
+</code></pre></div></div>
+
+<h3 id="design-decisions-2">Design decisions</h3>
+<ul>
+  <li>Completes EP-06 T-06-007/T-06-008 instead of duplicating them; those tasks are closed by this epic.</li>
+  <li>One dispatcher decides channels from an alert catalogue and the user’s preferences; handlers only raise events.</li>
+  <li>Vase alerts are sent to in-store vendors only (EP-42 rule).</li>
+</ul>
+
+<h3 id="stories--tasks-2">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep45-push-alerts.json</code> (S-45-01 … S-45-05; T-45-001 … T-45-007).</p>
+<ol>
+  <li><strong>S-45-01 — Trackers</strong> — T-45-001 (done).</li>
+  <li><strong>S-45-02 — FCM delivery</strong> — T-45-002 FirebaseNotificationService.</li>
+  <li><strong>S-45-03 — Alert catalogue and dispatcher</strong> — T-45-003 AlertDispatcher with vendor alerts · T-45-004 Customer alerts.</li>
+  <li><strong>S-45-04 — Preferences</strong> — T-45-005 Notification preferences and quiet hours.</li>
+  <li><strong>S-45-05 — Web push and mobile</strong> — T-45-006 Vendor Portal Web Push · T-45-007 Mobile follow-up.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-46-one-order-book-every-channel-one-production-board">EP-46: One order book: every channel, one production board</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-05/12 vendor orders; EP-48 slots/capacity (calendar load); EP-58 staff and shifts (assignment)
+<strong>Requirement refs</strong>: REQ-FOS-24 through REQ-FOS-29
+<strong>State</strong>: proposed. Trackers only (S-46-01). REQ-GAPS-U §D open decisions.</p>
+
+<blockquote>
+  <p>Phone, walk-in, Instagram and FMF orders in one list and one production board, so FMF replaces the notebook.</p>
+</blockquote>
+
+<h3 id="concept-3">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FMF checkout ─┐
+ phone / walk-in / Instagram / WhatsApp ─┼─▶ Order (Source, Contact, DueAt, Payments[])
+ custom request (EP-37) ─┘                         │
+                                Production board: To make → Made → Ready → Out → Done
+                                Calendar: daily load vs capacity (EP-48) · job card print
+</code></pre></div></div>
+
+<h3 id="design-decisions-3">Design decisions</h3>
+<ul>
+  <li>Manual orders are real <code class="language-plaintext highlighter-rouge">Order</code>s with <code class="language-plaintext highlighter-rouge">Source != Fmf</code>, so analytics, invoices (EP-50) and the board treat all channels the same.</li>
+  <li>A manual order does not need an FMF customer account: it carries an order contact (name, phone, optional email). A contact that matches a customer later can be linked (§H.1).</li>
+  <li>No platform fee and no Stripe on manual orders; payments are recorded, not processed.</li>
+</ul>
+
+<h3 id="stories--tasks-3">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep46-unified-order-book.json</code> (S-46-01 … S-46-05; T-46-001 … T-46-008).</p>
+<ol>
+  <li><strong>S-46-01 — Trackers</strong> — T-46-001 (done).</li>
+  <li><strong>S-46-02 — Order model for all channels</strong> — T-46-002 Order source, contact and DueAt.</li>
+  <li><strong>S-46-03 — Manual orders and payments</strong> — T-46-003 Manual order commands and API · T-46-004 Recorded payments and balances · T-46-005 Vendor Portal New order page.</li>
+  <li><strong>S-46-04 — Production board and calendar</strong> — T-46-006 Production board page · T-46-007 Calendar view.</li>
+  <li><strong>S-46-05 — Contract and mobile</strong> — T-46-008 Contract, changelog, vendor app follow-up.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-47-made-to-order-catalogue-and-gift-order-details">EP-47: Made-to-order catalogue and gift order details</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-39 (<code class="language-plaintext highlighter-rouge">IsPurchasable</code>, nullable vase on lines); EP-48 (earliest delivery slot); EP-49 (photo before dispatch keeps the real-photo promise)
+<strong>Requirement refs</strong>: REQ-FOS-30 through REQ-FOS-36
+<strong>State</strong>: proposed. Trackers only (S-47-01). REQ-GAPS-U §E open decisions.</p>
+
+<blockquote>
+  <p>Repeatable bouquet types in S/M/L next to one-off real bouquets, plus the gift details every flower order needs.</p>
+</blockquote>
+
+<h3 id="concept-4">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CatalogueItem (vendor) ── sizes S/M/L (price, lead time, optional house recipe)
+        │                       example photos (real, own work)
+ Cart line: Bouquet (one-off) | CatalogueItem+size | AddOn
+        │
+ Order gift details: recipient · card message · anonymous sender · delivery date + window
+</code></pre></div></div>
+
+<h3 id="design-decisions-4">Design decisions</h3>
+<ul>
+  <li>Catalogue photos must be the florist’s own work and are labelled “example — made fresh for you”; the finished-bouquet photo (EP-49) keeps FMF’s real-photo promise.</li>
+  <li>One-off real bouquets stay the hero of the map; catalogue items appear on the florist page, in search and as a “made to order” map filter.</li>
+  <li>Gift details apply to every order type, including custom requests and manual orders.</li>
+</ul>
+
+<h3 id="stories--tasks-4">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep47-catalogue-and-gift-details.json</code> (S-47-01 … S-47-04; T-47-001 … T-47-009).</p>
+<ol>
+  <li><strong>S-47-01 — Trackers</strong> — T-47-001 (done).</li>
+  <li><strong>S-47-02 — Catalogue items</strong> — T-47-002 CatalogueItem domain, persistence and API · T-47-003 Vendor Portal catalogue pages · T-47-004 Save a recipe as catalogue item.</li>
+  <li><strong>S-47-03 — Buying from the catalogue</strong> — T-47-005 Customer catalogue browsing · T-47-006 Catalogue lines in cart and orders.</li>
+  <li><strong>S-47-04 — Gift details and add-ons</strong> — T-47-007 Gift details on orders · T-47-008 Add-ons · T-47-009 Send to a phone number.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-48-delivery-slots-zones-capacity-pre-orders-and-closures">EP-48: Delivery slots, zones, capacity, pre-orders and closures</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-46 (board/calendar); EP-47 (lead times, delivery date on orders); opening hours (<code class="language-plaintext highlighter-rouge">Pages/Settings/OpeningHours</code>)
+<strong>Requirement refs</strong>: REQ-FOS-37 through REQ-FOS-42
+<strong>State</strong>: proposed. Trackers only (S-48-01). REQ-GAPS-U §F open decisions.</p>
+
+<blockquote>
+  <p>Customers pick a real delivery window; florists control how much they take on each day, including peak days.</p>
+</blockquote>
+
+<h3 id="concept-5">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Vendor: zones (rings or postcodes → fee, min order) · weekly slot template · capacity per slot
+        closures &amp; special days · pre-order campaigns (date, cap, cut-off)
+        │
+ Checkout: address → zone → fee  ·  slot picker (lead time, cut-off, capacity left)
+        │
+ Order holds a slot reservation ─▶ released on lapse / cancel ─▶ board + calendar load
+</code></pre></div></div>
+
+<h3 id="design-decisions-5">Design decisions</h3>
+<ul>
+  <li>The global <code class="language-plaintext highlighter-rouge">Delivery:*</code> settings remain the default for vendors who set nothing, so nothing breaks on release.</li>
+  <li>Capacity is counted in orders per slot (v1), not in florist minutes.</li>
+  <li>A slot is reserved when the order is created and released with the existing reservation lapse.</li>
+</ul>
+
+<h3 id="stories--tasks-5">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep48-delivery-slots-zones-preorders.json</code> (S-48-01 … S-48-04; T-48-001 … T-48-006).</p>
+<ol>
+  <li><strong>S-48-01 — Trackers</strong> — T-48-001 (done).</li>
+  <li><strong>S-48-02 — Zones and slots model</strong> — T-48-002 Delivery zones and slot templates.</li>
+  <li><strong>S-48-03 — Checkout slot picker</strong> — T-48-003 Slot availability query and reservation · T-48-004 Customer slot picker UI.</li>
+  <li><strong>S-48-04 — Closures and pre-orders</strong> — T-48-005 Closures and special days · T-48-006 Pre-order campaigns.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-49-fulfilment-proof-and-recipe-linked-production">EP-49: Fulfilment proof and recipe-linked production</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-46 (board statuses); EP-47 (catalogue sizes with recipes); EP-45 (alerts); EP-30 stock consume; EP-28/33 recipes
+<strong>Requirement refs</strong>: REQ-FOS-43 through REQ-FOS-47
+<strong>State</strong>: proposed. Trackers only (S-49-01). REQ-GAPS-U §G open decisions.</p>
+
+<blockquote>
+  <p>The customer sees the finished bouquet before it leaves and a photo at the door; stock follows the recipe automatically.</p>
+</blockquote>
+
+<h3 id="concept-6">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Board: To make ─▶ Made  (upload finished photo) ─▶ customer approves / asks a change (N min, silence = OK)
+                         └─ recipe on line ─▶ stock consume (all-or-nothing, idempotent)
+ Out for delivery ─▶ delivered: photo + recipient name (+ existing QR) ─▶ customer alert
+</code></pre></div></div>
+
+<h3 id="design-decisions-6">Design decisions</h3>
+<ul>
+  <li>Approval is on by default for custom requests and catalogue items, off for one-off real bouquets (already photographed).</li>
+  <li>Silence within the approval window counts as approval, so photos never block a delivery slot.</li>
+  <li>Stock deduction happens at Made, with a manual override and an undo movement.</li>
+</ul>
+
+<h3 id="stories--tasks-6">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep49-fulfilment-proof-recipes.json</code> (S-49-01 … S-49-05; T-49-001 … T-49-005).</p>
+<ol>
+  <li><strong>S-49-01 — Trackers</strong> — T-49-001 (done).</li>
+  <li><strong>S-49-02 — Finished photo and approval</strong> — T-49-002 Order photos and approval window.</li>
+  <li><strong>S-49-03 — Proof of delivery</strong> — T-49-003 POD photo and recipient name.</li>
+  <li><strong>S-49-04 — Recipe-linked stock</strong> — T-49-004 Recipe on order lines + consume at Made.</li>
+  <li><strong>S-49-05 — Evidence</strong> — T-49-005 Dispute evidence and portfolio consent.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-50-invoices-ksef-and-accounting-export">EP-50: Invoices, KSeF and accounting export</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-44 (fees and payouts in the export); EP-46 (manual orders); EP-20/21 (platform charges to vendors)
+<strong>Requirement refs</strong>: REQ-FOS-48 through REQ-FOS-53
+<strong>State</strong>: proposed. Trackers only (S-50-01). REQ-GAPS-U §H open decisions.</p>
+
+<blockquote>
+  <p>Invoices go out automatically through the florist’s own invoicing app (which talks to KSeF), and the accountant gets a monthly export.</p>
+</blockquote>
+
+<h3 id="concept-7">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Order paid / Done ─▶ IInvoicingProvider (vendor's account: Fakturownia | ifirma | inFakt)
+                         └─ provider sends to KSeF ─▶ KSeF number + PDF link stored on the order
+ Platform → vendor charges (plan, vases, fees) ─▶ platform's own provider account ─▶ KSeF
+ Monthly export per vendor: sales, VAT, payment methods, fees, payouts (CSV)
+</code></pre></div></div>
+
+<h3 id="design-decisions-7">Design decisions</h3>
+<ul>
+  <li>FMF never holds the vendor’s KSeF credentials: invoices are issued through the vendor’s invoicing-app account using its API token (stored encrypted).</li>
+  <li>Fiscal receipts from a cash register (kasa fiskalna) for walk-in sales stay out of scope (§H.2).</li>
+  <li>The platform’s own invoices to vendors move to a KSeF-capable provider; Stripe stays the payment collector.</li>
+</ul>
+
+<h3 id="stories--tasks-7">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep50-invoices-ksef-accounting.json</code> (S-50-01 … S-50-05; T-50-001 … T-50-007).</p>
+<ol>
+  <li><strong>S-50-01 — Trackers</strong> — T-50-001 (done).</li>
+  <li><strong>S-50-02 — Provider port and connection</strong> — T-50-002 IInvoicingProvider + Fakturownia adapter · T-50-003 Second provider adapter.</li>
+  <li><strong>S-50-03 — Invoice data and issuing</strong> — T-50-004 NIP and invoice details at checkout · T-50-005 Automatic issuing with retries.</li>
+  <li><strong>S-50-04 — Platform invoices</strong> — T-50-006 KSeF invoices for vendor charges.</li>
+  <li><strong>S-50-05 — Accountant export</strong> — T-50-007 Monthly export CSV + summary.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-51-courier-dispatch-and-pickup-partners">EP-51: Courier dispatch and pickup partners</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: EP-48 (slots), EP-49 (POD), EP-58 (staff roles)
+<strong>Requirement refs</strong>: REQ-FOS-54 through REQ-FOS-58
+<strong>State</strong>: proposed. Trackers only (S-51-01). REQ-GAPS-U §I open decisions.</p>
+
+<blockquote>
+  <p>Deliveries assigned to the florist’s own courier or booked with a courier partner, with tracking, plus after-hours pickup points.</p>
+</blockquote>
+
+<h3 id="concept-8">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Order (slot) ─▶ assign: own courier (employee) | partner (ICourierProvider: quote · book · track · cancel)
+                         └─ route sheet per slot (ordered stops, map link, phone)
+ Pickup point: shop | kwiatomat / locker partner ─▶ pickup code by SMS
+</code></pre></div></div>
+
+<h3 id="design-decisions-8">Design decisions</h3>
+<ul>
+  <li>One partner adapter first (§H.1), behind a port, so others can be added.</li>
+  <li>Partner fees are shown to the vendor before booking and can be passed to the customer through zone fees (EP-48).</li>
+</ul>
+
+<h3 id="stories--tasks-8">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep51-courier-dispatch-pickup.json</code> (S-51-01 … S-51-04; T-51-001 … T-51-004).</p>
+<ol>
+  <li><strong>S-51-01 — Trackers</strong> — T-51-001 (done).</li>
+  <li><strong>S-51-02 — Own couriers</strong> — T-51-002 Courier assignment and route sheet.</li>
+  <li><strong>S-51-03 — Courier partner</strong> — T-51-003 ICourierProvider and first adapter.</li>
+  <li><strong>S-51-04 — Pickup points</strong> — T-51-004 Kwiatomat/locker pickup pilot.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-52-purchasing-suppliers-and-demand-forecast">EP-52: Purchasing, suppliers and demand forecast</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: EP-30/31 stock; EP-35 missing list and supplier port; EP-49 (recipes on orders); EP-48 (pre-orders)
+<strong>Requirement refs</strong>: REQ-FOS-59 through REQ-FOS-64
+<strong>State</strong>: proposed. Trackers only (S-52-01). REQ-GAPS-U §J open decisions.</p>
+
+<blockquote>
+  <p>From “what is low” to “what to buy on Monday”, with real purchase costs feeding AI Florist prices.</p>
+</blockquote>
+
+<h3 id="concept-9">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>low stock + recipes of upcoming orders + pre-orders + events ─▶ Reorder list (editable)
+        └─▶ export / send to supplier (PDF, CSV, text)
+ Supplier delivery ─▶ Purchase receipt ─▶ Received movements + cost history ─▶ AI Florist unit costs
+ IFlowerSupplierCatalog adapter (price feed) · forecast (history + Polish calendar)
+</code></pre></div></div>
+
+<h3 id="design-decisions-9">Design decisions</h3>
+<ul>
+  <li>Reorder suggestions are always editable suggestions, never automatic purchases.</li>
+  <li>Forecasting starts with a transparent rule (last years’ same weeks + holiday uplift), not a black-box model.</li>
+</ul>
+
+<h3 id="stories--tasks-9">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep52-purchasing-and-supply.json</code> (S-52-01 … S-52-04; T-52-001 … T-52-007).</p>
+<ol>
+  <li><strong>S-52-01 — Trackers</strong> — T-52-001 (done).</li>
+  <li><strong>S-52-02 — Reorder list and suppliers</strong> — T-52-002 Reorder calculation and page · T-52-003 Supplier book.</li>
+  <li><strong>S-52-03 — Receipts and costs</strong> — T-52-004 Purchase receipt · T-52-005 Waste report.</li>
+  <li><strong>S-52-04 — Price feed and forecast</strong> — T-52-006 Supplier price feed adapter · T-52-007 Demand forecast.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-53-customerflorist-conversations">EP-53: Customer–florist conversations</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-37 (requests, offers, <code class="language-plaintext highlighter-rouge">MarketplaceHub</code>, PII rule); EP-45 (push); EP-43 (texts)
+<strong>Requirement refs</strong>: REQ-FOS-65 through REQ-FOS-70
+<strong>State</strong>: proposed. Trackers only (S-53-01). REQ-GAPS-U §K open decisions.</p>
+
+<blockquote>
+  <p>A chat with photos on every custom request and order, without leaking contact details before payment.</p>
+</blockquote>
+
+<h3 id="concept-10">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Conversation (request × vendor | order) ── messages: text + photos (private media)
+        │  before payment: phone / e-mail / links masked server-side
+        ├─▶ MarketplaceHub (SignalR) live
+        ├─▶ push (EP-45) · email digest if unread 30 min
+        └─▶ report → admin moderation · retention 12 months
+</code></pre></div></div>
+
+<h3 id="design-decisions-10">Design decisions</h3>
+<ul>
+  <li>One conversation per (request, vendor) and per order — never a free-form inbox between strangers.</li>
+  <li>Contact details are masked until the customer pays, matching EP-37’s “no PII until paid” rule.</li>
+  <li>The one-shot <code class="language-plaintext highlighter-rouge">VendorMessage</code> stays for customers without an order, with its admin escalation.</li>
+</ul>
+
+<h3 id="stories--tasks-10">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep53-customer-conversations.json</code> (S-53-01 … S-53-05; T-53-001 … T-53-005).</p>
+<ol>
+  <li><strong>S-53-01 — Trackers</strong> — T-53-001 (done).</li>
+  <li><strong>S-53-02 — Conversations</strong> — T-53-002 Conversation aggregate, API and masking.</li>
+  <li><strong>S-53-03 — Live delivery</strong> — T-53-003 SignalR, push and digest.</li>
+  <li><strong>S-53-04 — UIs</strong> — T-53-004 Vendor Portal and Customer App thread UIs.</li>
+  <li><strong>S-53-05 — Safety and retention</strong> — T-53-005 Moderation, rate limits, retention.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-54-customer-book-reminders-and-repeat-sales">EP-54: Customer book, reminders and repeat sales</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: EP-46 (manual-order contacts); EP-45 (push); EP-47 (catalogue items for subscriptions); EP-44 (off-session payments)
+<strong>Requirement refs</strong>: REQ-FOS-71 through REQ-FOS-76
+<strong>State</strong>: proposed. Trackers only (S-54-01). REQ-GAPS-U §L open decisions.</p>
+
+<blockquote>
+  <p>Florists know their customers, customers are reminded of the dates that matter, and flowers can be bought on repeat.</p>
+</blockquote>
+
+<h3 id="concept-11">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Customer book (per vendor): FMF customers + manual contacts · history · notes · dates · consent
+ Reminders: birthdays, anniversaries, imieniny (name → dates) ─▶ alert N days before + suggestions
+ Recurring: catalogue item × cadence ─▶ Stripe off-session ─▶ orders on the board
+ Vouchers &amp; codes · stamp-card loyalty · "last chance" = FreshnessPricingStrategy applied
+</code></pre></div></div>
+
+<h3 id="design-decisions-11">Design decisions</h3>
+<ul>
+  <li>Each florist sees only customers who ordered from them; marketing to them needs recorded consent (RODO).</li>
+  <li>Discounts and loyalty are funded by the vendor; the platform fee (if any) is on the discounted price.</li>
+  <li>“Last chance” uses the vendor’s existing pricing strategy only when <code class="language-plaintext highlighter-rouge">AutoAdjustPrice</code> is on.</li>
+</ul>
+
+<h3 id="stories--tasks-11">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep54-customer-book-repeat-sales.json</code> (S-54-01 … S-54-05; T-54-001 … T-54-007).</p>
+<ol>
+  <li><strong>S-54-01 — Trackers</strong> — T-54-001 (done).</li>
+  <li><strong>S-54-02 — Customer book</strong> — T-54-002 Customer book pages and API.</li>
+  <li><strong>S-54-03 — Reminders</strong> — T-54-003 Occasion dates, name-day dataset and reminder job.</li>
+  <li><strong>S-54-04 — Repeat purchases</strong> — T-54-004 Recurring bouquet subscriptions · T-54-005 Discount codes and vouchers · T-54-006 Stamp-card loyalty.</li>
+  <li><strong>S-54-05 — Last chance</strong> — T-54-007 Apply freshness pricing automatically.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-55-events-weddings-funerals-and-business-accounts">EP-55: Events, weddings, funerals and business accounts</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: EP-46 (orders/board), EP-44 (deposits), EP-50 (monthly invoices), EP-53 (conversation), EP-28/36 (recipes and cost assessor)
+<strong>Requirement refs</strong>: REQ-FOS-77 through REQ-FOS-81
+<strong>State</strong>: proposed. Trackers only (S-55-01). REQ-GAPS-U §M open decisions.</p>
+
+<blockquote>
+  <p>Quotes with deposits for weddings and events, a proper funeral range, and business customers with standing orders.</p>
+</blockquote>
+
+<h3 id="concept-12">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Enquiry ─▶ Quote (items × qty, AI recipes, mood board, PDF in Polish, versions)
+        ─▶ customer accepts online ─▶ deposit (zadatek) ─▶ balance due date ─▶ event tasks on the board
+ Funeral: wieniec / wiązanka · ribbon text · funeral home / cemetery delivery · urgent flag
+ Business account: several orderers · standing orders · monthly invoice
+</code></pre></div></div>
+
+<h3 id="design-decisions-12">Design decisions</h3>
+<ul>
+  <li>Quotes reuse AI Florist recipes and the cost assessor for pricing, which competitors cannot.</li>
+  <li>Standing orders share the recurring engine from EP-54.</li>
+</ul>
+
+<h3 id="stories--tasks-12">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep55-events-funerals-business.json</code> (S-55-01 … S-55-04; T-55-001 … T-55-005).</p>
+<ol>
+  <li><strong>S-55-01 — Trackers</strong> — T-55-001 (done).</li>
+  <li><strong>S-55-02 — Event quotes</strong> — T-55-002 Quote model, builder and PDF · T-55-003 Online acceptance and deposit.</li>
+  <li><strong>S-55-03 — Funerals</strong> — T-55-004 Funeral category, ribbon text, venue delivery.</li>
+  <li><strong>S-55-04 — Business customers</strong> — T-55-005 Business accounts and standing orders.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-56-locations-decision-analytics-and-audit">EP-56: Locations, decision analytics and audit</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: EP-46 (sources), EP-49 (recipe costs), EP-37 (request response time), EP-58 (staff per location, per-florist stats)
+<strong>Requirement refs</strong>: REQ-FOS-82 through REQ-FOS-84
+<strong>State</strong>: proposed. Trackers only (S-56-01). REQ-GAPS-U §N open decisions.</p>
+
+<blockquote>
+  <p>Owners can run more than one shop, see the numbers that drive decisions and trace money-related changes.</p>
+</blockquote>
+
+<h3 id="concept-13">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Vendor ─▶ Locations (address, hours, stock, vases, staff roster) ─▶ orders routed to a location
+ Analytics: sales by channel and location · margin per bouquet · vase utilisation · request response &amp; win rate · waste %
+ Audit log: refunds · payout settings · prices · role changes ─▶ owner view
+</code></pre></div></div>
+
+<h3 id="design-decisions-13">Design decisions</h3>
+<ul>
+  <li>Locations are a child entity of the vendor (one tenant), not separate vendors (§H.1).</li>
+  <li>Per-florist figures live in EP-58; this epic adds the shop-level and location-level view.</li>
+</ul>
+
+<h3 id="stories--tasks-13">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep56-shop-operations.json</code> (S-56-01 … S-56-03; T-56-001 … T-56-004).</p>
+<ol>
+  <li><strong>S-56-01 — Trackers</strong> — T-56-001 (done).</li>
+  <li><strong>S-56-02 — Locations</strong> — T-56-002 Location entity and filters.</li>
+  <li><strong>S-56-03 — Analytics and audit</strong> — T-56-003 Decision analytics · T-56-004 Audit log.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-57-public-florist-profiles-seo-and-social-channels">EP-57: Public florist profiles, SEO and social channels</h2>
+
+<p><strong>Priority</strong>: P2-medium
+<strong>Dependencies</strong>: EP-43 (Polish pages); EP-47 (catalogue on the profile); EP-49 (photos for portfolio, with consent)
+<strong>Requirement refs</strong>: REQ-FOS-85 through REQ-FOS-91
+<strong>State</strong>: proposed. Trackers only (S-57-01). REQ-GAPS-U §O open decisions.</p>
+
+<blockquote>
+  <p>Florists and live bouquets found on Google in Polish, with profiles, photo reviews and links from Instagram and Google Business Profile.</p>
+</blockquote>
+
+<h3 id="concept-14">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/kwiaciarnia/{slug}  profile: photos · hours · live bouquets · catalogue · ratings &amp; photo reviews
+ /kwiaty/{miasto}[/{dzielnica}]   /okazje/{dzien-matki|walentynki|…}   (server-rendered, Polish slugs)
+ schema.org: Florist/LocalBusiness · Product/Offer · AggregateRating   ·  sitemap.xml · canonical
+ Link-in-bio page + QR  ·  Meta catalogue feed of live listings
+</code></pre></div></div>
+
+<h3 id="design-decisions-14">Design decisions</h3>
+<ul>
+  <li>Stable pages (florist, city, occasion) carry the ranking; one-off bouquet pages that expire redirect to the florist page, not 404.</li>
+  <li>Reviews are only from paid orders (verified), and florists can reply but not delete.</li>
+</ul>
+
+<h3 id="stories--tasks-14">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep57-public-profiles-seo-social.json</code> (S-57-01 … S-57-04; T-57-001 … T-57-007).</p>
+<ol>
+  <li><strong>S-57-01 — Trackers</strong> — T-57-001 (done).</li>
+  <li><strong>S-57-02 — Profiles and pages</strong> — T-57-002 Public florist profile · T-57-003 City and occasion pages, sitemap, redirects · T-57-004 Structured data.</li>
+  <li><strong>S-57-03 — Reviews</strong> — T-57-005 Photo reviews and florist replies.</li>
+  <li><strong>S-57-04 — Social channels</strong> — T-57-006 Link-in-bio page and QR · T-57-007 Meta catalogue feed.</li>
+</ol>
+
+<hr />
+
+<h2 id="ep-58-team-shifts-and-bouquet-authorship">EP-58: Team, shifts and bouquet authorship</h2>
+
+<p><strong>Priority</strong>: P1-high
+<strong>Dependencies</strong>: EP-19 vendor registration (owner account); EP-46 (production board, order assignment); EP-49 (“Made” step records the author); EP-43 (invitation e-mails per language)
+<strong>Requirement refs</strong>: REQ-FOS-92 through REQ-FOS-103
+<strong>State</strong>: proposed. Trackers only (S-58-01). REQ-GAPS-U §P decided 2026-11-09.</p>
+
+<blockquote>
+  <p>A medium or large shop runs its team in FMF: staff sign in with their own accounts, two clear roles, a work calendar showing who is on shift, and every bouquet credited to the florist who made it.</p>
+</blockquote>
+
+<h3 id="concept-15">Concept</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Owner/Manager ─▶ Staff page: invite · role · deactivate · activity
+        └─ invitation ─▶ Keycloak account (vendor_id, vendor_type, role VendorStaff) ─▶ staff signs in to the Vendor Portal / vendor app
+ Roles:  Owner/Manager = everything      Florist = board, orders, bouquets, photos, stock, AI Florist
+         (API policies first; portal hides what the API would refuse)
+ Work calendar: weekly roster · copy week · leave / days off · optional clock in/out
+        └─ "On shift now" on dashboard and board · assign orders only to people on shift
+ Authorship: bouquet / online listing / order line ─▶ MadeBy (who marked it Made, or picked) ─▶ board · job card · per-florist stats
+ Per-florist view: bouquets made · ratings · hours ─▶ hours export for payroll
+</code></pre></div></div>
+
+<h3 id="design-decisions-15">Design decisions</h3>
+<ul>
+  <li>Two roles in v1, as asked by shops: <strong>Owner/Manager</strong> (full access, including staff, shifts, prices, payouts, billing and settings) and <strong>Florist</strong> (front line: production board, orders, making bouquets and listings, finished-bouquet photos, stock movements, AI Florist; no prices, payouts, billing, staff or settings). Courier and cashier variants can follow later (§H.1).</li>
+  <li>The existing <code class="language-plaintext highlighter-rouge">Employee</code> aggregate and <code class="language-plaintext highlighter-rouge">EmployeesController</code> are reused and fixed rather than replaced; the unused <code class="language-plaintext highlighter-rouge">ShopAdmin</code>/<code class="language-plaintext highlighter-rouge">ShopEmployee</code> policies are replaced by the two roles.</li>
+  <li>Staff get their own Keycloak accounts tied to the shop (<code class="language-plaintext highlighter-rouge">vendor_id</code>, <code class="language-plaintext highlighter-rouge">vendor_type</code> claims and a <code class="language-plaintext highlighter-rouge">VendorStaff</code> role), so tenant resolution keeps working and every action has a real author. The vendor owner’s <code class="language-plaintext highlighter-rouge">VendorAdmin</code> account is an Owner/Manager automatically.</li>
+  <li>Authorship is recorded automatically at the “Made” step (EP-49) and can be corrected by an Owner/Manager; it is never required to sell.</li>
+  <li>Clock in/out is optional per shop: the roster alone answers “who is on shift”.</li>
+  <li>Every staff member, florists included, sees the whole team calendar (decided §H.2).</li>
+  <li>Showing the florist’s first name to customers is a per-shop option, off by default (decided §H.3).</li>
+  <li>Staff accounts are seats in the vendor’s SaaS plan: each plan includes a number of seats and extra seats are billed, because several florists working in the app at once add real infrastructure load (decided §H.4).</li>
+</ul>
+
+<h3 id="stories--tasks-15">Stories &amp; tasks</h3>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep58-team-shifts-authorship.json</code> (S-58-01 … S-58-07; T-58-001 … T-58-016).</p>
+<ol>
+  <li><strong>S-58-01 — Trackers</strong> — T-58-001 (done).</li>
+  <li><strong>S-58-02 — Staff sign-in</strong> — T-58-002 Keycloak accounts for staff · T-58-003 Tenant resolution for staff tokens.</li>
+  <li><strong>S-58-03 — Two roles</strong> — T-58-004 Role model and policies · T-58-005 Role tests across the API.</li>
+  <li><strong>S-58-04 — Staff page</strong> — T-58-006 Vendor Portal Staff page · T-58-007 Activity logging.</li>
+  <li><strong>S-58-05 — Bouquet authorship</strong> — T-58-008 MadeBy on bouquets, listings and order lines.</li>
+  <li><strong>S-58-06 — Work calendar</strong> — T-58-009 Shift roster model and API · T-58-010 Calendar pages · T-58-011 On shift now and assignment.</li>
+  <li><strong>S-58-07 — Hours, stats and alerts</strong> — T-58-012 Clock in/out and hours export · T-58-013 Per-florist stats · T-58-014 Shift and assignment alerts · T-58-015 Staff seats on the vendor plan · T-58-016 Vendor app follow-up.</li>
+</ol>
+
+<hr />
+
+<h2 id="programme-order">Programme order</h2>
+
+<ol>
+  <li><strong>Wave 1 — before Walentynki / Dzień Kobiet 2027:</strong> EP-43, EP-44, EP-45, EP-49, EP-47, EP-50.</li>
+  <li><strong>Wave 2 — before Dzień Matki 2027:</strong> EP-46, EP-58, EP-48, EP-53, EP-57.</li>
+  <li><strong>Wave 3 — before Wszystkich Świętych 2027:</strong> EP-55, EP-54, EP-52, EP-51, EP-56.</li>
+</ol>
+
+<p>Confirm each epic’s §H decisions in REQ-GAPS-U before its first implementation story.</p>
+
+    </div>
+  </main>
+</div>
+
+<!-- DIAGRAM MODAL -->
+<div class="diagram-modal" id="diagramModal" role="dialog" aria-modal="true">
+  <div class="diagram-modal-toolbar">
+    <span class="diagram-modal-title" id="modalTitle">Diagram</span>
+    <button class="dm-btn" id="dmZoomOut" title="Zoom out">−</button>
+    <span class="dm-zoom-label" id="dmZoomLabel">100%</span>
+    <button class="dm-btn" id="dmZoomIn" title="Zoom in">+</button>
+    <button class="dm-btn" id="dmReset" title="Reset view">Reset</button>
+    <button class="dm-btn close-btn" id="dmClose" title="Close (Esc)">✕ Close</button>
+  </div>
+  <div class="diagram-modal-body" id="dmBody">
+    <div class="diagram-modal-canvas" id="dmCanvas"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  // ── 1. Convert Jekyll ```mermaid blocks → <div class="mermaid"> ──
+  document.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid-wrap';
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    const btn = document.createElement('button');
+    btn.className = 'mermaid-expand-btn';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand';
+    wrap.appendChild(div);
+    wrap.appendChild(btn);
+    code.parentElement.replaceWith(wrap);
+  });
+
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', darkMode: true });
+  }
+
+  // ── 2. Diagram modal — resize SVG directly, scroll for pan ──
+  const modal    = document.getElementById('diagramModal');
+  const dmCanvas = document.getElementById('dmCanvas');
+  const dmBody   = document.getElementById('dmBody');
+  const dmTitle  = document.getElementById('modalTitle');
+  const dmLabel  = document.getElementById('dmZoomLabel');
+
+  let natW = 800, natH = 600, curScale = 1;
+
+  function setSvgSize() {
+    const svg = dmCanvas.querySelector('svg');
+    if (!svg) return;
+    svg.setAttribute('width',  Math.round(natW * curScale));
+    svg.setAttribute('height', Math.round(natH * curScale));
+    dmLabel.textContent = Math.round(curScale * 100) + '%';
+  }
+
+  function fitToView() {
+    const bw = dmBody.clientWidth  - 48;
+    const bh = dmBody.clientHeight - 48;
+    curScale = Math.min(bw / natW, bh / natH, 1.5);
+    setSvgSize();
+    // scroll to centre
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = (dmCanvas.offsetWidth  - dmBody.clientWidth)  / 2;
+      dmBody.scrollTop  = (dmCanvas.offsetHeight - dmBody.clientHeight) / 2;
+    });
+  }
+
+  function openModal(svgEl, title) {
+    dmTitle.textContent = title || 'Diagram';
+    dmCanvas.innerHTML  = '';
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    natW = (vb && vb.width  > 0) ? vb.width  : (parseFloat(svgEl.getAttribute('width'))  || 1200);
+    natH = (vb && vb.height > 0) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 800);
+
+    const clone = svgEl.cloneNode(true);
+    // remove any style that might constrain size
+    clone.style.cssText = 'display:block;max-width:none;';
+    dmCanvas.appendChild(clone);
+
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(fitToView);
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function changeZoom(factor) {
+    curScale = Math.min(Math.max(curScale * factor, 0.05), 10);
+    // remember scroll centre so zoom feels anchored
+    const cx = dmBody.scrollLeft + dmBody.clientWidth  / 2;
+    const cy = dmBody.scrollTop  + dmBody.clientHeight / 2;
+    const relX = cx / (natW * (curScale / factor));
+    const relY = cy / (natH * (curScale / factor));
+    setSvgSize();
+    requestAnimationFrame(() => {
+      dmBody.scrollLeft = relX * natW * curScale - dmBody.clientWidth  / 2;
+      dmBody.scrollTop  = relY * natH * curScale - dmBody.clientHeight / 2;
+    });
+  }
+
+  document.getElementById('dmClose').addEventListener('click', closeModal);
+  document.getElementById('dmZoomIn').addEventListener('click',  () => changeZoom(1.4));
+  document.getElementById('dmZoomOut').addEventListener('click', () => changeZoom(1 / 1.4));
+  document.getElementById('dmReset').addEventListener('click',   fitToView);
+
+  // Ctrl/Cmd+wheel zoom (plain wheel = scroll handled by browser natively)
+  dmBody.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    changeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+
+  // Drag-to-scroll / pan
+  let dragging = false, dragSX, dragSY, scrollLX, scrollLY;
+  dmBody.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragging = true; dragSX = e.clientX; dragSY = e.clientY;
+    scrollLX = dmBody.scrollLeft; scrollLY = dmBody.scrollTop;
+    dmBody.classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    dmBody.scrollLeft = scrollLX - (e.clientX - dragSX);
+    dmBody.scrollTop  = scrollLY - (e.clientY - dragSY);
+  });
+  window.addEventListener('mouseup', () => { dragging = false; dmBody.classList.remove('grabbing'); });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── 3. Wire expand buttons — look up SVG fresh on every click ──
+  // Do NOT capture svg in a closure: Mermaid may not have rendered yet
+  // when the observer fires, so always call querySelector at click time.
+  function wireDiagramWrap(wrap) {
+    if (wrap.dataset.wired) return;
+    wrap.dataset.wired = '1';
+    const mermaidDiv = wrap.querySelector('.mermaid');
+    const expandBtn  = wrap.querySelector('.mermaid-expand-btn');
+    const activate = () => {
+      const svg = mermaidDiv && mermaidDiv.querySelector('svg');
+      if (svg) openModal(svg, document.title);
+    };
+    if (expandBtn) expandBtn.addEventListener('click', e => { e.stopPropagation(); activate(); });
+    if (mermaidDiv) mermaidDiv.addEventListener('click', activate);
+  }
+
+  // Wire immediately for any wraps already in DOM, then watch for new ones
+  document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('.mermaid-wrap').forEach(wireDiagramWrap);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // ── 4. Sidebar accordion ──
+  document.querySelectorAll('.sidebar-group-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      btn.classList.toggle('open', !isOpen);
+    });
+  });
+
+  // ── 5. Active link highlight ──
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && currentPath.endsWith(href.replace(/\/$/, ''))) {
+      link.classList.add('active');
+      const items = link.closest('.sidebar-items');
+      if (items) {
+        items.classList.add('open');
+        const btn = items.previousElementSibling;
+        if (btn) btn.classList.add('open');
+      }
+    }
+  });
+
+  // ── 6. Mobile hamburger ──
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+  hamburger.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+
+  // ── 7. Global page navigation (Next / Back) ──
+  // Built from the sidebar so readers only page through what FlowerShop.DocsPortal left in it (EP-38).
+  const NAV_PAGES = [{ path: '/', title: 'Home' }].concat(
+    Array.from(document.querySelectorAll('#sidebar .sidebar-link')).map(a => ({ path: a.getAttribute('href'), title: a.dataset.navTitle || a.textContent }))
+  );
+
+  (function () {
+    const norm = p => p.replace(/\/$/, '') || '/';
+    const cur  = norm(window.location.pathname);
+    const idx  = NAV_PAGES.findIndex(p => norm(p.path) === cur);
+    if (idx === -1) return;
+
+    const prev = idx > 0              ? NAV_PAGES[idx - 1] : null;
+    const next = idx < NAV_PAGES.length - 1 ? NAV_PAGES[idx + 1] : null;
+
+    const nav = document.createElement('div');
+    nav.className = 'page-nav';
+
+    if (prev) {
+      nav.innerHTML += `<a class="page-nav-btn back" href="${prev.path}">
+        <span class="page-nav-label">← Back</span>
+        <span class="page-nav-title">${prev.title}</span>
+      </a>`;
+    } else {
+      nav.innerHTML += `<span></span>`;
+    }
+
+    if (next) {
+      nav.innerHTML += `<a class="page-nav-btn next" href="${next.path}">
+        <span class="page-nav-label">Next →</span>
+        <span class="page-nav-title">${next.title}</span>
+      </a>`;
+    }
+
+    document.querySelector('.main').appendChild(nav);
+  })();
+
+  // ── 7b. Search (EP-38) — /search.json is served by FlowerShop.DocsPortal with only the reader's pages ──
+  (function () {
+    const box = document.getElementById('docsSearch');
+    const input = document.getElementById('docsSearchInput');
+    const results = document.getElementById('docsSearchResults');
+    if (!box || !input || !window.fetch) return;
+    let index = null;
+    fetch('/search.json', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { index = data; box.hidden = false; })
+      .catch(() => {});
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      if (!index || q.length < 2) { results.innerHTML = ''; return; }
+      const hits = index.filter(p => (p.title + ' ' + p.text).toLowerCase().includes(q)).slice(0, 10);
+      results.innerHTML = hits.length
+        ? hits.map(p => `<a class="topbar-search-hit" href="${esc(p.url)}">${esc(p.title)}</a>`).join('')
+        : '<span class="topbar-search-empty">No results</span>';
+    });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') { input.value = ''; results.innerHTML = ''; } });
+  })();
+
+  // ── 8. Dark / light mode toggle ──
+  (function () {
+    const root = document.documentElement;
+    const btn  = document.getElementById('themeToggle');
+    const icon = document.getElementById('themeIcon');
+    const lbl  = document.getElementById('themeLabel');
+    const LIGHT = {'--bg':'#f5f7fb','--surface':'#ffffff','--surface2':'#eef1f7','--border':'#d1d8e8','--accent':'#4361ee','--accent2':'#7c3aed','--text':'#111827','--text-muted':'#374151','--text-dim':'#374151','--topbar-bg':'rgba(245,247,251,.96)','--content-text':'#111827','--link-hover':'#1d4ed8','--code-color':'#1d4ed8','--pre-code-color':'#1e293b'};
+    const DARK  = {'--bg':'#0f1117','--surface':'#1a1d27','--surface2':'#22263a','--border':'#2e3350','--accent':'#6c8cff','--accent2':'#a78bfa','--text':'#e2e8f0','--text-muted':'#8892a4','--text-dim':'#566070','--topbar-bg':'rgba(15,17,23,.9)','--content-text':'#c8d0dc','--link-hover':'#9bb5ff','--code-color':'#a5d6ff','--pre-code-color':'#c9d1d9'};
+
+    function applyTheme(mode) {
+      const vars = mode === 'light' ? LIGHT : DARK;
+      Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+      if (mode === 'light') {
+        root.classList.add('light');
+        if (icon) icon.innerHTML = '&#127769;';
+        if (lbl)  lbl.textContent = 'Dark';
+      } else {
+        root.classList.remove('light');
+        if (icon) icon.innerHTML = '&#9728;&#65039;';
+        if (lbl)  lbl.textContent = 'Light';
+      }
+    }
+
+    const saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved);
+
+    if (btn) btn.addEventListener('click', () => {
+      const next = root.classList.contains('light') ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
+  })();
+</script>
+</body>
+</html>
