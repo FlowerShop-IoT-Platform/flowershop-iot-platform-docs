@@ -772,6 +772,8 @@
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Instrukcja Portalu sprzedawcy (PL)" href="/manuals/pl/vendor-portal-manual.html">Instrukcja Portalu sprzedawcy (PL)</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Посібник Порталу продавця (UK)" href="/manuals/uk/vendor-portal-manual.html">Посібник Порталу продавця (UK)</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Instrukcja aplikacji mobilnej sprzedawcy (PL)" href="/manuals/pl/vendor-mobile-app-manual.html">Instrukcja aplikacji mobilnej sprzedawcy (PL)</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Посібник мобільного застосунку продавця (UK)" href="/manuals/uk/vendor-mobile-app-manual.html">Посібник мобільного застосунку продавця (UK)</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Instrukcja aplikacji klienta (PL)" href="/manuals/pl/customer-app-manual.html">Instrukcja aplikacji klienta (PL)</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Посібник застосунку клієнта (UK)" href="/manuals/uk/customer-app-manual.html">Посібник застосунку клієнта (UK)</a>
@@ -931,7 +933,7 @@ Analysis date: 2026-11-09</p>
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: none (EP-45 push texts, EP-53 conversations and EP-57 SEO pages build on it)
 <strong>Requirement refs</strong>: REQ-FOS-01 through REQ-FOS-10
-<strong>State</strong>: in progress — implemented 2026-11-10 (S-43-01 … S-43-06 done; S-43-07 done except T-43-016, the vase display language, which waits on firmware EP-08). §H decided: Admin Portal Polish + English now; machine-drafted translations with native-speaker sign-off before release; Ukrainian ships with Polish. Translations are drafts until signed off.</p>
+<strong>State</strong>: done — implemented 2026-11-10 (S-43-01 … S-43-07 done). T-43-016, the vase display language, landed after firmware EP-08; config publishing ships off (<code class="language-plaintext highlighter-rouge">MQTT:DeviceConfigEnabled=false</code>) until every vase runs a build with the BUG-02 fix. §H decided: Admin Portal Polish + English now; machine-drafted translations with native-speaker sign-off before release; Ukrainian ships with Polish. Translations are drafts until signed off.</p>
 
 <blockquote>
   <p>Every portal page, email and AI Florist text in Polish by default, with English and Ukrainian as full second languages.</p>
@@ -977,7 +979,7 @@ Analysis date: 2026-11-09</p>
   <li><strong>S-43-04 — Customer App translation</strong> (done) — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.</li>
   <li><strong>S-43-05 — Emails, notifications and AI output</strong> (done) — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.</li>
   <li><strong>S-43-06 — Ukrainian specifics</strong> (done) — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.</li>
-  <li><strong>S-43-07 — Guard, manuals and mobile</strong> (in progress) — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up (done) · T-43-016 Smart vase display language (todo, waits on firmware EP-08).</li>
+  <li><strong>S-43-07 — Guard, manuals and mobile</strong> (done) — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up (done) · T-43-016 Smart vase display language (done; behind <code class="language-plaintext highlighter-rouge">MQTT:DeviceConfigEnabled</code>). Follow-up: bouquet detail <code class="language-plaintext highlighter-rouge">vendorLanguages</code>; pl/uk vendor mobile app manuals.</li>
 </ol>
 
 <hr />

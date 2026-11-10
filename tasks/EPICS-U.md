@@ -35,7 +35,7 @@
 **Priority**: P1-high
 **Dependencies**: none (EP-45 push texts, EP-53 conversations and EP-57 SEO pages build on it)
 **Requirement refs**: REQ-FOS-01 through REQ-FOS-10
-**State**: in progress — implemented 2026-11-10 (S-43-01 … S-43-06 done; S-43-07 done except T-43-016, the vase display language, which waits on firmware EP-08). §H decided: Admin Portal Polish + English now; machine-drafted translations with native-speaker sign-off before release; Ukrainian ships with Polish. Translations are drafts until signed off.
+**State**: done — implemented 2026-11-10 (S-43-01 … S-43-07 done). T-43-016, the vase display language, landed after firmware EP-08; config publishing ships off (`MQTT:DeviceConfigEnabled=false`) until every vase runs a build with the BUG-02 fix. §H decided: Admin Portal Polish + English now; machine-drafted translations with native-speaker sign-off before release; Ukrainian ships with Polish. Translations are drafts until signed off.
 
 > Every portal page, email and AI Florist text in Polish by default, with English and Ukrainian as full second languages.
 
@@ -75,7 +75,7 @@ See `tasks-ep43-polish-localisation.json` (S-43-01 … S-43-07; T-43-001 … T-4
 4. **S-43-04 — Customer App translation** (done) — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.
 5. **S-43-05 — Emails, notifications and AI output** (done) — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.
 6. **S-43-06 — Ukrainian specifics** (done) — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.
-7. **S-43-07 — Guard, manuals and mobile** (in progress) — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up (done) · T-43-016 Smart vase display language (todo, waits on firmware EP-08).
+7. **S-43-07 — Guard, manuals and mobile** (done) — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up (done) · T-43-016 Smart vase display language (done; behind `MQTT:DeviceConfigEnabled`). Follow-up: bouquet detail `vendorLanguages`; pl/uk vendor mobile app manuals.
 
 ---
 

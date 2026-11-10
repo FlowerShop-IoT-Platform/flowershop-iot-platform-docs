@@ -410,11 +410,13 @@ Returns full detail for a single bouquet (customer-facing `BouquetDetailDto`). N
   },
   "distanceKm": 0.8,
   "availableFrom": "2025-04-10T09:15:00Z",
-  "isFavourite": false
+  "isFavourite": false,
+  "vendorLanguages": ["pl", "uk"]
 }
 ```
 
 **Notes:**
+- `vendorLanguages`: the languages the vendor speaks with customers (EP-43, same values as the nearby list), so the "Speaks Ukrainian" badge also shows when the detail is opened from a QR code, favourites or a notification.
 - `exactAddressHidden: true` for freelance florists — location is approximate within ~500 m (SEC-06).
 - `isFavourite` is `false` for unauthenticated requests.
 - `distanceKm` is included only when `lat` and `lng` query params are provided; omitted otherwise.
@@ -3124,3 +3126,12 @@ Portal offers Polish and English only. Portals forward their UI language to the 
 
 **Mobile apps (vendor app EP-M23, customer app):** read `GET /api/v1/me/language` after sign-in, offer Polski / English /
 Українська in settings, write the choice with `PUT /api/v1/me/language` and send `Accept-Language` on every request.
+
+**Smart vase display language (T-43-016, firmware EP-08):** the device config message on
+`smartvase/{vendorId}/{deviceId}/config` (QoS 1, not retained) carries the shop's display language:
+`{"sensor_interval":5000,"heartbeat_interval":30000,"language":"pl"}`. The value is the first language the shop speaks in
+platform order, so Polish whenever the shop speaks Polish. It is sent when a vase is configured (registration with a vendor,
+`POST /api/v1/SmartVases/{id}/configure`) and to all the shop's assigned vases when `PUT /api/v1/vendor/settings/languages`
+changes it. The vase stores it (NVS); a missing field keeps the stored value and firmware before EP-08 ignores the key.
+Publishing is behind `MQTT:DeviceConfigEnabled` (default `false`): firmware before the BUG-02 fix (T-401) crashes on any
+config message, so it stays off until every vase runs a fixed build; while off, the backend only clears retained config.
