@@ -91,10 +91,10 @@ The vendor and customer manuals in the docs portal get Polish and Ukrainian vers
 The vendor app and customer mobile app use the same language preference and ship Polish and Ukrainian strings (follow-up in their repos).
 **Accept**: follow-up trackers raised in the mobile repos.
 
-**Open decisions (§H, EP-43)**
-1. Should the Admin Portal be translated in this epic (proposed: infrastructure yes, strings later, P3; Polish only)?
-2. Who reviews translations (proposed: a native-speaking florist pilot user signs off the Polish glossary, and a native Ukrainian speaker signs off the Ukrainian one)?
-3. Ship Ukrainian together with Polish (proposed: Customer App and Vendor Portal in the same release, so the guard can require all three from day one) or as a follow-up release?
+**Decisions (§H, EP-43) — decided 2026-11-10**
+1. Admin Portal: infrastructure **and Polish strings** in this epic (Polish and English only; no Ukrainian).
+2. Translations are machine-drafted; a native-speaking florist pilot user signs off the Polish glossary and a native Ukrainian speaker the Ukrainian one before release.
+3. Ukrainian ships **in the same release** as Polish (Customer App and Vendor Portal), so the guard requires all three from day one.
 
 ---
 

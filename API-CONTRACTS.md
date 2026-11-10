@@ -289,8 +289,12 @@ Returns bouquets available within a radius of the given location.
 | `radiusKm` | int | Yes | Search radius: `5`, `10`, or `15` |
 | `vendorType` | string | No | Filter: `shop`, `freelance`, or omit for all |
 | `search` | string | No | Filter by vendor name or neighbourhood |
+| `language` | string | No | EP-43: only vendors who speak it — `pl`, `en` or `uk` ("speaks Ukrainian") |
 | `page` | int | No | Page number (default: `1`) |
 | `pageSize` | int | No | Items per page (default: `20`, max: `50`) |
+
+Each item also carries `vendorLanguages: ["pl","uk"]` (EP-43, badge). `GET /api/v1/bouquets/available` takes the same
+`language` filter and returns `vendor.languages`.
 
 **Response 200:**
 
@@ -1478,9 +1482,12 @@ Returns the authenticated customer's profile.
     "pushEnabled": true,
     "emailEnabled": true,
     "subscriptionDigestEnabled": true
-  }
+  },
+  "preferredLanguage": "pl"
 }
 ```
+
+`preferredLanguage` (EP-43): `pl` (default), `en` or `uk`; change it with `PUT /api/v1/me/language` (§27).
 
 ---
 
@@ -2235,7 +2242,7 @@ Used for small, bounded collections where pagination is unnecessary:
 |---|---|---|
 | `Authorization` | For auth endpoints | `Bearer <access_token>` |
 | `Content-Type` | For POST/PUT | `application/json` |
-| `Accept-Language` | Optional | `pl-PL` (default) or `en-US` |
+| `Accept-Language` | Optional | `pl` / `pl-PL` (default), `en` / `en-GB` / `en-US`, `uk` / `uk-UA` — the first supported language by quality wins (EP-43). Apps should send the user's language |
 | `X-App-Version` | Recommended | Mobile app version, e.g. `1.0.0` |
 | `X-Platform` | Recommended | `android` or `ios` |
 | `Idempotency-Key` | For POST /api/v1/orders | Client-generated UUID v4 |
@@ -2335,8 +2342,12 @@ The backend supports content localisation via the `Accept-Language` request head
 
 | Locale | Status |
 |---|---|
-| `pl-PL` | Default — returned if no `Accept-Language` header is sent |
-| `en-US` | Secondary language for MVP |
+| `pl-PL` | Default — returned if no `Accept-Language` header is sent, or none of its languages is supported |
+| `en-GB` | Full second language (`en`, `en-US` map here) |
+| `uk-UA` | Full third language, Cyrillic (`uk`, `ua` map here) — EP-43 |
+
+The signed-in user's stored language (`PUT /api/v1/me/language`, §27) drives the messages the platform writes for them
+later (inbox, emails, SMS, AI Florist texts). The request culture only drives the response being served.
 
 ### Localised Fields
 
@@ -3086,3 +3097,30 @@ listed), `Atlas:Import:CandidatesPerSource` 2, `MaxFlowersPerRun` 10, `EnoughIma
 `MaxImageBytes` 400000, `MaxDownloadBytes` 15000000, `UserAgent` (Wikimedia API etiquette), `CommonsApiUrl`,
 `INaturalistApiUrl`. Images are stored with `IFileStorageService` under `atlas/{flowerId}/{imageId}.jpg` (public R2 bucket,
 `img.findmyflowers.pl/atlas/...`).
+
+---
+
+## 27. Language preference (EP-43)
+
+Polish is the default for everyone; English and Ukrainian are full alternatives. The stored language drives the portals'
+and apps' interface after sign-in and every message written for the user later: inbox rows, real-time events and emails
+(rendered in the **recipient's** language), Twilio Verify SMS, Keycloak pages and emails (mirrored to the Keycloak user
+attribute `locale`, merged into the existing attributes) and AI Florist recipe texts for vendors.
+
+| Method | Path | Auth | Body | Response |
+|---|---|---|---|---|
+| GET | `/api/v1/me/language` | any signed-in role | — | `{ "language": "pl", "supported": ["pl","en","uk"] }` |
+| PUT | `/api/v1/me/language` | any signed-in role | `{ "language": "uk" }` (also accepts `uk-UA`, `UA`) | same as GET |
+| GET | `/api/v1/vendor/settings/languages` | `VendorAccess` | — | `{ "languagesSpoken": ["pl","uk"], "supported": [...] }` |
+| PUT | `/api/v1/vendor/settings/languages` | `VendorAccess` | `{ "languagesSpoken": ["pl","uk"] }` | same as GET |
+
+Errors are ProblemDetails with `code`: 400 `unsupported-language`, 400 `languages-required` (no supported language in the
+list), 404 `user-not-found` / `vendor-not-found`. Existing users and vendors read as Polish (`languagesSpoken: ["pl"]`).
+
+**Portals:** culture cookie `.AspNetCore.Culture` (an explicit choice on this device) → stored preference → `Accept-Language`
+→ Polish. `GET /language/{code}?returnUrl=/local/path` on each portal sets the cookie and, when signed in, stores the
+preference. At sign-in, a language chosen before signing in is stored; otherwise the stored one is applied. The Admin
+Portal offers Polish and English only. Portals forward their UI language to the API as `Accept-Language`.
+
+**Mobile apps (vendor app EP-M23, customer app):** read `GET /api/v1/me/language` after sign-in, offer Polski / English /
+Українська in settings, write the choice with `PUT /api/v1/me/language` and send `Accept-Language` on every request.

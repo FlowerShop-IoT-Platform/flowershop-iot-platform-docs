@@ -769,8 +769,12 @@
         <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="User Manuals Overview" href="/manuals/">Overview</a>
         <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Portal Manual" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Instrukcja Portalu sprzedawcy (PL)" href="/manuals/pl/vendor-portal-manual.html">Instrukcja Portalu sprzedawcy (PL)</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Посібник Порталу продавця (UK)" href="/manuals/uk/vendor-portal-manual.html">Посібник Порталу продавця (UK)</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Instrukcja aplikacji klienta (PL)" href="/manuals/pl/customer-app-manual.html">Instrukcja aplikacji klienta (PL)</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Посібник застосунку клієнта (UK)" href="/manuals/uk/customer-app-manual.html">Посібник застосунку клієнта (UK)</a>
         <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Use-case Flows" href="/use-case-flows">Use-case flows</a>
         <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
@@ -1278,6 +1282,12 @@ grant_type=refresh_token
       <td>Filter by vendor name or neighbourhood</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">language</code></td>
+      <td>string</td>
+      <td>No</td>
+      <td>EP-43: only vendors who speak it — <code class="language-plaintext highlighter-rouge">pl</code>, <code class="language-plaintext highlighter-rouge">en</code> or <code class="language-plaintext highlighter-rouge">uk</code> (“speaks Ukrainian”)</td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">page</code></td>
       <td>int</td>
       <td>No</td>
@@ -1291,6 +1301,9 @@ grant_type=refresh_token
     </tr>
   </tbody>
 </table>
+
+<p>Each item also carries <code class="language-plaintext highlighter-rouge">vendorLanguages: ["pl","uk"]</code> (EP-43, badge). <code class="language-plaintext highlighter-rouge">GET /api/v1/bouquets/available</code> takes the same
+<code class="language-plaintext highlighter-rouge">language</code> filter and returns <code class="language-plaintext highlighter-rouge">vendor.languages</code>.</p>
 
 <p><strong>Response 200:</strong></p>
 
@@ -2911,9 +2924,12 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
     </span><span class="nl">"pushEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
     </span><span class="nl">"emailEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
     </span><span class="nl">"subscriptionDigestEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
-  </span><span class="p">}</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"preferredLanguage"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pl"</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">preferredLanguage</code> (EP-43): <code class="language-plaintext highlighter-rouge">pl</code> (default), <code class="language-plaintext highlighter-rouge">en</code> or <code class="language-plaintext highlighter-rouge">uk</code>; change it with <code class="language-plaintext highlighter-rouge">PUT /api/v1/me/language</code> (§27).</p>
 
 <hr />
 
@@ -3910,7 +3926,7 @@ unlisted bouquet (EP-39; both were 400 before). Cart items and order lines carry
     <tr>
       <td><code class="language-plaintext highlighter-rouge">Accept-Language</code></td>
       <td>Optional</td>
-      <td><code class="language-plaintext highlighter-rouge">pl-PL</code> (default) or <code class="language-plaintext highlighter-rouge">en-US</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pl</code> / <code class="language-plaintext highlighter-rouge">pl-PL</code> (default), <code class="language-plaintext highlighter-rouge">en</code> / <code class="language-plaintext highlighter-rouge">en-GB</code> / <code class="language-plaintext highlighter-rouge">en-US</code>, <code class="language-plaintext highlighter-rouge">uk</code> / <code class="language-plaintext highlighter-rouge">uk-UA</code> — the first supported language by quality wins (EP-43). Apps should send the user’s language</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">X-App-Version</code></td>
@@ -4199,14 +4215,21 @@ If-None-Match: "abc123"
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">pl-PL</code></td>
-      <td>Default — returned if no <code class="language-plaintext highlighter-rouge">Accept-Language</code> header is sent</td>
+      <td>Default — returned if no <code class="language-plaintext highlighter-rouge">Accept-Language</code> header is sent, or none of its languages is supported</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">en-US</code></td>
-      <td>Secondary language for MVP</td>
+      <td><code class="language-plaintext highlighter-rouge">en-GB</code></td>
+      <td>Full second language (<code class="language-plaintext highlighter-rouge">en</code>, <code class="language-plaintext highlighter-rouge">en-US</code> map here)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">uk-UA</code></td>
+      <td>Full third language, Cyrillic (<code class="language-plaintext highlighter-rouge">uk</code>, <code class="language-plaintext highlighter-rouge">ua</code> map here) — EP-43</td>
     </tr>
   </tbody>
 </table>
+
+<p>The signed-in user’s stored language (<code class="language-plaintext highlighter-rouge">PUT /api/v1/me/language</code>, §27) drives the messages the platform writes for them
+later (inbox, emails, SMS, AI Florist texts). The request culture only drives the response being served.</p>
 
 <h3 id="localised-fields">Localised Fields</h3>
 
@@ -5842,6 +5865,68 @@ listed), <code class="language-plaintext highlighter-rouge">Atlas:Import:Candida
 <code class="language-plaintext highlighter-rouge">MaxImageBytes</code> 400000, <code class="language-plaintext highlighter-rouge">MaxDownloadBytes</code> 15000000, <code class="language-plaintext highlighter-rouge">UserAgent</code> (Wikimedia API etiquette), <code class="language-plaintext highlighter-rouge">CommonsApiUrl</code>,
 <code class="language-plaintext highlighter-rouge">INaturalistApiUrl</code>. Images are stored with <code class="language-plaintext highlighter-rouge">IFileStorageService</code> under <code class="language-plaintext highlighter-rouge">atlas/{flowerId}/{imageId}.jpg</code> (public R2 bucket,
 <code class="language-plaintext highlighter-rouge">img.findmyflowers.pl/atlas/...</code>).</p>
+
+<hr />
+
+<h2 id="27-language-preference-ep-43">27. Language preference (EP-43)</h2>
+
+<p>Polish is the default for everyone; English and Ukrainian are full alternatives. The stored language drives the portals’
+and apps’ interface after sign-in and every message written for the user later: inbox rows, real-time events and emails
+(rendered in the <strong>recipient’s</strong> language), Twilio Verify SMS, Keycloak pages and emails (mirrored to the Keycloak user
+attribute <code class="language-plaintext highlighter-rouge">locale</code>, merged into the existing attributes) and AI Florist recipe texts for vendors.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Auth</th>
+      <th>Body</th>
+      <th>Response</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/me/language</code></td>
+      <td>any signed-in role</td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">{ "language": "pl", "supported": ["pl","en","uk"] }</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/me/language</code></td>
+      <td>any signed-in role</td>
+      <td><code class="language-plaintext highlighter-rouge">{ "language": "uk" }</code> (also accepts <code class="language-plaintext highlighter-rouge">uk-UA</code>, <code class="language-plaintext highlighter-rouge">UA</code>)</td>
+      <td>same as GET</td>
+    </tr>
+    <tr>
+      <td>GET</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/settings/languages</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorAccess</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">{ "languagesSpoken": ["pl","uk"], "supported": [...] }</code></td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td><code class="language-plaintext highlighter-rouge">/api/v1/vendor/settings/languages</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VendorAccess</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{ "languagesSpoken": ["pl","uk"] }</code></td>
+      <td>same as GET</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Errors are ProblemDetails with <code class="language-plaintext highlighter-rouge">code</code>: 400 <code class="language-plaintext highlighter-rouge">unsupported-language</code>, 400 <code class="language-plaintext highlighter-rouge">languages-required</code> (no supported language in the
+list), 404 <code class="language-plaintext highlighter-rouge">user-not-found</code> / <code class="language-plaintext highlighter-rouge">vendor-not-found</code>. Existing users and vendors read as Polish (<code class="language-plaintext highlighter-rouge">languagesSpoken: ["pl"]</code>).</p>
+
+<p><strong>Portals:</strong> culture cookie <code class="language-plaintext highlighter-rouge">.AspNetCore.Culture</code> (an explicit choice on this device) → stored preference → <code class="language-plaintext highlighter-rouge">Accept-Language</code>
+→ Polish. <code class="language-plaintext highlighter-rouge">GET /language/{code}?returnUrl=/local/path</code> on each portal sets the cookie and, when signed in, stores the
+preference. At sign-in, a language chosen before signing in is stored; otherwise the stored one is applied. The Admin
+Portal offers Polish and English only. Portals forward their UI language to the API as <code class="language-plaintext highlighter-rouge">Accept-Language</code>.</p>
+
+<p><strong>Mobile apps (vendor app EP-M23, customer app):</strong> read <code class="language-plaintext highlighter-rouge">GET /api/v1/me/language</code> after sign-in, offer Polski / English /
+Українська in settings, write the choice with <code class="language-plaintext highlighter-rouge">PUT /api/v1/me/language</code> and send <code class="language-plaintext highlighter-rouge">Accept-Language</code> on every request.</p>
 
     </div>
   </main>

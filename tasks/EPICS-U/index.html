@@ -769,8 +769,12 @@
         <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="User Manuals Overview" href="/manuals/">Overview</a>
         <a class="sidebar-link" data-audience="developer" data-nav-title="Admin Portal Manual" href="/manuals/admin-portal-manual.html">Admin Portal Manual</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Portal Manual" href="/manuals/vendor-portal-manual.html">Vendor Portal Manual</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Instrukcja Portalu sprzedawcy (PL)" href="/manuals/pl/vendor-portal-manual.html">Instrukcja Portalu sprzedawcy (PL)</a>
+        <a class="sidebar-link" data-audience="vendor" data-nav-title="Посібник Порталу продавця (UK)" href="/manuals/uk/vendor-portal-manual.html">Посібник Порталу продавця (UK)</a>
         <a class="sidebar-link" data-audience="vendor" data-nav-title="Vendor Mobile App Manual" href="/manuals/vendor-mobile-app-manual.html">Vendor Mobile App Manual</a>
         <a class="sidebar-link" data-audience="customer" data-nav-title="Customer App Manual" href="/manuals/customer-app-manual.html">Customer App Manual</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Instrukcja aplikacji klienta (PL)" href="/manuals/pl/customer-app-manual.html">Instrukcja aplikacji klienta (PL)</a>
+        <a class="sidebar-link" data-audience="customer" data-nav-title="Посібник застосунку клієнта (UK)" href="/manuals/uk/customer-app-manual.html">Посібник застосунку клієнта (UK)</a>
         <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Use-case Flows" href="/use-case-flows">Use-case flows</a>
         <a class="sidebar-link" data-audience="developer vendor customer" data-nav-title="Flower Atlas Image Credits" href="/atlas/ATTRIBUTIONS">Image credits</a>
       </div>
@@ -809,7 +813,7 @@ Analysis date: 2026-11-09</p>
       <td>EP-43 Polish-first experience, with English and Ukrainian</td>
       <td>p1-high</td>
       <td>7</td>
-      <td>15</td>
+      <td>16</td>
       <td><code class="language-plaintext highlighter-rouge">tasks-ep43-polish-localisation.json</code></td>
     </tr>
     <tr>
@@ -927,7 +931,7 @@ Analysis date: 2026-11-09</p>
 <p><strong>Priority</strong>: P1-high
 <strong>Dependencies</strong>: none (EP-45 push texts, EP-53 conversations and EP-57 SEO pages build on it)
 <strong>Requirement refs</strong>: REQ-FOS-01 through REQ-FOS-10
-<strong>State</strong>: proposed. Trackers only (S-43-01). REQ-GAPS-U §A open decisions.</p>
+<strong>State</strong>: in progress — implemented 2026-11-10 (S-43-01 … S-43-06 done; S-43-07 done except T-43-016, the vase display language, which waits on firmware EP-08). §H decided: Admin Portal Polish + English now; machine-drafted translations with native-speaker sign-off before release; Ukrainian ships with Polish. Translations are drafts until signed off.</p>
 
 <blockquote>
   <p>Every portal page, email and AI Florist text in Polish by default, with English and Ukrainian as full second languages.</p>
@@ -953,16 +957,27 @@ Analysis date: 2026-11-09</p>
   <li>AI Florist recipe names, notes and offer drafts follow the vendor’s language; prompts stay in English internally.</li>
 </ul>
 
+<h3 id="what-was-built">What was built</h3>
+<ul>
+  <li><strong>Infrastructure</strong> (<code class="language-plaintext highlighter-rouge">src/portals/FlowerShop.Portals.Localization</code>): request localisation for the three portals (cookie → stored preference → <code class="language-plaintext highlighter-rouge">Accept-Language</code> → Polish), <code class="language-plaintext highlighter-rouge">GET /language/{code}</code> switcher partial, <code class="language-plaintext highlighter-rouge">&lt;html lang&gt;</code>, PLN/date formatting, CLDR plural rules (<code class="language-plaintext highlighter-rouge">L.Plural</code>), localised validation messages, <code class="language-plaintext highlighter-rouge">Accept-Language</code> forwarded to the API. Admin Portal: Polish and English.</li>
+  <li><strong>Preference</strong>: <code class="language-plaintext highlighter-rouge">User.PreferredLanguage</code>, vendor <code class="language-plaintext highlighter-rouge">LanguagesSpoken</code> (migration <code class="language-plaintext highlighter-rouge">AddLanguagePreferences</code>), <code class="language-plaintext highlighter-rouge">GET/PUT /api/v1/me/language</code>, <code class="language-plaintext highlighter-rouge">GET/PUT /api/v1/vendor/settings/languages</code>, Keycloak <code class="language-plaintext highlighter-rouge">locale</code> mirror and <code class="language-plaintext highlighter-rouge">ui_locales</code> (API contract §27).</li>
+  <li><strong>Translations</strong>: Vendor Portal (~1,380 keys) and Customer App (~560) in pl/en/uk, Admin Portal (~750) in pl/en — <code class="language-plaintext highlighter-rouge">Resources/SharedResource*.resx</code>, English text as key.</li>
+  <li><strong>Messages and AI</strong>: marketplace inbox/real-time/email texts in the recipient’s language (<code class="language-plaintext highlighter-rouge">NoteText</code>, <code class="language-plaintext highlighter-rouge">MessageCatalog</code>); AI Florist recipes in the vendor’s language; Ukrainian atlas names.</li>
+  <li><strong>Ukrainian specifics</strong>: Twilio Verify / Stripe / Turnstile / Keycloak locales, Cyrillic search, “Florist speaks” filter and “Speaks Ukrainian” badge.</li>
+  <li><strong>Guard and docs</strong>: <code class="language-plaintext highlighter-rouge">TranslationGuardTests</code> (parity, plurals, placeholders, case-only duplicates, used keys, hard-coded markup scan); Polish and Ukrainian manuals under <code class="language-plaintext highlighter-rouge">docs/manuals/pl|uk</code>, Help opens the user’s language.</li>
+  <li><strong>Follow-ups raised</strong>: vendor app EP-M23, customer app EP-15, smart vase firmware EP-08 (display language).</li>
+</ul>
+
 <h3 id="stories--tasks">Stories &amp; tasks</h3>
-<p>See <code class="language-plaintext highlighter-rouge">tasks-ep43-polish-localisation.json</code> (S-43-01 … S-43-07; T-43-001 … T-43-015).</p>
+<p>See <code class="language-plaintext highlighter-rouge">tasks-ep43-polish-localisation.json</code> (S-43-01 … S-43-07; T-43-001 … T-43-016).</p>
 <ol>
   <li><strong>S-43-01 — Trackers</strong> — T-43-001 (done).</li>
-  <li><strong>S-43-02 — Localisation infrastructure</strong> — T-43-002 Request localisation in the three portals · T-43-003 PreferredLanguage on User.</li>
-  <li><strong>S-43-03 — Vendor Portal translation</strong> — T-43-004 Extract Vendor Portal strings to resources · T-43-005 Ukrainian translation of the Vendor Portal.</li>
-  <li><strong>S-43-04 — Customer App translation</strong> — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.</li>
-  <li><strong>S-43-05 — Emails, notifications and AI output</strong> — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.</li>
-  <li><strong>S-43-06 — Ukrainian specifics</strong> — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.</li>
-  <li><strong>S-43-07 — Guard, manuals and mobile</strong> — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up.</li>
+  <li><strong>S-43-02 — Localisation infrastructure</strong> (done) — T-43-002 Request localisation in the three portals · T-43-003 PreferredLanguage on User.</li>
+  <li><strong>S-43-03 — Vendor Portal translation</strong> (done) — T-43-004 Extract Vendor Portal strings to resources · T-43-005 Ukrainian translation of the Vendor Portal.</li>
+  <li><strong>S-43-04 — Customer App translation</strong> (done) — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.</li>
+  <li><strong>S-43-05 — Emails, notifications and AI output</strong> (done) — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.</li>
+  <li><strong>S-43-06 — Ukrainian specifics</strong> (done) — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.</li>
+  <li><strong>S-43-07 — Guard, manuals and mobile</strong> (in progress) — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up (done) · T-43-016 Smart vase display language (todo, waits on firmware EP-08).</li>
 </ol>
 
 <hr />

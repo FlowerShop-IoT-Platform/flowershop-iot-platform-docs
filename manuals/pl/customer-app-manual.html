@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<!-- EP-43: Polish translation of ../customer-app-manual.html (machine-drafted; native-speaker review pending). Screenshots are shared with the English manual. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aplikacja klienta — instrukcja obsługi</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  :root { --theme: #0a7070; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; margin: 0; }
+  .topbar { background: var(--theme); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .topbar-title { font-size: 1.35rem; margin: 0; font-weight: 700; }
+  .topbar-subtitle { font-size: 0.85rem; opacity: .8; }
+  .layout { display: flex; min-height: calc(100vh - 58px); }
+  .sidebar { width: 260px; min-width: 260px; background: #fff; border-right: 1px solid #e9ecef; padding: 16px 0; overflow-y: auto; position: sticky; top: 58px; height: calc(100vh - 58px); }
+  .sidebar-section { margin-bottom: 4px; }
+  .sidebar-section-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6c757d; padding: 8px 20px 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+  .sidebar-section-title:hover { color: var(--theme); }
+  .sidebar-links { list-style: none; margin: 0; padding: 0 0 8px; }
+  .sidebar-links li a { display: block; padding: 5px 20px 5px 28px; font-size: .85rem; color: #495057; text-decoration: none; border-left: 3px solid transparent; transition: all .15s; }
+  .sidebar-links li a:hover { background: #f8f9fa; color: var(--theme); }
+  .sidebar-links li a.active { border-left-color: var(--theme); background: rgba(0,0,0,.03); color: var(--theme); font-weight: 600; }
+  .sidebar-links.collapsed { display: none; }
+  .main-content { flex: 1; padding: 32px 40px; max-width: 960px; }
+  section { margin-bottom: 48px; }
+  .section-header { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; color: #212529; }
+  .page-entry { background: #fff; border-radius: 12px; padding: 28px; margin-bottom: 28px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .page-title { font-size: 1.1rem; font-weight: 600; color: #212529; margin-bottom: 8px; }
+  .page-desc { color: #495057; font-size: .9rem; line-height: 1.6; margin-bottom: 16px; }
+  .page-entry img { width: 100%; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .cover { background: var(--theme); color: #fff; border-radius: 16px; padding: 40px; margin-bottom: 40px; }
+  .cover h1 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+  .cover p { opacity: .85; font-size: 1.05rem; margin: 0; }
+  .cover .badge-pill { background: rgba(255,255,255,.2); border-radius: 50px; padding: 4px 14px; font-size: .8rem; display: inline-block; margin-top: 14px; }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
+  @media print { .sidebar, .nav-toggle { display: none; } .main-content { max-width: 100%; padding: 20px; } .topbar { position: static; } }
+.nav-toggle { display: none; }
+@media (max-width: 768px) {
+  .topbar { padding: 10px 14px; gap: 10px; }
+  .topbar-title { font-size: 1.05rem; }
+  .topbar-subtitle { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .layout { display: block; min-height: 0; }
+  .sidebar { display: none; position: fixed; top: 52px; left: 0; right: 0; bottom: 0; width: auto; min-width: 0; height: auto; z-index: 999; border-right: 0; box-shadow: 0 8px 16px rgba(0,0,0,.2); }
+  body.nav-open .sidebar { display: block; }
+  body.nav-open { overflow: hidden; }
+  .main-content { max-width: 100%; padding: 16px; }
+  .page-entry { padding: 16px; }
+  .cover { padding: 24px; margin-bottom: 24px; }
+  .cover h1 { font-size: 1.5rem; }
+  .page-entry .shots img.phone { width: 100%; }
+}
+
+  /* DARK MODE */
+  body.dark { background: #0f1117 !important; color: #e2e8f0 !important; }
+  body.dark .topbar { background: #1a1d27 !important; }
+  body.dark .sidebar { background: #1a1d27 !important; border-right-color: #2e3350 !important; }
+  body.dark .sidebar-section-title { color: #8892a4 !important; }
+  body.dark .sidebar-links li a { color: #8892a4 !important; }
+  body.dark .sidebar-links li a:hover { background: #22263a !important; color: #e2e8f0 !important; }
+  body.dark .sidebar-links li a.active { color: var(--theme) !important; background: rgba(0,0,0,.2) !important; }
+  body.dark .page-entry { background: #1a1d27 !important; box-shadow: 0 1px 4px rgba(0,0,0,.4) !important; }
+  body.dark .section-header { color: #e2e8f0 !important; }
+  body.dark .page-title { color: #e2e8f0 !important; }
+  body.dark .page-desc { color: #c8d0dc !important; }
+  body.dark .page-entry img { border-color: #2e3350 !important; }
+  .dark-toggle { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); color: #fff; cursor: pointer; padding: 4px 10px; border-radius: 6px; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; transition: background .15s; font-family: inherit; flex-shrink: 0; }
+  .dark-toggle:hover { background: rgba(255,255,255,.25); }
+</style>
+</head>
+<body>
+<div class="topbar" style="justify-content:space-between;">
+  <button class="dark-toggle nav-toggle" id="navToggle" type="button" aria-controls="manualNav" aria-expanded="false">☰ Spis treści</button>
+  <div style="flex:1;min-width:0;">
+    <div class="topbar-title">Aplikacja klienta</div>
+    <div class="topbar-subtitle">Instrukcja obsługi</div>
+  </div>
+  <button class="dark-toggle" id="darkToggle" title="Przełącz motyw"><span id="darkIcon">&#9728;&#65039;</span> <span id="darkLabel">Jasny</span></button>
+</div>
+<div class="layout">
+  <nav class="sidebar" id="manualNav"><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Przeglądaj bukiety <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-1-page-1" onclick="highlightLink(this)">Mapa bukietów (gość)</a></li><li><a href="#section-1-page-2" onclick="highlightLink(this)">Mapa bukietów (zalogowany)</a></li><li><a href="#section-1-page-3" onclick="highlightLink(this)">Szczegóły bukietu</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Logowanie <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-2-page-1" onclick="highlightLink(this)">Logowanie przez Keycloak</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Zakupy <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-3-page-1" onclick="highlightLink(this)">Koszyk</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Moje zamówienia <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-4-page-1" onclick="highlightLink(this)">Historia zamówień</a></li><li><a href="#section-4-page-2" onclick="highlightLink(this)">Szczegóły zamówienia</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Moje konto <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-5-page-1" onclick="highlightLink(this)">Ulubione</a></li><li><a href="#section-5-page-2" onclick="highlightLink(this)">Subskrypcje</a></li><li><a href="#section-5-page-3" onclick="highlightLink(this)">Mój profil</a></li><li><a href="#section-5-page-4" onclick="highlightLink(this)">Zapisane adresy</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Zapytania o bukiety <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-6-page-1" onclick="highlightLink(this)">Zamów bukiet na zapytanie</a></li><li><a href="#section-6-page-2" onclick="highlightLink(this)">Porównaj oferty i zapłać</a></li><li><a href="#section-6-page-3" onclick="highlightLink(this)">Śledź swoje zamówienie indywidualne</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Bukiety tylko z dostawą <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-7-page-1" onclick="highlightLink(this)">Bukiety tylko z dostawą</a></li><li><a href="#section-7-page-2" onclick="highlightLink(this)">Zamawianie bukietu tylko z dostawą</a></li></ul></div></nav>
+  <div class="main-content">
+    <div class="cover">
+      <h1>Aplikacja klienta</h1>
+      <p>Pełny przewodnik dla klientów — odkrywaj bukiety na mapie, zarządzaj koszykiem, składaj zamówienia i śledź dostawy.</p>
+      <div class="badge-pill">FlowerShop IoT Platform</div>
+    </div>
+    <section id="section-1"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Przeglądaj bukiety</h2><div id="section-1-page-1" class="page-entry"><h3 class="page-title">Mapa bukietów (gość)</h3><p class="page-desc">Główny ekran odkrywania. Interaktywna mapa pokazuje znaczniki bukietów w pobliżu wybranej lokalizacji. Panel filtrów (po lewej) pozwala szukać po adresie, wybrać promień wyszukiwania (1–15 km) i użyć GPS urządzenia. Każdy znacznik z kwiatkiem to dostępny bukiet — kliknij go, aby zobaczyć okienko ze zdjęciem, ceną, nazwą kwiaciarni i przyciskiem <em>Dodaj do koszyka</em> .</p><img src="../screenshots/customer/01-home-map.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-1-page-2" class="page-entry"><h3 class="page-title">Mapa bukietów (zalogowany)</h3><p class="page-desc">Ten sam widok mapy po zalogowaniu. Pasek nawigacji pokazuje teraz Zamówienia, Ulubione, Subskrypcje i ikonę koszyka. E-mail konta jest w menu użytkownika w prawym górnym rogu.</p><img src="../screenshots/customer/01-home-map-loggedin.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-1-page-3" class="page-entry"><h3 class="page-title">Szczegóły bukietu</h3><p class="page-desc">Pełna strona jednego bukietu: duże zdjęcie, nazwa, opis, cena, informacje o świeżości, profil kwiaciarni z oceną w gwiazdkach i odległość od Twojej lokalizacji. Kliknij <strong>Dodaj do koszyka</strong> , aby kupić, albo ikonę serca, aby zapisać w ulubionych.</p><img src="../screenshots/customer/10-bouquet-details.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-2"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Logowanie</h2><div id="section-2-page-1" class="page-entry"><h3 class="page-title">Logowanie przez Keycloak</h3><p class="page-desc">FlowerShop używa Keycloak do bezpiecznego logowania. Wpisz zarejestrowany e-mail i hasło albo kliknij <em>Zarejestruj się</em> , aby założyć nowe konto. Trafiasz tu automatycznie, gdy otwierasz chronioną stronę (Koszyk, Zamówienia, Profil).</p><img src="../screenshots/customer/02-keycloak-login.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-3"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Zakupy</h2><div id="section-3-page-1" class="page-entry"><h3 class="page-title">Koszyk</h3><p class="page-desc">Koszyk pokazuje wszystkie wybrane bukiety ze zdjęciami, nazwami, kwiaciarnią, ceną za sztukę i sumą częściową. Wszystkie pozycje muszą być od tej samej kwiaciarni — dodanie bukietu od innej kwiaciarni zaczyna nowy koszyk. Kliknij <strong>Kasa</strong> , aby przejść do płatności.</p><img src="../screenshots/customer/03-cart.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-4"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Moje zamówienia</h2><div id="section-4-page-1" class="page-entry"><h3 class="page-title">Historia zamówień</h3><p class="page-desc">Pełna historia wszystkich zamówień. Filtruj zakładkami statusu: <em>Wszystkie / Oczekujące / Opłacone / W przygotowaniu / W dostawie / Zakończone / Anulowane</em>. Każdy wiersz pokazuje ID zamówienia, datę, liczbę pozycji, sumę i obecny status. Kliknij <strong>Szczegóły</strong> , aby otworzyć pełny widok zamówienia.</p><img src="../screenshots/customer/04-orders.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-4-page-2" class="page-entry"><h3 class="page-title">Szczegóły zamówienia</h3><p class="page-desc">Szczegółowy widok jednego zamówienia: zdjęcie bukietu, nazwa, kwiaciarnia, cena, adres dostawy, numer płatności i oś czasu z każdym krokiem od złożenia do dostawy.</p><img src="../screenshots/customer/05-order-details.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-5"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Moje konto</h2><div id="section-5-page-1" class="page-entry"><h3 class="page-title">Ulubione</h3><p class="page-desc">Zapisane ulubione bukiety. Kliknij ikonę serca na bukiecie lub karcie kwiaciarni, aby je tu dodać. Ta strona pozwala szybko zamówić ponownie u kwiaciarni, u których już kupowałeś.</p><img src="../screenshots/customer/06-favourites.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-5-page-2" class="page-entry"><h3 class="page-title">Subskrypcje</h3><p class="page-desc">Zarządzaj subskrypcjami kwiaciarni. Subskrypcja oznacza, że dostaniesz powiadomienie push, gdy kwiaciarnia wystawi nowe bukiety w Twojej okolicy. Włączaj i wyłączaj subskrypcje na tej liście.</p><img src="../screenshots/customer/07-subscriptions.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-5-page-3" class="page-entry"><h3 class="page-title">Mój profil</h3><p class="page-desc">Twoje dane osobowe: imię i nazwisko, adres e-mail i numer telefonu. Aktualizuj je, aby kwiaciarnie mogły się z Tobą kontaktować w sprawie zamówień.</p><img src="../screenshots/customer/08-profile.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-5-page-4" class="page-entry"><h3 class="page-title">Zapisane adresy</h3><p class="page-desc">Zarządzaj adresami dostawy dla szybszej kasy. Dodawaj, edytuj lub usuwaj adresy i oznacz jeden jako domyślny. Adres domyślny jest wstępnie wypełniany w kasie.</p><img src="../screenshots/customer/09-profile-addresses.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-6"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Zapytania o bukiety</h2><div id="section-6-page-1" class="page-entry"><h3 class="page-title">Zamów bukiet na zapytanie</h3><p class="page-desc">Kliknij <strong>Zamów bukiet na zapytanie</strong> w menu, aby poprosić kwiaciarnie w pobliżu o bukiet, który masz na myśli. Dodaj 1–5 zdjęć wzoru (np. zdjęcie, które Ci się podoba), opisz, czego chcesz, ustal budżet, okazję i rozmiar, wybierz termin (co najmniej 3 godziny naprzód) oraz dostawę lub odbiór osobisty. Wybierz zapisany adres albo wpisz nowy i postaw pinezkę na mapie. Kliknij <strong>Opublikuj</strong>: kwiaciarnie w zasięgu dostaną powiadomienie. Widzą Twoje zdjęcia, notatkę, budżet i tylko przybliżony obszar — nigdy adres ani imię, dopóki nie zapłacisz.</p></div><div id="section-6-page-2" class="page-entry"><h3 class="page-title">Porównaj oferty i zapłać</h3><p class="page-desc"><strong>Moje zapytania</strong> pokazują każde zapytanie i jego oferty. Sortuj oferty po cenie, czasie lub odległości; każda pokazuje kwiaciarnię, ocenę, cenę z dostawą, czas gotowości i dostawy, notatki i zdjęcia. Kliknij <strong>Akceptuj</strong> przy jednej ofercie, aby przejść prosto do płatności — masz 30 minut na zapłatę, inaczej pozostałe oferty wracają. Wszystkie inne oferty są automatycznie odrzucane. Zapytanie możesz anulować, zanim przyjmiesz ofertę.</p></div><div id="section-6-page-3" class="page-entry"><h3 class="page-title">Śledź swoje zamówienie indywidualne</h3><p class="page-desc">Po płatności zapytanie pokazuje odliczanie i postęp kwiaciarni (w realizacji, gotowe, w doręczeniu, dostarczone lub odebrane). Jeśli kwiaciarnia potrzebuje więcej czasu, zobaczysz proponowany termin: przyjmij go albo — gdy jest późniejszy o ponad godzinę — anuluj z pełnym zwrotem. Jeśli nie odpowiesz w ciągu 30 minut, nowy termin zostaje przyjęty. Jeśli zamówienie spóźnia się ponad 2 godziny, możesz je anulować z pełnym zwrotem. Alerty zapytań pojawiają się też w powiadomieniach.</p></div></section>
+    <section id="section-7"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Bukiety tylko z dostawą</h2><div id="section-7-page-1" class="page-entry"><h3 class="page-title">Bukiety tylko z dostawą</h3><p class="page-desc">Niektóre kwiaciarnie sprzedają tylko online: nie mają sklepu, do którego można przyjść. Ich bukiety mają plakietkę <strong>Tylko dostawa</strong> na mapie i stronie bukietu, a ich lokalizacja na mapie jest przybliżona. Widzisz je tylko w ich zasięgu dostawy.</p></div><div id="section-7-page-2" class="page-entry"><h3 class="page-title">Zamawianie bukietu tylko z dostawą</h3><p class="page-desc">Dodaj go do koszyka jak zwykle. W kasie <strong>Odbiór osobisty</strong> nie jest dostępny: wpisz adres dostawy, sprawdź opłatę za dostawę i zapłać. Bukietu tylko z dostawą nie można zamówić razem z bukietem odbieranym w kwiaciarni. Jeśli ktoś kupi go chwilę przed Tobą, zobaczysz, że nie jest już dostępny — usuń go z koszyka i wybierz inny.</p></div></section>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleSection(el) {
+  const ul = el.nextElementSibling;
+  ul.classList.toggle('collapsed');
+  el.querySelector('.arrow').textContent = ul.classList.contains('collapsed') ? '▸' : '▾';
+}
+function setNav(open){ document.body.classList.toggle('nav-open', open); var b=document.getElementById('navToggle'); if(b) b.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+function highlightLink(el) {
+  document.querySelectorAll('.sidebar-links a').forEach(a => a.classList.remove('active'));
+  el.classList.add('active');
+  if (window.matchMedia('(max-width: 768px)').matches) setNav(false);
+}
+(function(){ var b=document.getElementById('navToggle'); if(!b) return; b.addEventListener('click', function(){ setNav(!document.body.classList.contains('nav-open')); }); window.addEventListener('resize', function(){ if (!window.matchMedia('(max-width: 768px)').matches) setNav(false); }); })();
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      document.querySelectorAll('.sidebar-links a').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.page-entry[id]').forEach(el => observer.observe(el));
+</script>
+<script>
+(function(){
+  var btn=document.getElementById('darkToggle');
+  var icon=document.getElementById('darkIcon');
+  var lbl=document.getElementById('darkLabel');
+  function applyTheme(mode){
+    if(mode==='dark'){
+      document.body.classList.add('dark');
+      if(icon)icon.innerHTML='&#9728;&#65039;';
+      if(lbl)lbl.textContent='Light';
+    }else{
+      document.body.classList.remove('dark');
+      if(icon)icon.innerHTML='&#127769;';
+      if(lbl)lbl.textContent='Dark';
+    }
+  }
+  var saved=localStorage.getItem('manual-theme')||'dark';
+  applyTheme(saved);
+  if(btn)btn.addEventListener('click',function(){
+    var next=document.body.classList.contains('dark')?'light':'dark';
+    localStorage.setItem('manual-theme',next);
+    applyTheme(next);
+  });
+})();
+</script>
+</body>
+</html>

@@ -11,7 +11,7 @@
 
 | Epic | Priority | Stories | Tasks | Tracker |
 |---|---|---|---|---|
-| EP-43 Polish-first experience, with English and Ukrainian | p1-high | 7 | 15 | `tasks-ep43-polish-localisation.json` |
+| EP-43 Polish-first experience, with English and Ukrainian | p1-high | 7 | 16 | `tasks-ep43-polish-localisation.json` |
 | EP-44 Florist payouts and Polish payment methods | p1-high | 6 | 9 | `tasks-ep44-payments-and-payouts.json` |
 | EP-45 Push alerts for florists and customers | p1-high | 5 | 7 | `tasks-ep45-push-alerts.json` |
 | EP-46 One order book: every channel, one production board | p1-high | 5 | 8 | `tasks-ep46-unified-order-book.json` |
@@ -35,7 +35,7 @@
 **Priority**: P1-high
 **Dependencies**: none (EP-45 push texts, EP-53 conversations and EP-57 SEO pages build on it)
 **Requirement refs**: REQ-FOS-01 through REQ-FOS-10
-**State**: proposed. Trackers only (S-43-01). REQ-GAPS-U §A open decisions.
+**State**: in progress — implemented 2026-11-10 (S-43-01 … S-43-06 done; S-43-07 done except T-43-016, the vase display language, which waits on firmware EP-08). §H decided: Admin Portal Polish + English now; machine-drafted translations with native-speaker sign-off before release; Ukrainian ships with Polish. Translations are drafts until signed off.
 
 > Every portal page, email and AI Florist text in Polish by default, with English and Ukrainian as full second languages.
 
@@ -58,15 +58,24 @@ culture cookie / user preference / Accept-Language
 - Prices stay in PLN in every language; only formatting changes.
 - AI Florist recipe names, notes and offer drafts follow the vendor's language; prompts stay in English internally.
 
+### What was built
+- **Infrastructure** (`src/portals/FlowerShop.Portals.Localization`): request localisation for the three portals (cookie → stored preference → `Accept-Language` → Polish), `GET /language/{code}` switcher partial, `<html lang>`, PLN/date formatting, CLDR plural rules (`L.Plural`), localised validation messages, `Accept-Language` forwarded to the API. Admin Portal: Polish and English.
+- **Preference**: `User.PreferredLanguage`, vendor `LanguagesSpoken` (migration `AddLanguagePreferences`), `GET/PUT /api/v1/me/language`, `GET/PUT /api/v1/vendor/settings/languages`, Keycloak `locale` mirror and `ui_locales` (API contract §27).
+- **Translations**: Vendor Portal (~1,380 keys) and Customer App (~560) in pl/en/uk, Admin Portal (~750) in pl/en — `Resources/SharedResource*.resx`, English text as key.
+- **Messages and AI**: marketplace inbox/real-time/email texts in the recipient's language (`NoteText`, `MessageCatalog`); AI Florist recipes in the vendor's language; Ukrainian atlas names.
+- **Ukrainian specifics**: Twilio Verify / Stripe / Turnstile / Keycloak locales, Cyrillic search, "Florist speaks" filter and "Speaks Ukrainian" badge.
+- **Guard and docs**: `TranslationGuardTests` (parity, plurals, placeholders, case-only duplicates, used keys, hard-coded markup scan); Polish and Ukrainian manuals under `docs/manuals/pl|uk`, Help opens the user's language.
+- **Follow-ups raised**: vendor app EP-M23, customer app EP-15, smart vase firmware EP-08 (display language).
+
 ### Stories & tasks
-See `tasks-ep43-polish-localisation.json` (S-43-01 … S-43-07; T-43-001 … T-43-015).
+See `tasks-ep43-polish-localisation.json` (S-43-01 … S-43-07; T-43-001 … T-43-016).
 1. **S-43-01 — Trackers** — T-43-001 (done).
-2. **S-43-02 — Localisation infrastructure** — T-43-002 Request localisation in the three portals · T-43-003 PreferredLanguage on User.
-3. **S-43-03 — Vendor Portal translation** — T-43-004 Extract Vendor Portal strings to resources · T-43-005 Ukrainian translation of the Vendor Portal.
-4. **S-43-04 — Customer App translation** — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.
-5. **S-43-05 — Emails, notifications and AI output** — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.
-6. **S-43-06 — Ukrainian specifics** — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.
-7. **S-43-07 — Guard, manuals and mobile** — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up.
+2. **S-43-02 — Localisation infrastructure** (done) — T-43-002 Request localisation in the three portals · T-43-003 PreferredLanguage on User.
+3. **S-43-03 — Vendor Portal translation** (done) — T-43-004 Extract Vendor Portal strings to resources · T-43-005 Ukrainian translation of the Vendor Portal.
+4. **S-43-04 — Customer App translation** (done) — T-43-006 Extract Customer App strings to resources · T-43-007 Ukrainian translation of the Customer App · T-43-008 Admin Portal strings to resources.
+5. **S-43-05 — Emails, notifications and AI output** (done) — T-43-009 Email and inbox templates per language · T-43-010 AI Florist output language.
+6. **S-43-06 — Ukrainian specifics** (done) — T-43-011 Cyrillic coverage and third-party locales · T-43-012 Vendor languages spoken.
+7. **S-43-07 — Guard, manuals and mobile** (in progress) — T-43-013 Missing-translation guard test · T-43-014 Polish and Ukrainian manuals · T-43-015 Mobile follow-up (done) · T-43-016 Smart vase display language (todo, waits on firmware EP-08).
 
 ---
 

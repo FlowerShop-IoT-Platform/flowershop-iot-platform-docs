@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<!-- EP-43: Ukrainian translation of ../customer-app-manual.html (machine-drafted; native-speaker review pending). Screenshots are shared with the English manual. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Застосунок клієнта — посібник користувача</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  :root { --theme: #0a7070; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; margin: 0; }
+  .topbar { background: var(--theme); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .topbar-title { font-size: 1.35rem; margin: 0; font-weight: 700; }
+  .topbar-subtitle { font-size: 0.85rem; opacity: .8; }
+  .layout { display: flex; min-height: calc(100vh - 58px); }
+  .sidebar { width: 260px; min-width: 260px; background: #fff; border-right: 1px solid #e9ecef; padding: 16px 0; overflow-y: auto; position: sticky; top: 58px; height: calc(100vh - 58px); }
+  .sidebar-section { margin-bottom: 4px; }
+  .sidebar-section-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6c757d; padding: 8px 20px 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+  .sidebar-section-title:hover { color: var(--theme); }
+  .sidebar-links { list-style: none; margin: 0; padding: 0 0 8px; }
+  .sidebar-links li a { display: block; padding: 5px 20px 5px 28px; font-size: .85rem; color: #495057; text-decoration: none; border-left: 3px solid transparent; transition: all .15s; }
+  .sidebar-links li a:hover { background: #f8f9fa; color: var(--theme); }
+  .sidebar-links li a.active { border-left-color: var(--theme); background: rgba(0,0,0,.03); color: var(--theme); font-weight: 600; }
+  .sidebar-links.collapsed { display: none; }
+  .main-content { flex: 1; padding: 32px 40px; max-width: 960px; }
+  section { margin-bottom: 48px; }
+  .section-header { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; color: #212529; }
+  .page-entry { background: #fff; border-radius: 12px; padding: 28px; margin-bottom: 28px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .page-title { font-size: 1.1rem; font-weight: 600; color: #212529; margin-bottom: 8px; }
+  .page-desc { color: #495057; font-size: .9rem; line-height: 1.6; margin-bottom: 16px; }
+  .page-entry img { width: 100%; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .cover { background: var(--theme); color: #fff; border-radius: 16px; padding: 40px; margin-bottom: 40px; }
+  .cover h1 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+  .cover p { opacity: .85; font-size: 1.05rem; margin: 0; }
+  .cover .badge-pill { background: rgba(255,255,255,.2); border-radius: 50px; padding: 4px 14px; font-size: .8rem; display: inline-block; margin-top: 14px; }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
+  @media print { .sidebar, .nav-toggle { display: none; } .main-content { max-width: 100%; padding: 20px; } .topbar { position: static; } }
+.nav-toggle { display: none; }
+@media (max-width: 768px) {
+  .topbar { padding: 10px 14px; gap: 10px; }
+  .topbar-title { font-size: 1.05rem; }
+  .topbar-subtitle { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .layout { display: block; min-height: 0; }
+  .sidebar { display: none; position: fixed; top: 52px; left: 0; right: 0; bottom: 0; width: auto; min-width: 0; height: auto; z-index: 999; border-right: 0; box-shadow: 0 8px 16px rgba(0,0,0,.2); }
+  body.nav-open .sidebar { display: block; }
+  body.nav-open { overflow: hidden; }
+  .main-content { max-width: 100%; padding: 16px; }
+  .page-entry { padding: 16px; }
+  .cover { padding: 24px; margin-bottom: 24px; }
+  .cover h1 { font-size: 1.5rem; }
+  .page-entry .shots img.phone { width: 100%; }
+}
+
+  /* DARK MODE */
+  body.dark { background: #0f1117 !important; color: #e2e8f0 !important; }
+  body.dark .topbar { background: #1a1d27 !important; }
+  body.dark .sidebar { background: #1a1d27 !important; border-right-color: #2e3350 !important; }
+  body.dark .sidebar-section-title { color: #8892a4 !important; }
+  body.dark .sidebar-links li a { color: #8892a4 !important; }
+  body.dark .sidebar-links li a:hover { background: #22263a !important; color: #e2e8f0 !important; }
+  body.dark .sidebar-links li a.active { color: var(--theme) !important; background: rgba(0,0,0,.2) !important; }
+  body.dark .page-entry { background: #1a1d27 !important; box-shadow: 0 1px 4px rgba(0,0,0,.4) !important; }
+  body.dark .section-header { color: #e2e8f0 !important; }
+  body.dark .page-title { color: #e2e8f0 !important; }
+  body.dark .page-desc { color: #c8d0dc !important; }
+  body.dark .page-entry img { border-color: #2e3350 !important; }
+  .dark-toggle { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); color: #fff; cursor: pointer; padding: 4px 10px; border-radius: 6px; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; transition: background .15s; font-family: inherit; flex-shrink: 0; }
+  .dark-toggle:hover { background: rgba(255,255,255,.25); }
+</style>
+</head>
+<body>
+<div class="topbar" style="justify-content:space-between;">
+  <button class="dark-toggle nav-toggle" id="navToggle" type="button" aria-controls="manualNav" aria-expanded="false">☰ Зміст</button>
+  <div style="flex:1;min-width:0;">
+    <div class="topbar-title">Застосунок клієнта</div>
+    <div class="topbar-subtitle">Посібник користувача</div>
+  </div>
+  <button class="dark-toggle" id="darkToggle" title="Перемкнути тему"><span id="darkIcon">&#9728;&#65039;</span> <span id="darkLabel">Світла</span></button>
+</div>
+<div class="layout">
+  <nav class="sidebar" id="manualNav"><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Переглянути букети <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-1-page-1" onclick="highlightLink(this)">Мапа букетів (гість)</a></li><li><a href="#section-1-page-2" onclick="highlightLink(this)">Мапа букетів (після входу)</a></li><li><a href="#section-1-page-3" onclick="highlightLink(this)">Деталі букета</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Вхід <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-2-page-1" onclick="highlightLink(this)">Вхід через Keycloak</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Покупки <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-3-page-1" onclick="highlightLink(this)">Кошик</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Мої замовлення <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-4-page-1" onclick="highlightLink(this)">Історія замовлень</a></li><li><a href="#section-4-page-2" onclick="highlightLink(this)">Деталі замовлення</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Мій обліковий запис <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-5-page-1" onclick="highlightLink(this)">Улюблені</a></li><li><a href="#section-5-page-2" onclick="highlightLink(this)">Підписки</a></li><li><a href="#section-5-page-3" onclick="highlightLink(this)">Мій профіль</a></li><li><a href="#section-5-page-4" onclick="highlightLink(this)">Збережені адреси</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Запити на букети <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-6-page-1" onclick="highlightLink(this)">Запит на букет</a></li><li><a href="#section-6-page-2" onclick="highlightLink(this)">Порівняйте пропозиції й оплатіть</a></li><li><a href="#section-6-page-3" onclick="highlightLink(this)">Стежте за своїм індивідуальним замовленням</a></li></ul></div><div class="sidebar-section"><div class="sidebar-section-title" onclick="toggleSection(this)">Букети лише з доставкою <span class="arrow">▾</span></div><ul class="sidebar-links"><li><a href="#section-7-page-1" onclick="highlightLink(this)">Букети лише з доставкою</a></li><li><a href="#section-7-page-2" onclick="highlightLink(this)">Замовлення букета лише з доставкою</a></li></ul></div></nav>
+  <div class="main-content">
+    <div class="cover">
+      <h1>Застосунок клієнта</h1>
+      <p>Повний посібник для клієнтів — знаходьте букети на мапі, керуйте кошиком, оформлюйте замовлення й відстежуйте доставки.</p>
+      <div class="badge-pill">FlowerShop IoT Platform</div>
+    </div>
+    <section id="section-1"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Переглянути букети</h2><div id="section-1-page-1" class="page-entry"><h3 class="page-title">Мапа букетів (гість)</h3><p class="page-desc">Головний екран пошуку. Інтерактивна мапа показує мітки букетів поблизу вибраного місця. Панель фільтрів (ліворуч) дає змогу шукати за адресою, обрати радіус пошуку (1–15 км) і використати GPS пристрою. Кожна мітка з квіткою — доступний букет; натисніть її, щоб побачити вікно з фото, ціною, назвою продавця й кнопкою <em>Додати до кошика</em> .</p><img src="../screenshots/customer/01-home-map.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-1-page-2" class="page-entry"><h3 class="page-title">Мапа букетів (після входу)</h3><p class="page-desc">Той самий вигляд мапи після входу. Панель навігації тепер показує Замовлення, Улюблені, Підписки й значок кошика. Ел. пошта облікового запису — в меню користувача вгорі праворуч.</p><img src="../screenshots/customer/01-home-map-loggedin.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-1-page-3" class="page-entry"><h3 class="page-title">Деталі букета</h3><p class="page-desc">Повна сторінка одного букета: велике фото, назва, опис, ціна, інформація про свіжість, профіль продавця з оцінкою в зірках і відстань від вашого розташування. Натисніть <strong>Додати до кошика</strong> , щоб купити, або значок серця, щоб зберегти в улюблених.</p><img src="../screenshots/customer/10-bouquet-details.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-2"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Вхід</h2><div id="section-2-page-1" class="page-entry"><h3 class="page-title">Вхід через Keycloak</h3><p class="page-desc">FlowerShop використовує Keycloak для безпечного входу. Введіть зареєстровану ел. пошту й пароль або натисніть <em>Зареєструватися</em> , щоб створити новий обліковий запис. Ви потрапляєте сюди автоматично, коли відкриваєте захищену сторінку (Кошик, Замовлення, Профіль).</p><img src="../screenshots/customer/02-keycloak-login.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-3"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Покупки</h2><div id="section-3-page-1" class="page-entry"><h3 class="page-title">Кошик</h3><p class="page-desc">Кошик показує всі вибрані букети з фото, назвами, продавцем, ціною за одиницю й проміжною сумою. Усі позиції мають бути від одного продавця — букет від іншого продавця починає новий кошик. Натисніть <strong>Оформлення</strong> , щоб перейти до оплати.</p><img src="../screenshots/customer/03-cart.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-4"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Мої замовлення</h2><div id="section-4-page-1" class="page-entry"><h3 class="page-title">Історія замовлень</h3><p class="page-desc">Повна історія всіх ваших замовлень. Фільтруйте вкладками статусу: <em>Усі / Очікує / Оплачено / Готується / У доставці / Завершено / Скасовано</em>. Кожен рядок показує ID замовлення, дату, кількість позицій, суму й поточний статус. Натисніть <strong>Деталі</strong> , щоб відкрити повний вигляд замовлення.</p><img src="../screenshots/customer/04-orders.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-4-page-2" class="page-entry"><h3 class="page-title">Деталі замовлення</h3><p class="page-desc">Детальний вигляд одного замовлення: фото букета, назва, продавець, ціна, адреса доставки, номер платежу й часова шкала з кожним кроком від оформлення до доставки.</p><img src="../screenshots/customer/05-order-details.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-5"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Мій обліковий запис</h2><div id="section-5-page-1" class="page-entry"><h3 class="page-title">Улюблені</h3><p class="page-desc">Ваші збережені улюблені букети. Натисніть значок серця на будь-якому букеті чи картці продавця, щоб додати їх сюди. Ця сторінка допомагає швидко замовити знову в продавців, у яких ви вже купували.</p><img src="../screenshots/customer/06-favourites.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-5-page-2" class="page-entry"><h3 class="page-title">Підписки</h3><p class="page-desc">Керуйте підписками на продавців. Підписка означає, що ви отримуватимете push-сповіщення, коли продавець виставить нові букети поблизу. Вмикайте й вимикайте підписки в цьому списку.</p><img src="../screenshots/customer/07-subscriptions.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-5-page-3" class="page-entry"><h3 class="page-title">Мій профіль</h3><p class="page-desc">Ваші особисті дані: ім’я, ел. пошта й номер телефону. Підтримуйте їх актуальними, щоб продавці могли зв’язатися з вами щодо замовлень.</p><img src="../screenshots/customer/08-profile.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div><div id="section-5-page-4" class="page-entry"><h3 class="page-title">Збережені адреси</h3><p class="page-desc">Керуйте адресами доставки для швидшого оформлення. Додавайте, редагуйте або видаляйте адреси й позначте одну як основну. Основна адреса підставляється під час оформлення.</p><img src="../screenshots/customer/09-profile-addresses.png" alt="" style="max-width:100%;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:12px 0;"></div></section><section id="section-6"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Запити на букети</h2><div id="section-6-page-1" class="page-entry"><h3 class="page-title">Запит на букет</h3><p class="page-desc">Натисніть <strong>Запит на букет</strong> в меню, щоб попросити флористів поблизу про букет, який ви уявляєте. Додайте 1–5 фото-зразків (наприклад, фото, яке вам сподобалося), опишіть, чого хочете, установіть бюджет, привід і розмір, оберіть час (щонайменше за 3 години) і доставку або самовивіз. Оберіть збережену адресу або введіть нову й поставте мітку на мапі. Натисніть <strong>Опублікувати</strong>: флористи в зоні дії отримають сповіщення. Вони бачать ваші фото, примітку, бюджет і лише приблизний район — ніколи адресу чи ім’я, доки ви не оплатите.</p></div><div id="section-6-page-2" class="page-entry"><h3 class="page-title">Порівняйте пропозиції й оплатіть</h3><p class="page-desc"><strong>Мої запити</strong> показують кожен запит і його пропозиції. Сортуйте пропозиції за ціною, часом або відстанню; кожна показує флориста, оцінку, ціну з доставкою, час готовності й доставки, примітки й фото. Натисніть <strong>Прийняти</strong> біля однієї пропозиції, щоб одразу перейти до оплати — у вас є 30 хвилин на оплату, інакше інші пропозиції повертаються. Усі інші пропозиції відхиляються автоматично. Запит можна скасувати до прийняття пропозиції.</p></div><div id="section-6-page-3" class="page-entry"><h3 class="page-title">Стежте за своїм індивідуальним замовленням</h3><p class="page-desc">Після оплати запит показує зворотний відлік і прогрес флориста (виконується, готово, доставляється, доставлено або забрано). Якщо флористу потрібно більше часу, ви побачите запропонований час: прийміть його або — якщо він пізніший більш ніж на годину — скасуйте з повним поверненням коштів. Якщо ви не відповісте протягом 30 хвилин, новий час буде прийнято. Якщо замовлення запізнюється понад 2 години, його можна скасувати з повним поверненням коштів. Сповіщення про запити також з’являються серед ваших сповіщень.</p></div></section>
+    <section id="section-7"><h2 class="section-header" style="border-left:4px solid #0a7070;padding-left:12px;">Букети лише з доставкою</h2><div id="section-7-page-1" class="page-entry"><h3 class="page-title">Букети лише з доставкою</h3><p class="page-desc">Деякі флористи продають лише онлайн: у них немає крамниці, куди можна прийти. Їхні букети мають мітку <strong>Лише доставка</strong> на мапі й на сторінці букета, а розташування на мапі приблизне. Ви бачите їх лише в межах їхньої зони доставки.</p></div><div id="section-7-page-2" class="page-entry"><h3 class="page-title">Замовлення букета лише з доставкою</h3><p class="page-desc">Додайте його до кошика як зазвичай. Під час оформлення <strong>Самовивіз</strong> недоступний: введіть адресу доставки, перевірте вартість доставки й оплатіть. Букет лише з доставкою не можна замовити разом із букетом, який ви забираєте в крамниці. Якщо хтось купить його за мить до вас, ви побачите, що він більше недоступний, — видаліть його з кошика й оберіть інший.</p></div></section>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleSection(el) {
+  const ul = el.nextElementSibling;
+  ul.classList.toggle('collapsed');
+  el.querySelector('.arrow').textContent = ul.classList.contains('collapsed') ? '▸' : '▾';
+}
+function setNav(open){ document.body.classList.toggle('nav-open', open); var b=document.getElementById('navToggle'); if(b) b.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+function highlightLink(el) {
+  document.querySelectorAll('.sidebar-links a').forEach(a => a.classList.remove('active'));
+  el.classList.add('active');
+  if (window.matchMedia('(max-width: 768px)').matches) setNav(false);
+}
+(function(){ var b=document.getElementById('navToggle'); if(!b) return; b.addEventListener('click', function(){ setNav(!document.body.classList.contains('nav-open')); }); window.addEventListener('resize', function(){ if (!window.matchMedia('(max-width: 768px)').matches) setNav(false); }); })();
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      document.querySelectorAll('.sidebar-links a').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.page-entry[id]').forEach(el => observer.observe(el));
+</script>
+<script>
+(function(){
+  var btn=document.getElementById('darkToggle');
+  var icon=document.getElementById('darkIcon');
+  var lbl=document.getElementById('darkLabel');
+  function applyTheme(mode){
+    if(mode==='dark'){
+      document.body.classList.add('dark');
+      if(icon)icon.innerHTML='&#9728;&#65039;';
+      if(lbl)lbl.textContent='Light';
+    }else{
+      document.body.classList.remove('dark');
+      if(icon)icon.innerHTML='&#127769;';
+      if(lbl)lbl.textContent='Dark';
+    }
+  }
+  var saved=localStorage.getItem('manual-theme')||'dark';
+  applyTheme(saved);
+  if(btn)btn.addEventListener('click',function(){
+    var next=document.body.classList.contains('dark')?'light':'dark';
+    localStorage.setItem('manual-theme',next);
+    applyTheme(next);
+  });
+})();
+</script>
+</body>
+</html>
