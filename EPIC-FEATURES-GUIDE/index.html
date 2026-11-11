@@ -1460,6 +1460,34 @@ offline vase never gets it — the Admin Portal disables <strong>Update Firmware
 <code class="language-plaintext highlighter-rouge">AddSmartVaseFirmwareVersion</code>), returned as <code class="language-plaintext highlighter-rouge">firmwareVersion</code> by <code class="language-plaintext highlighter-rouge">GET /api/v1/smartvases[/{id}]</code>, and shown in the
 Admin Portal’s vase list and details page.</p>
 
+<h4 id="firmware-releases-from-github">Firmware releases from GitHub</h4>
+
+<p>Releases of the firmware repo (<code class="language-plaintext highlighter-rouge">FlowerShop-IoT-Platform/flower-shop-smart-vase-firmware</code>, built by its
+<code class="language-plaintext highlighter-rouge">build.yaml</code> workflow on a <code class="language-plaintext highlighter-rouge">v*.*.*</code> tag) are the default OTA source:</p>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET  /api/v1/firmware/releases              # PlatformAdmin: recent releases with an OTA image, newest first
+POST /api/v1/smartvases/{id}/firmware       # { "releaseTag": "v1.5.1" }
+GET  /api/v1/firmware/download/{token}      # anonymous, for the vase's HTTP updater
+</span></code></pre></div></div>
+
+<p>The repo is private and the vase’s updater neither authenticates nor follows GitHub’s redirect to object storage,
+so the API sits in between (<code class="language-plaintext highlighter-rouge">GitHubFirmwareReleaseService</code>):</p>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">releaseTag</code> is resolved to the release’s <code class="language-plaintext highlighter-rouge">*smart_vase_display.ino.bin</code> asset (never the merged/bootloader images).</li>
+  <li>The API downloads the asset with the GitHub token, checks it is an ESP32 app image (<code class="language-plaintext highlighter-rouge">0xE9</code>, ≤ 0x1E0000 bytes for
+the min_spiffs OTA slot), computes its MD5 and caches it for an hour.</li>
+  <li>The vase gets <code class="language-plaintext highlighter-rouge">url = {DownloadBaseUrl}/api/v1/firmware/download/{token}</code> — the token is an HMAC-signed asset id
+with an expiry (<code class="language-plaintext highlighter-rouge">DownloadLinkMinutes</code>, default 30; key derived from the GitHub token) — plus the version and MD5.
+The download endpoint serves the cached image with <code class="language-plaintext highlighter-rouge">Content-Length</code> and <code class="language-plaintext highlighter-rouge">x-MD5</code>.</li>
+</ol>
+
+<p>Config section <code class="language-plaintext highlighter-rouge">FirmwareReleases</code>: <code class="language-plaintext highlighter-rouge">Repository</code>, <code class="language-plaintext highlighter-rouge">Token</code> (secret <code class="language-plaintext highlighter-rouge">FirmwareReleases__Token</code> — a fine-grained PAT with
+<strong>Contents: Read</strong> on the firmware repo), <code class="language-plaintext highlighter-rouge">DownloadBaseUrl</code> (<code class="language-plaintext highlighter-rouge">https://api.findmyflowers.pl</code> in production; empty =
+the request host), <code class="language-plaintext highlighter-rouge">AssetSuffix</code>, <code class="language-plaintext highlighter-rouge">DownloadLinkMinutes</code>, <code class="language-plaintext highlighter-rouge">MaxReleases</code>, <code class="language-plaintext highlighter-rouge">CacheMinutes</code>. Without a token the Admin
+Portal offers only a custom URL. The vase list shows <strong>Update available</strong> when the newest stable release is newer
+than the vase’s version; the dialog warns before a downgrade or a reinstall of the same version.</p>
+
 <hr />
 
 <h2 id="quick-reference--service-urls">Quick Reference — Service URLs</h2>

@@ -605,6 +605,33 @@ The vase reports `firmware_version` in every heartbeat; it is stored on `SmartVa
 `AddSmartVaseFirmwareVersion`), returned as `firmwareVersion` by `GET /api/v1/smartvases[/{id}]`, and shown in the
 Admin Portal's vase list and details page.
 
+#### Firmware releases from GitHub
+
+Releases of the firmware repo (`FlowerShop-IoT-Platform/flower-shop-smart-vase-firmware`, built by its
+`build.yaml` workflow on a `v*.*.*` tag) are the default OTA source:
+
+```http
+GET  /api/v1/firmware/releases              # PlatformAdmin: recent releases with an OTA image, newest first
+POST /api/v1/smartvases/{id}/firmware       # { "releaseTag": "v1.5.1" }
+GET  /api/v1/firmware/download/{token}      # anonymous, for the vase's HTTP updater
+```
+
+The repo is private and the vase's updater neither authenticates nor follows GitHub's redirect to object storage,
+so the API sits in between (`GitHubFirmwareReleaseService`):
+
+1. `releaseTag` is resolved to the release's `*smart_vase_display.ino.bin` asset (never the merged/bootloader images).
+2. The API downloads the asset with the GitHub token, checks it is an ESP32 app image (`0xE9`, ≤ 0x1E0000 bytes for
+   the min_spiffs OTA slot), computes its MD5 and caches it for an hour.
+3. The vase gets `url = {DownloadBaseUrl}/api/v1/firmware/download/{token}` — the token is an HMAC-signed asset id
+   with an expiry (`DownloadLinkMinutes`, default 30; key derived from the GitHub token) — plus the version and MD5.
+   The download endpoint serves the cached image with `Content-Length` and `x-MD5`.
+
+Config section `FirmwareReleases`: `Repository`, `Token` (secret `FirmwareReleases__Token` — a fine-grained PAT with
+**Contents: Read** on the firmware repo), `DownloadBaseUrl` (`https://api.findmyflowers.pl` in production; empty =
+the request host), `AssetSuffix`, `DownloadLinkMinutes`, `MaxReleases`, `CacheMinutes`. Without a token the Admin
+Portal offers only a custom URL. The vase list shows **Update available** when the newest stable release is newer
+than the vase's version; the dialog warns before a downgrade or a reinstall of the same version.
+
 ---
 
 ## Quick Reference — Service URLs
