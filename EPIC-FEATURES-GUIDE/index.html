@@ -1442,11 +1442,23 @@ Content-Type: multipart/form-data
 <div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">POST /api/v1/smartvases/{id}/firmware
 Authorization: Bearer &lt;admin-token&gt;
 {
-  "firmwareUrl": "https://firmware.flowershop.dev/v2.1.0/vase.bin",
-  "version": "2.1.0"
+  "downloadUrl": "https://img.findmyflowers.pl/firmware/1.5.1/smart_vase_display.ino.bin",
+  "version": "1.5.1",
+  "md5": "0123456789abcdef0123456789abcdef"
 }
 </span></code></pre></div></div>
-<p>Returns <code class="language-plaintext highlighter-rouge">202 Accepted</code>. The server publishes an MQTT message to <code class="language-plaintext highlighter-rouge">vase/{serialNumber}/ota</code> containing the download URL. The vase firmware handles the update autonomously.</p>
+<p><code class="language-plaintext highlighter-rouge">downloadUrl</code> (absolute http/https, ≤300 chars) and <code class="language-plaintext highlighter-rouge">version</code> (≤16 chars) are required; <code class="language-plaintext highlighter-rouge">md5</code> (32 hex) is optional.
+Returns <code class="language-plaintext highlighter-rouge">202 Accepted</code> with a <code class="language-plaintext highlighter-rouge">VaseCommandResult</code>, <code class="language-plaintext highlighter-rouge">400</code> on invalid input, <code class="language-plaintext highlighter-rouge">404</code> when the vase is unknown or unassigned.</p>
+
+<p>The server publishes the firmware’s <code class="language-plaintext highlighter-rouge">update_firmware</code> command on <code class="language-plaintext highlighter-rouge">smartvase/{vendorId}/{deviceId}/commands</code>:
+<code class="language-plaintext highlighter-rouge">{"command":"update_firmware","url":...,"version":...,"md5":...}</code>. The vase shows its update screen, downloads the
+application image (<code class="language-plaintext highlighter-rouge">smart_vase_display.ino.bin</code>, not the merged image; redirects are not followed), and restarts.
+It replies <code class="language-plaintext highlighter-rouge">update_started</code> / <code class="language-plaintext highlighter-rouge">update_failed</code> on its status topic (logged only). The command is not queued, so an
+offline vase never gets it — the Admin Portal disables <strong>Update Firmware</strong> for offline or unassigned vases.</p>
+
+<p>The vase reports <code class="language-plaintext highlighter-rouge">firmware_version</code> in every heartbeat; it is stored on <code class="language-plaintext highlighter-rouge">SmartVase.FirmwareVersion</code> (migration
+<code class="language-plaintext highlighter-rouge">AddSmartVaseFirmwareVersion</code>), returned as <code class="language-plaintext highlighter-rouge">firmwareVersion</code> by <code class="language-plaintext highlighter-rouge">GET /api/v1/smartvases[/{id}]</code>, and shown in the
+Admin Portal’s vase list and details page.</p>
 
 <hr />
 

@@ -587,11 +587,23 @@ The MQTT client now reads `Mqtt:Username` and `Mqtt:Password` from configuration
 POST /api/v1/smartvases/{id}/firmware
 Authorization: Bearer <admin-token>
 {
-  "firmwareUrl": "https://firmware.flowershop.dev/v2.1.0/vase.bin",
-  "version": "2.1.0"
+  "downloadUrl": "https://img.findmyflowers.pl/firmware/1.5.1/smart_vase_display.ino.bin",
+  "version": "1.5.1",
+  "md5": "0123456789abcdef0123456789abcdef"
 }
 ```
-Returns `202 Accepted`. The server publishes an MQTT message to `vase/{serialNumber}/ota` containing the download URL. The vase firmware handles the update autonomously.
+`downloadUrl` (absolute http/https, ≤300 chars) and `version` (≤16 chars) are required; `md5` (32 hex) is optional.
+Returns `202 Accepted` with a `VaseCommandResult`, `400` on invalid input, `404` when the vase is unknown or unassigned.
+
+The server publishes the firmware's `update_firmware` command on `smartvase/{vendorId}/{deviceId}/commands`:
+`{"command":"update_firmware","url":...,"version":...,"md5":...}`. The vase shows its update screen, downloads the
+application image (`smart_vase_display.ino.bin`, not the merged image; redirects are not followed), and restarts.
+It replies `update_started` / `update_failed` on its status topic (logged only). The command is not queued, so an
+offline vase never gets it — the Admin Portal disables **Update Firmware** for offline or unassigned vases.
+
+The vase reports `firmware_version` in every heartbeat; it is stored on `SmartVase.FirmwareVersion` (migration
+`AddSmartVaseFirmwareVersion`), returned as `firmwareVersion` by `GET /api/v1/smartvases[/{id}]`, and shown in the
+Admin Portal's vase list and details page.
 
 ---
 
